@@ -1,0 +1,7 @@
+version: 2
+hosts:
+  - cursor
+  - intellij
+options:
+  copilot:
+    gateMode: telepathy

@@ -1,0 +1,14 @@
+version: 1
+
+# Hosts this base compiles to. Cursor and Claude Code reach full orchestration
+# depth in Milestone 1; Copilot runs degraded (gates enforced out-of-band).
+hosts:
+  - cursor
+  - claude-code
+  - copilot
+
+options:
+  copilot:
+    # Copilot has no first-class subagents/hooks, so the review + Approved?
+    # gates are enforced in CI rather than inline.
+    gateMode: ci

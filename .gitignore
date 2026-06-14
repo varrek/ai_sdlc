@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test / coverage
+coverage/
+.vitest/
+
+# Generated host configs (compiled from sdlc-base + overlay)
+.sdlc/
+.cursor/generated/
+.github/copilot-generated/
+.claude/generated/
+
+# Python pilot artifacts (when running against pilots)
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Editor / OS
+.DS_Store
+*.log

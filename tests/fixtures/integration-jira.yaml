@@ -1,0 +1,23 @@
+name: jira
+description: Read issue context and transition tickets through the SDLC loop.
+operations:
+  - id: get-issue
+    tool: jira_get_issue
+    inputs:
+      - name: issueKey
+        type: string
+        required: true
+    outputs:
+      - name: summary
+        type: string
+      - name: status
+        type: string
+  - id: transition-issue
+    tool: jira_transition_issue
+    inputs:
+      - name: issueKey
+        type: string
+        required: true
+      - name: transition
+        type: string
+        required: true
