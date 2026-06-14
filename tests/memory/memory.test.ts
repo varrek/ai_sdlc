@@ -1,4 +1,4 @@
-import { mkdtempSync, existsSync, rmSync } from "node:fs";
+import { appendFileSync, mkdtempSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -67,5 +67,16 @@ describe("compounding memory", () => {
 
     expect(recordStandardsDelta(dir, delta, true)).toBe(true);
     expect(readStandardsDeltas(dir)).toEqual([delta]);
+  });
+
+  it("tolerates a corrupt/partial line instead of failing the whole log", () => {
+    const dir = sdlc();
+    appendGateOutcome(dir, { taskId: "T-1", verdict: "approved", scope: "a", reason: "ok" });
+    // A corrupt (non-JSON) line landed in the middle of the log.
+    appendFileSync(join(dir, "gate_history", "outcomes.jsonl"), '{"taskId":"T-2","verdict":\n', "utf8");
+    appendGateOutcome(dir, { taskId: "T-3", verdict: "blocked", scope: "b", reason: "no" });
+
+    const history = readGateHistory(dir);
+    expect(history.map((h) => h.taskId)).toEqual(["T-1", "T-3"]);
   });
 });

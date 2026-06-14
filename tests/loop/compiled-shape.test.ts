@@ -7,6 +7,7 @@ import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
 import { loadBase, loadOverlay } from "../../src/core/loader.js";
 import { mergeOverlay } from "../../src/core/merge.js";
+import { Overlay } from "../../src/schema/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const baseDir = join(resolve(here, "../.."), "sdlc-base");
@@ -70,5 +71,21 @@ describe("compiled loop shape", () => {
     ]);
     expect(handoffs.note).toMatch(/no pre-tool gate hook/i);
     expect(copilot.get(".github/copilot-instructions.md")).toMatch(/no pre-tool gate hook/i);
+  });
+
+  it("copilot handoffs honor the overlay ceremony track (quick drops architect)", () => {
+    const quick = mergeOverlay(
+      loadBase(baseDir),
+      Overlay.parse({ version: 1, defaultTrack: "quick" }),
+    );
+    const copilot = byPath(new CopilotAdapter().emit(quick).files);
+    const handoffs = JSON.parse(copilot.get(".github/agents/handoffs.json")!) as {
+      track: string;
+      order: string[];
+      handoffs: { from: string; to: string }[];
+    };
+    expect(handoffs.track).toBe("quick");
+    expect(handoffs.order).toEqual(["engineer", "reviewer"]);
+    expect(handoffs.handoffs).toEqual([{ from: "engineer", to: "reviewer" }]);
   });
 });

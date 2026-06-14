@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "./args.js";
 import { runCompile } from "./compile.js";
 import { buildRegistry } from "../adapters/registry.js";
@@ -27,6 +28,24 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+/** Where `customize` writes the project overlay. */
+const DEFAULT_OVERLAY = join(".sdlc", "overlay", ".customize.yaml");
+
+/**
+ * Resolve the overlay an SDLC command should use: an explicit `--overlay` wins;
+ * otherwise fall back to the customize output if it exists. Without this, a
+ * normal "customize then compile" flow silently drops project standards,
+ * integration bindings, and the chosen track.
+ */
+function resolveOverlay(explicit: string | undefined): string | undefined {
+  if (explicit) return explicit;
+  if (existsSync(DEFAULT_OVERLAY)) {
+    process.stdout.write(`Using project overlay ${DEFAULT_OVERLAY}.\n`);
+    return DEFAULT_OVERLAY;
+  }
+  return undefined;
+}
+
 function cmdCompile(rest: string[]): void {
   const { options } = parseArgs(rest);
   const baseDir = options.get("base") ?? "sdlc-base";
@@ -41,7 +60,7 @@ function cmdCompile(rest: string[]): void {
   const result = runCompile({
     baseDir,
     outDir: outDir!,
-    overlayPath: options.get("overlay"),
+    overlayPath: resolveOverlay(options.get("overlay")),
     hosts,
   });
 
@@ -87,7 +106,7 @@ function cmdSmoke(rest: string[]): void {
   const { options, flags } = parseArgs(rest);
   const { result, exitCode } = runSmokeCli({
     baseDir: options.get("base") ?? "sdlc-base",
-    overlayPath: options.get("overlay"),
+    overlayPath: resolveOverlay(options.get("overlay")),
     configDir: options.get("config") ?? options.get("out") ?? ".",
     compileFirst: flags.has("compile"),
   });

@@ -823,6 +823,7 @@ bypass review.
 ",
   ".github/agents/handoffs.json": "{
   "version": 1,
+  "track": "standard",
   "note": "Copilot IDE has no pre-tool gate hook. The Approved? gate is enforced via .github/copilot-instructions.md (checklist) + .github/workflows/sdlc-gate.yml (CI). Roles run as sequential handoffs; autonomous wrap-up routes through the Copilot cloud agent.",
   "order": [
     "architect",

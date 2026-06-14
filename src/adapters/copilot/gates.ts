@@ -40,10 +40,17 @@ jobs:
         run: echo "Run the project test command here (tests-must-pass gate)."
 `;
 
-export function emitGates(_model: NeutralModel): EmittedFile[] {
-  return [
+export function emitGates(model: NeutralModel): EmittedFile[] {
+  const gateMode = model.manifest.options?.copilot?.gateMode ?? "ci";
+  const files: EmittedFile[] = [
     { path: ".github/hooks/approved-gate.json", contents: stableJson(CLOUD_HOOK) },
     { path: ".github/hooks/approved-gate.mjs", contents: APPROVED_GATE_SCRIPT },
-    { path: ".github/workflows/sdlc-gate.yml", contents: CI_WORKFLOW },
   ];
+  // The cloud-agent hook above always applies; the CI backstop is only emitted
+  // when gateMode is "ci". Under "instructions" the gate relies solely on the
+  // copilot-instructions checklist (e.g. when CI is owned elsewhere).
+  if (gateMode === "ci") {
+    files.push({ path: ".github/workflows/sdlc-gate.yml", contents: CI_WORKFLOW });
+  }
+  return files;
 }

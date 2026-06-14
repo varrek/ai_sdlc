@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
+import { HostManifest } from "../../src/schema/index.js";
 import { makeModel, makeRole } from "../helpers/model.js";
 
 function byPath(files: { path: string; contents: string }[]): Map<string, string> {
@@ -38,5 +39,21 @@ describe("gate emit", () => {
     expect(files.has(".github/copilot-instructions.md")).toBe(true);
     const gap = result.gaps.find((g) => g.capability === "approved-gate-hook");
     expect(gap?.host).toBe("copilot");
+  });
+
+  it("copilot omits the CI workflow under gateMode: instructions", () => {
+    const instructionsModel = makeModel({
+      roles: [makeRole("engineer", "write", [])],
+      manifest: HostManifest.parse({
+        version: 1,
+        hosts: ["copilot"],
+        options: { copilot: { gateMode: "instructions" } },
+      }),
+    });
+    const files = byPath(new CopilotAdapter().emit(instructionsModel).files);
+    expect(files.has(".github/workflows/sdlc-gate.yml")).toBe(false);
+    // The instruction checklist + cloud-agent hook still back the gate.
+    expect(files.has(".github/copilot-instructions.md")).toBe(true);
+    expect(files.has(".github/hooks/approved-gate.mjs")).toBe(true);
   });
 });

@@ -1,8 +1,8 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse as parseYaml } from "yaml";
+import { parse as parseYaml, stringify } from "yaml";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCustomize } from "../../src/cli/customize.js";
 import { buildStandardsIndex, suggestTrack } from "../../src/customize/emitters.js";
@@ -90,5 +90,44 @@ describe("runCustomize", () => {
     const second = runCustomize({ repoRoot: repo("thin-poc"), overlayDir });
     expect(second.drift.changed).toBe(true);
     expect(second.drift.removed.length).toBeGreaterThan(0); // rags standards dropped
+  });
+
+  it("is ready and binds integrations when interview answers close every gap", () => {
+    const overlayDir = tmpOverlay();
+    const result = runCustomize({
+      repoRoot: repo("python-rags"),
+      overlayDir,
+      answers: { "gitlab-server": "gitlab-mcp", "jira-server": "jira-mcp" },
+    });
+    expect(result.ready).toBe(true);
+    expect(result.gaps).toHaveLength(0);
+    const overlay = Overlay.parse(
+      parseYaml(readFileSync(join(overlayDir, ".customize.yaml"), "utf8")),
+    );
+    expect(overlay.integrations.gitlab?.serverId).toBe("gitlab-mcp");
+    expect(overlay.integrations.jira?.serverId).toBe("jira-mcp");
+  });
+
+  it("preserves prior overlay edits on re-run and closes the gap from them", () => {
+    const overlayDir = tmpOverlay();
+    // First pass leaves gitlab/jira open.
+    const first = runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+    expect(first.ready).toBe(false);
+
+    // User hand-edits the overlay: answers the servers and pins a role model.
+    const path = join(overlayDir, ".customize.yaml");
+    const edited = Overlay.parse(parseYaml(readFileSync(path, "utf8")));
+    edited.interviewAnswers["gitlab-server"] = "gitlab-mcp";
+    edited.integrations.jira = { serverId: "jira-mcp", allowedRoles: [] };
+    edited.roleModels.engineer = "opus";
+    writeFileSync(path, stringify(edited), "utf8");
+
+    // Re-run with no new answers: prior edits must close the gaps and survive.
+    const second = runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+    expect(second.ready).toBe(true);
+    const after = Overlay.parse(parseYaml(readFileSync(path, "utf8")));
+    expect(after.integrations.gitlab?.serverId).toBe("gitlab-mcp");
+    expect(after.integrations.jira?.serverId).toBe("jira-mcp");
+    expect(after.roleModels.engineer).toBe("opus");
   });
 });

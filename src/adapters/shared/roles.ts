@@ -73,3 +73,15 @@ export function presentLoopRoles(model: NeutralModel): string[] {
   const names = new Set(model.roles.map((r) => r.frontmatter.name));
   return SDLC_LOOP_ORDER.filter((r) => names.has(r));
 }
+
+/**
+ * The loop roles present in the model for its chosen ceremony track. The
+ * `quick` track is the minimal single-writer slice (Engineer -> Reviewer) and
+ * drops the up-front Architect planning stage; `standard` and `full` keep the
+ * full role chain. Defaults to `standard` when the overlay sets no track.
+ */
+export function presentLoopRolesForTrack(model: NeutralModel): string[] {
+  const present = presentLoopRoles(model);
+  const track = model.overlay.defaultTrack ?? "standard";
+  return track === "quick" ? present.filter((r) => r !== "architect") : present;
+}

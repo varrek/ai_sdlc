@@ -13,7 +13,8 @@ import {
 } from "../customize/emitters.js";
 import { computeGaps, type GapQuestion } from "../customize/gap-interview.js";
 import { mineRepo, type RepoProfile } from "../customize/repo-miner.js";
-import type { CeremonyTrack } from "../schema/index.js";
+import { loadOverlay } from "../core/loader.js";
+import type { CeremonyTrack, Overlay } from "../schema/index.js";
 
 export interface CustomizeOptions {
   repoRoot: string;
@@ -38,25 +39,29 @@ const STANDARDS_FILE = "standards-index.yaml";
 
 /**
  * Mine the repo, compute remaining interview gaps, and emit an evidence-backed,
- * schema-valid overlay + standards index. Re-runs are drift-aware: the prior
- * standards index is diffed and the delta reported rather than silently
- * overwritten.
+ * schema-valid overlay + standards index. Re-runs are drift-aware and
+ * non-destructive: the prior standards index is diffed (delta reported, not
+ * silently overwritten) and the prior overlay's user-owned edges — interview
+ * answers, integration bindings, role-model overrides, and the chosen track —
+ * are preserved and used to close gaps. This is what makes the documented
+ * "edit `.customize.yaml`, then re-run" workflow actually converge.
  */
 export function runCustomize(options: CustomizeOptions): CustomizeResult {
-  const answers = options.answers ?? {};
   const overlayDir = options.overlayDir ?? join(options.repoRoot, ".sdlc", "overlay");
+  const overlayPath = join(overlayDir, OVERLAY_FILE);
+  const standardsPath = join(overlayDir, STANDARDS_FILE);
+
+  const priorOverlay = existsSync(overlayPath) ? loadOverlay(overlayPath) : undefined;
+  const answers = mergeAnswers(priorOverlay, options.answers ?? {});
 
   const profile = mineRepo(options.repoRoot);
   const gaps = computeGaps(profile, answers);
 
   const standardsIndex = buildStandardsIndex(profile);
-  const prior = readPriorStandards(join(overlayDir, STANDARDS_FILE));
-  const drift = diffStandardsIndex(standardsIndex, prior);
+  const drift = diffStandardsIndex(standardsIndex, readPriorStandards(standardsPath));
 
-  const overlay = buildOverlay(profile, answers);
+  const overlay = buildOverlay(profile, answers, priorOverlay);
 
-  const overlayPath = join(overlayDir, OVERLAY_FILE);
-  const standardsPath = join(overlayDir, STANDARDS_FILE);
   write(overlayPath, serializeOverlay(overlay));
   write(standardsPath, serializeStandardsIndex(standardsIndex));
 
@@ -68,6 +73,24 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
     ready: gaps.length === 0,
     writtenPaths: [overlayPath, standardsPath],
   };
+}
+
+/**
+ * Seed the interview answer set from a prior overlay so re-runs converge:
+ * explicit (newly supplied) answers win, then prior interview answers, then any
+ * existing integration binding (a hand-added `integrations.<id>` closes the
+ * `<id>-server` gap even if the matching interview answer was never recorded).
+ */
+function mergeAnswers(
+  prior: Overlay | undefined,
+  explicit: Record<string, string>,
+): Record<string, string> {
+  const answers: Record<string, string> = { ...(prior?.interviewAnswers ?? {}) };
+  for (const [id, binding] of Object.entries(prior?.integrations ?? {})) {
+    const key = `${id}-server`;
+    if (!(key in answers)) answers[key] = binding.serverId;
+  }
+  return { ...answers, ...explicit };
 }
 
 function readPriorStandards(path: string): StandardsIndex | undefined {

@@ -1,5 +1,5 @@
 import { stringify } from "yaml";
-import { Overlay, type CeremonyTrack } from "../schema/index.js";
+import { Overlay, type CeremonyTrack, type IntegrationBinding } from "../schema/index.js";
 import type { RepoProfile } from "./repo-miner.js";
 
 export interface StandardEntry {
@@ -85,26 +85,35 @@ export function buildStandardsIndex(profile: RepoProfile): StandardsIndex {
  * Build a schema-valid project overlay from mining + interview answers. The
  * returned object is parsed through the U1 Overlay schema, so a malformed
  * artifact fails here rather than at compile time.
+ *
+ * Re-runs are non-destructive: a `prior` overlay (the previously emitted, then
+ * possibly hand-edited `.customize.yaml`) wins for the user-owned edges —
+ * existing integration bindings, role-model overrides, and the chosen track are
+ * preserved rather than overwritten. Mined standards are always regenerated
+ * (drift is reported separately).
  */
 export function buildOverlay(
   profile: RepoProfile,
   answers: Record<string, string> = {},
+  prior?: Overlay,
 ): Overlay {
   const index = buildStandardsIndex(profile);
-  const integrations: Record<string, { serverId: string; allowedRoles: string[] }> = {};
-  if (answers["gitlab-server"]) {
+  const integrations: Record<string, IntegrationBinding> = { ...(prior?.integrations ?? {}) };
+  // Synthesize a binding from an interview answer only when the user has not
+  // already provided (or hand-edited) one — prior bindings are authoritative.
+  if (answers["gitlab-server"] && !integrations.gitlab) {
     integrations.gitlab = { serverId: answers["gitlab-server"], allowedRoles: ["engineer"] };
   }
-  if (answers["jira-server"]) {
+  if (answers["jira-server"] && !integrations.jira) {
     integrations.jira = { serverId: answers["jira-server"], allowedRoles: [] };
   }
 
   return Overlay.parse({
     version: 1,
-    defaultTrack: suggestTrack(profile),
+    defaultTrack: prior?.defaultTrack ?? suggestTrack(profile),
     standards: index.standards.map((s) => s.statement),
     integrations,
-    roleModels: {},
+    roleModels: prior?.roleModels ?? {},
     interviewAnswers: answers,
   });
 }

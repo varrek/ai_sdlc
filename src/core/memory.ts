@@ -31,12 +31,7 @@ export function appendGateOutcome(sdlcDir: string, outcome: GateOutcome): string
 }
 
 export function readGateHistory(sdlcDir: string): GateOutcome[] {
-  const path = join(sdlcDir, GATE_HISTORY);
-  if (!existsSync(path)) return [];
-  return readFileSync(path, "utf8")
-    .split("\n")
-    .filter((l) => l.trim().length > 0)
-    .map((l) => JSON.parse(l) as GateOutcome);
+  return readJsonl<GateOutcome>(join(sdlcDir, GATE_HISTORY));
 }
 
 export interface StandardsDelta {
@@ -60,15 +55,29 @@ export function recordStandardsDelta(
 }
 
 export function readStandardsDeltas(sdlcDir: string): StandardsDelta[] {
-  const path = join(sdlcDir, STANDARDS_DELTAS);
-  if (!existsSync(path)) return [];
-  return readFileSync(path, "utf8")
-    .split("\n")
-    .filter((l) => l.trim().length > 0)
-    .map((l) => JSON.parse(l) as StandardsDelta);
+  return readJsonl<StandardsDelta>(join(sdlcDir, STANDARDS_DELTAS));
 }
 
 function appendLine(path: string, line: string): void {
   mkdirSync(dirname(path), { recursive: true });
   appendFileSync(path, `${line}\n`, "utf8");
+}
+
+/**
+ * Read a JSONL log, skipping blank and corrupt lines. An append-only log can be
+ * left half-written by a crash; one bad line must not make the whole history
+ * unreadable.
+ */
+function readJsonl<T>(path: string): T[] {
+  if (!existsSync(path)) return [];
+  const out: T[] = [];
+  for (const line of readFileSync(path, "utf8").split("\n")) {
+    if (line.trim().length === 0) continue;
+    try {
+      out.push(JSON.parse(line) as T);
+    } catch {
+      // Skip a corrupt/partial line rather than throwing on the whole log.
+    }
+  }
+  return out;
 }

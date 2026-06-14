@@ -25,6 +25,8 @@ export interface WrapUpInput {
   description?: string;
   issueKey: string;
   comment?: string;
+  /** When set, also move the Jira issue through this transition (e.g. "In Review"). */
+  transition?: string;
 }
 
 export interface WrapUpResult {
@@ -67,20 +69,34 @@ export function runWrapUp(deps: WrapUpDeps, input: WrapUpInput): WrapUpResult {
     webUrl: typeof mrResponse.webUrl === "string" ? mrResponse.webUrl : undefined,
   };
 
-  // --- Jira: comment + transition ---
+  // --- Jira: comment, then (optionally) transition the issue ---
   const jiraContract = contract(model, "jira");
-  const commentTool = toolFor(jiraContract, "add-comment");
+  const jiraGaps: ContractGap[] = [];
+
   const commentResponse = client.call({
     server: jira.serverId,
-    tool: commentTool,
+    tool: toolFor(jiraContract, "add-comment"),
     input: {
       issueKey: input.issueKey,
       body: input.comment ?? `MR opened: ${mr.webUrl ?? input.title}`,
     },
   });
-  contractGaps.push(...validateResponse(jiraContract, "add-comment", commentResponse));
+  jiraGaps.push(...validateResponse(jiraContract, "add-comment", commentResponse));
 
-  return { mr, jiraUpdated: true, contractGaps };
+  if (input.transition) {
+    const transitionResponse = client.call({
+      server: jira.serverId,
+      tool: toolFor(jiraContract, "transition-issue"),
+      input: { issueKey: input.issueKey, transition: input.transition },
+    });
+    jiraGaps.push(...validateResponse(jiraContract, "transition-issue", transitionResponse));
+  }
+
+  contractGaps.push(...jiraGaps);
+
+  // Jira is only "updated" if its calls satisfied the contract; a gap (missing
+  // or wrong-typed output) means the update is not trustworthy.
+  return { mr, jiraUpdated: jiraGaps.length === 0, contractGaps };
 }
 
 function requireBinding(
