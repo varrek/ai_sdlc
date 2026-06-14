@@ -26,7 +26,11 @@ export class SchemaValidationError extends Error {
   }
 }
 
-function validate<T>(filePath: string, schema: z.ZodType<T>, data: unknown): T {
+function validate<S extends z.ZodTypeAny>(
+  filePath: string,
+  schema: S,
+  data: unknown,
+): z.infer<S> {
   const result = schema.safeParse(data);
   if (!result.success) {
     throw new SchemaValidationError(filePath, result.error.issues);
@@ -35,7 +39,7 @@ function validate<T>(filePath: string, schema: z.ZodType<T>, data: unknown): T {
 }
 
 /** Parse + validate a YAML document (host manifest, integration contract, overlay). */
-export function loadYaml<T>(filePath: string, schema: z.ZodType<T>): T {
+export function loadYaml<S extends z.ZodTypeAny>(filePath: string, schema: S): z.infer<S> {
   const raw = readFileSync(filePath, "utf8");
   let parsed: unknown;
   try {
@@ -53,7 +57,7 @@ export function loadYaml<T>(filePath: string, schema: z.ZodType<T>): T {
  * Parse a markdown-with-frontmatter artifact (role, skill) into
  * `{ frontmatter, body }` and validate against the given schema.
  */
-export function loadMarkdown<T>(filePath: string, schema: z.ZodType<T>): T {
+export function loadMarkdown<S extends z.ZodTypeAny>(filePath: string, schema: S): z.infer<S> {
   const raw = readFileSync(filePath, "utf8");
   const { data, content } = matter(raw);
   return validate(filePath, schema, { frontmatter: data, body: content.trim() });
