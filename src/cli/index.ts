@@ -5,6 +5,7 @@ import { runCompile } from "./compile.js";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
 import { runCustomize } from "./customize.js";
+import { runSmokeCli } from "./smoke.js";
 import { runUpgrade } from "./upgrade.js";
 import { HostId } from "../schema/index.js";
 
@@ -82,6 +83,23 @@ function cmdCustomize(rest: string[]): void {
   }
 }
 
+function cmdSmoke(rest: string[]): void {
+  const { options, flags } = parseArgs(rest);
+  const { result, exitCode } = runSmokeCli({
+    baseDir: options.get("base") ?? "sdlc-base",
+    overlayPath: options.get("overlay"),
+    configDir: options.get("config") ?? options.get("out") ?? ".",
+    compileFirst: flags.has("compile"),
+  });
+  process.stdout.write(`Smoke: ${result.passed ? "PASS" : "FAIL"} (log: ${result.logPath})\n`);
+  if (!result.passed) {
+    for (const c of result.checks.filter((c) => !c.ok)) {
+      process.stdout.write(`  - ${c.name}: ${c.reason ?? "failed"}\n`);
+    }
+  }
+  process.exit(exitCode);
+}
+
 function cmdUpgrade(rest: string[]): void {
   const { options } = parseArgs(rest);
   const oldBaseDir = options.get("old-base");
@@ -124,7 +142,7 @@ function main(): void {
       cmdCustomize(rest);
       return;
     case "smoke":
-      fail(`'${command}' is not implemented yet.`);
+      cmdSmoke(rest);
       return;
     case undefined:
     case "help":
