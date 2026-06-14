@@ -2,10 +2,34 @@
 
 exports[`golden compile output > emits a stable tree across all three adapters 1`] = `
 {
+  ".github/copilot-instructions.md": "# Copilot instructions
+
+This repository follows the internal AI SDLC constitution in \`AGENTS.md\`.
+Always honor the non-negotiable gates below; they are not optional.
+
+## Non-negotiable gates
+
+These four gates are hard. They are **not** expressible in the overlay schema, so
+no team can disable them by configuration or typo:
+
+1. **Review required** — every change is reviewed before it merges (by a human, or
+   an agent reviewer whose findings a human signs off on).
+2. **Tests must pass** — the project test suite is green before a change ships.
+3. **Approved? gate** — orchestration halts for explicit human approval at the
+   defined checkpoint before writes leave the workspace.
+4. **Least-privilege MCP** — each role reaches only the integrations its declared
+   posture allows. Nothing gets blanket tool access.
+
+Note: Copilot's IDE has no pre-tool gate hook, so the \`Approved?\` gate is
+enforced through this checklist plus branch-protection / CI. Do not push
+changes that skip review or fail tests.
+",
   ".sdlc/emitted.json": "{
   "version": 1,
   "files": [
+    ".github/copilot-instructions.md",
     "AGENTS.md",
+    "CLAUDE.md",
     "portability.gap.yml"
   ]
 }
@@ -44,6 +68,19 @@ Everything below the gates is team-owned and lives in the project overlay:
 
 The base ships role definitions under \`roles/\`. Each role declares a tool
 \`posture\` that the compiler turns into concrete per-host permissions.
+",
+  "CLAUDE.md": "# Claude Code project guide
+
+The project constitution is authored once in \`AGENTS.md\` and imported below.
+Do not edit it here — change the host-neutral base and re-compile.
+
+@AGENTS.md
+
+## Claude Code appendix
+
+- Role agents live in \`.claude/agents/\`; the Reviewer runs in a fresh, read-only context.
+- The \`Approved?\` gate is enforced by a \`PreToolUse\` hook in \`.claude/settings.json\`.
+- Per-role tool restrictions use native subagent \`tools\`/\`disallowedTools\` frontmatter.
 ",
   "portability.gap.yml": "version: 1
 gaps:

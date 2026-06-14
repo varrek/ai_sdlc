@@ -1,9 +1,33 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
+import { extractSection } from "../shared/markdown.js";
 
 /**
- * Copilot reads `AGENTS.md` and also a `.github/copilot-instructions.md`. We
- * emit the constitution as `AGENTS.md`; the dedicated excerpt is added in U3.
+ * Copilot reads `AGENTS.md` natively and also a `.github/copilot-instructions.md`.
+ * We emit the full constitution as `AGENTS.md` and a concise excerpt for Copilot
+ * that foregrounds the non-negotiable gates (Copilot weights this file heavily
+ * and prefers short, imperative guidance).
  */
 export function emitInstructions(model: NeutralModel): EmittedFile[] {
-  return [{ path: "AGENTS.md", contents: model.constitution }];
+  const gates =
+    extractSection(model.constitution, "Non-negotiable gates") ??
+    "See AGENTS.md for the full constitution.";
+
+  const excerpt = [
+    "# Copilot instructions",
+    "",
+    "This repository follows the internal AI SDLC constitution in `AGENTS.md`.",
+    "Always honor the non-negotiable gates below; they are not optional.",
+    "",
+    gates,
+    "",
+    "Note: Copilot's IDE has no pre-tool gate hook, so the `Approved?` gate is",
+    "enforced through this checklist plus branch-protection / CI. Do not push",
+    "changes that skip review or fail tests.",
+    "",
+  ].join("\n");
+
+  return [
+    { path: "AGENTS.md", contents: model.constitution },
+    { path: ".github/copilot-instructions.md", contents: excerpt },
+  ];
 }
