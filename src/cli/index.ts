@@ -16,7 +16,7 @@ import { HostId } from "../schema/index.js";
 const HELP = `aisdlc — internal AI SDLC framework compiler
 
 Usage:
-  aisdlc compile --base <dir> --out <dir> [--overlay <file>] [--hosts cursor,claude-code,copilot]
+  aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot]
 
 Commands:
   compile     Compile the host-neutral base (+ overlay) to host-native config.
@@ -51,6 +51,15 @@ function resolveOverlay(explicit: string | undefined): string | undefined {
   return undefined;
 }
 
+function parseList(value: string | undefined): string[] | undefined {
+  if (!value) return undefined;
+  const items = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  return items.length > 0 ? items : undefined;
+}
+
 function cmdCompile(rest: string[]): void {
   const { options, flags } = parseArgs(rest);
   const baseDir = options.get("base") ?? "sdlc-base";
@@ -64,6 +73,7 @@ function cmdCompile(rest: string[]): void {
 
   const { result, freshnessSkipped } = runCompileCli({
     baseDir,
+    packDirs: parseList(options.get("packs")),
     outDir: outDir!,
     overlayPath: resolveOverlay(options.get("overlay")),
     hosts,
@@ -166,6 +176,7 @@ function cmdSmoke(rest: string[]): void {
   const { options, flags } = parseArgs(rest);
   const { result, setupReady, blockingGapCount, deferredIntegrations } = runSmokeCli({
     baseDir: options.get("base") ?? "sdlc-base",
+    packDirs: parseList(options.get("packs")),
     overlayPath: resolveOverlay(options.get("overlay")),
     configDir: options.get("config") ?? options.get("out") ?? ".",
     compileFirst: flags.has("compile"),

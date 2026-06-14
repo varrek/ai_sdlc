@@ -10,6 +10,7 @@ coverage/
 
 # Scratch / local verification output (corpus runs, ad-hoc compiles)
 .verify/
+.worktrees/
 
 # Generated host configs (compiled from sdlc-base + overlay)
 .sdlc/

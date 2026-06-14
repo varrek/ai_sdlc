@@ -4,6 +4,7 @@ import {
   HostManifest,
   IntegrationContract,
   Overlay,
+  PackManifest,
   Role,
   Skill,
   loadMarkdown,
@@ -42,10 +43,20 @@ export interface LoadedBase {
   roles: Role[];
   skills: Skill[];
   integrations: IntegrationContract[];
+  packs: LoadedPack[];
+}
+
+export interface LoadedPack {
+  manifest: PackManifest;
+  dir: string;
+  constitution: string;
+  roles: Role[];
+  skills: Skill[];
+  integrations: IntegrationContract[];
 }
 
 /** Load the neutral source tree under `baseDir` (typically `sdlc-base/`). */
-export function loadBase(baseDir: string): LoadedBase {
+export function loadBase(baseDir: string, packDirs: string[] = []): LoadedBase {
   const manifest = loadYaml(join(baseDir, "host-manifest.yaml"), HostManifest);
   const constitutionPath = join(baseDir, "AGENTS.md");
   const constitution = existsSync(constitutionPath)
@@ -61,7 +72,59 @@ export function loadBase(baseDir: string): LoadedBase {
     (n) => n.endsWith(".contract.yaml") || n.endsWith(".contract.yml"),
   ).map((p) => loadYaml(p, IntegrationContract));
 
-  return { manifest, constitution, roles, skills, integrations };
+  const packs = packDirs.map(loadPack);
+  assertUniqueByName("pack", packs, (pack) => pack.manifest.name);
+
+  return {
+    manifest,
+    constitution: appendPackConstitutions(constitution, packs),
+    roles: assertUniqueByName("role", [...roles, ...packs.flatMap((pack) => pack.roles)], (role) => role.frontmatter.name),
+    skills: assertUniqueByName("skill", [...skills, ...packs.flatMap((pack) => pack.skills)], (skill) => skill.frontmatter.name),
+    integrations: assertUniqueByName(
+      "integration",
+      [...integrations, ...packs.flatMap((pack) => pack.integrations)],
+      (integration) => integration.name,
+    ),
+    packs,
+  };
+}
+
+function loadPack(packDir: string): LoadedPack {
+  const manifest = loadYaml(join(packDir, "pack.yaml"), PackManifest);
+  const constitutionPath = join(packDir, "AGENTS.md");
+  const constitution = existsSync(constitutionPath)
+    ? readFileSync(constitutionPath, "utf8").trim()
+    : "";
+  const roles = listFiles(join(packDir, "roles"), (n) => n.endsWith(".md")).map((p) =>
+    loadMarkdown(p, Role),
+  );
+  const skills = listSkillFiles(join(packDir, "skills")).map((p) => loadMarkdown(p, Skill));
+  const integrations = listFiles(
+    join(packDir, "integrations"),
+    (n) => n.endsWith(".contract.yaml") || n.endsWith(".contract.yml"),
+  ).map((p) => loadYaml(p, IntegrationContract));
+
+  return { manifest, dir: packDir, constitution, roles, skills, integrations };
+}
+
+function appendPackConstitutions(constitution: string, packs: LoadedPack[]): string {
+  const sections = packs
+    .filter((pack) => pack.constitution.length > 0)
+    .map((pack) => `## Pack guidance: ${pack.manifest.name}\n\n${pack.constitution}`);
+  if (sections.length === 0) return constitution;
+  return `${constitution}\n\n${sections.join("\n\n")}`;
+}
+
+function assertUniqueByName<T>(kind: string, items: T[], nameOf: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  for (const item of items) {
+    const name = nameOf(item);
+    if (seen.has(name)) {
+      throw new Error(`Duplicate ${kind} '${name}' found while loading base packs.`);
+    }
+    seen.add(name);
+  }
+  return items;
 }
 
 /** Load an overlay file, or the empty overlay if none exists. */

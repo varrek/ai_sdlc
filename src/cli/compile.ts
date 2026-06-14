@@ -10,6 +10,8 @@ import { baseFingerprint, compiledFingerprint, overlayFingerprint } from "./phas
 
 export interface CompileCliOptions {
   baseDir: string;
+  /** Optional additive extension pack directories, applied in the given order. */
+  packDirs?: string[];
   overlayPath?: string;
   outDir: string;
   hosts?: HostId[];
@@ -35,7 +37,7 @@ export interface CompileCliResult {
 export function runCompileCli(options: CompileCliOptions): CompileCliResult {
   const sdlcDir = options.sdlcDir ?? join(options.outDir, ".sdlc");
   const overlayFp = overlayFingerprint(options.overlayPath);
-  const baseFp = baseFingerprint(options.baseDir, sdlcDir);
+  const baseFp = baseFingerprint(options.baseDir, sdlcDir, options.packDirs);
   const compiledFp = compiledFingerprint(overlayFp, baseFp);
 
   const manifestPresent = manifestExists(options.outDir);
@@ -51,7 +53,7 @@ export function runCompileCli(options: CompileCliOptions): CompileCliResult {
 
 /** Pure compile (no phase recording), reused by the smoke `--compile` path and tests. */
 export function runCompile(options: CompileCliOptions): CompileResult {
-  const base = loadBase(options.baseDir);
+  const base = loadBase(options.baseDir, options.packDirs);
   const overlay = loadOverlay(options.overlayPath);
   const projectContext = loadProjectContext(projectContextPathFor(options.overlayPath));
   const model = mergeOverlay(base, overlay, projectContext);

@@ -10,6 +10,8 @@ import { baseFingerprint, emittedFingerprint } from "./phase-fingerprints.js";
 
 export interface SmokeCliOptions {
   baseDir: string;
+  /** Optional additive extension pack directories, applied in the given order. */
+  packDirs?: string[];
   overlayPath?: string;
   /** Directory to compile into and validate. */
   configDir: string;
@@ -56,6 +58,7 @@ export function runSmokeCli(options: SmokeCliOptions): SmokeCliResult {
   if (options.compileFirst) {
     runCompileCli({
       baseDir: options.baseDir,
+      packDirs: options.packDirs,
       overlayPath: options.overlayPath,
       outDir: options.configDir,
       sdlcDir,
@@ -64,7 +67,7 @@ export function runSmokeCli(options: SmokeCliOptions): SmokeCliResult {
   }
 
   const projectContext = loadProjectContext(projectContextPathFor(options.overlayPath));
-  const model = mergeOverlay(loadBase(options.baseDir), overlay, projectContext);
+  const model = mergeOverlay(loadBase(options.baseDir, options.packDirs), overlay, projectContext);
   const result = runSmoke({ model, configDir: options.configDir });
 
   const profile = mineRepo(options.repoRoot ?? process.cwd());
@@ -72,7 +75,7 @@ export function runSmokeCli(options: SmokeCliOptions): SmokeCliResult {
   const setupReady = evaluateReadiness(blockingGapCount, result);
   const deferredIntegrations = DEFERRED_INTEGRATIONS.filter((id) => !(id in overlay.integrations));
 
-  const baseFp = baseFingerprint(options.baseDir, sdlcDir);
+  const baseFp = baseFingerprint(options.baseDir, sdlcDir, options.packDirs);
   const smokeFp = emittedFingerprint(options.configDir, baseFp);
   const smokeFresh = isPhaseFresh(readSetupState(sdlcDir), "smoke-passed", smokeFp);
   if (result.passed && (!smokeFresh || options.force)) {
