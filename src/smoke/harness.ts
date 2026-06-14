@@ -69,6 +69,15 @@ export function runSmoke(options: SmokeOptions): SmokeResult {
     reason: "reviewer must be read-only (least-privilege)",
   });
 
+  const tester = model.roles.find((r) => r.frontmatter.name === "tester");
+  if (tester) {
+    checks.push({
+      name: "tester-read-run",
+      ok: tester.frontmatter.posture === "read-run",
+      reason: "tester must be read-run (runs tests, never writes)",
+    });
+  }
+
   for (const serverId of boundServers) {
     checks.push({
       name: `mcp-mock:${serverId}`,

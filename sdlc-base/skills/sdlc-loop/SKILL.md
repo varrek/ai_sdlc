@@ -13,7 +13,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 ## Invariants (non-negotiable)
 
 - **Single writer.** Only the Engineer modifies files. Architect, Reviewer, and
-  Debugger are read-only.
+  Debugger are read-only; the Tester is read-run (it executes tests but never
+  writes).
 - **Approved? gate.** Nothing leaves the workspace (no MR, no remote push) until a
   human approves. Enforced by a pre-tool hook on Cursor/Claude; by an instruction
   checklist + CI on Copilot's IDE.
@@ -24,12 +25,18 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
    files/interfaces, risks. Returns a compressed summary. → **Approved?**
-2. **Engineer (write)** implements strictly to the approved plan, adds/updates
-   tests, and runs them green.
-3. **Approved? gate** — human checkpoint before review/wrap-up.
-4. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
-5. On approval, the wrap-up step (see `wrap-up`) opens/updates the GitLab MR and
+2. **Engineer (write)** implements strictly to the approved plan and adds/updates
+   tests.
+3. **Tester (read-run)** runs the suite and probes edge cases, returning a
+   pass/fail report with any coverage gaps. On failure it goes back to the
+   Engineer; the Tester never writes the fix itself.
+4. **Approved? gate** — human checkpoint before review/wrap-up.
+5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+6. On approval, the wrap-up step (see `wrap-up`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
+
+The Tester runs on the Standard and Full tracks; the lean Quick track relies on
+the Engineer's own test run. See `track-select` for the per-track stage chain.
 
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the

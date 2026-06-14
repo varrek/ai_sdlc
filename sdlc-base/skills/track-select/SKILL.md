@@ -11,13 +11,15 @@ small changes shouldn't pay for full ceremony, and risky ones shouldn't skip it.
 
 | Track | Stages | Use when |
 |---|---|---|
-| **Quick** | Engineer → Reviewer | Trivial, low-risk change; thin repos. Skips up-front planning and the integration wrap-up. |
-| **Standard** | Architect → Engineer → Reviewer | Default. A plan is worth writing; review is required. |
-| **Full** | Architect → Engineer → Reviewer → wrap-up | Cross-cutting/risky work, or anything that must land as a tracked MR + Jira update. |
+| **Quick** | Engineer → Reviewer | Trivial, low-risk change; thin repos. Skips up-front planning, independent testing, and the integration wrap-up. |
+| **Standard** | Architect → Engineer → Tester → Reviewer | Default. A plan is worth writing; the change is independently tested; review is required. |
+| **Full** | Architect → Engineer → Tester → Reviewer → wrap-up | Cross-cutting/risky work, or anything that must land as a tracked MR + Jira update. |
 
 The default track comes from `/customize` (inferred from repo richness) and can be
 overridden per task. **Review is never skipped** on any track — Quick still runs
-the Reviewer; only Architect and wrap-up are optional.
+the Reviewer; the Architect, Tester, and wrap-up stages scale with ceremony.
+(Quick still tests: the Engineer runs the suite as part of implementing — the
+Tester adds an independent verification pass on Standard and Full.)
 
 ## Compounding memory (minimal)
 

@@ -29,7 +29,13 @@ describe("ceremony tracks", () => {
   });
 
   it("Full runs all stages including wrap-up", () => {
-    expect(stagesForTrack("full")).toEqual(["architect", "engineer", "reviewer", "wrap-up"]);
+    expect(stagesForTrack("full")).toEqual([
+      "architect",
+      "engineer",
+      "test",
+      "reviewer",
+      "wrap-up",
+    ]);
   });
 
   it("Standard plans + reviews but skips wrap-up", () => {

@@ -2,16 +2,18 @@ import type { CeremonyTrack, Skill } from "../schema/index.js";
 import type { NeutralModel } from "./types.js";
 
 /** A stage in the compiled SDLC loop. `wrap-up` is the MCP MR/Jira step. */
-export type LoopStage = "architect" | "engineer" | "reviewer" | "wrap-up";
+export type LoopStage = "architect" | "engineer" | "test" | "reviewer" | "wrap-up";
 
 /**
  * Which role performs each loop stage. The wrap-up stage is not a distinct role:
  * it is performed by the Engineer (the single writer, the only role holding the
- * gitlab/jira integrations), so least-privilege still holds.
+ * gitlab/jira integrations), so least-privilege still holds. The `test` stage is
+ * the Tester (read-run), who verifies the change without writing.
  */
 export const STAGE_ROLE: Record<LoopStage, string> = {
   architect: "architect",
   engineer: "engineer",
+  test: "tester",
   reviewer: "reviewer",
   "wrap-up": "engineer",
 };
@@ -20,17 +22,17 @@ export const STAGE_ROLE: Record<LoopStage, string> = {
  * Map a ceremony track to the loop stages it runs — the single source of truth
  * for "what runs per track", consumed by both the customize emitters and the
  * per-host dispatch/handoff adapters. Quick is the minimal single-writer slice
- * (Engineer -> Reviewer); Standard adds up-front planning; Full adds the
- * integration wrap-up.
+ * (Engineer -> Reviewer); Standard adds up-front planning and independent
+ * testing; Full adds the integration wrap-up.
  */
 export function stagesForTrack(track: CeremonyTrack): LoopStage[] {
   switch (track) {
     case "quick":
       return ["engineer", "reviewer"];
     case "standard":
-      return ["architect", "engineer", "reviewer"];
+      return ["architect", "engineer", "test", "reviewer"];
     case "full":
-      return ["architect", "engineer", "reviewer", "wrap-up"];
+      return ["architect", "engineer", "test", "reviewer", "wrap-up"];
     default: {
       const _exhaustive: never = track;
       return _exhaustive;

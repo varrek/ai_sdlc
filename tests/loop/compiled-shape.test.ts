@@ -21,11 +21,23 @@ function byPath(files: { path: string; contents: string }[]): Map<string, string
 }
 
 describe("compiled loop shape", () => {
-  it("base ships the four loop roles + the loop skill", () => {
+  it("base ships the loop roles + the loop skill", () => {
     const m = model();
     const names = m.roles.map((r) => r.frontmatter.name).sort();
-    expect(names).toEqual(["architect", "debugger", "engineer", "reviewer"]);
+    expect(names).toEqual(["architect", "debugger", "engineer", "reviewer", "tester"]);
     expect(m.skills.some((s) => s.frontmatter.name === "sdlc-loop")).toBe(true);
+  });
+
+  it("the tester is emitted read-run on every host", () => {
+    const m = model();
+    const cursor = byPath(new CursorAdapter().emit(m).files);
+    const claude = byPath(new ClaudeCodeAdapter().emit(m).files);
+
+    expect(matter(cursor.get(".cursor/agents/tester.md")!).data.posture).toBe("read-run");
+    // read-run grants Bash (run tests) but never Write/Edit.
+    const testerTools = String(matter(claude.get(".claude/agents/tester.md")!).data.tools);
+    expect(testerTools).toMatch(/Bash/);
+    expect(testerTools).not.toMatch(/Write|Edit/);
   });
 
   it("cursor + claude dispatch the roles with correct tool postures", () => {
@@ -64,10 +76,11 @@ describe("compiled loop shape", () => {
       handoffs: { from: string; to: string }[];
       note: string;
     };
-    expect(handoffs.order).toEqual(["architect", "engineer", "reviewer"]);
+    expect(handoffs.order).toEqual(["architect", "engineer", "test", "reviewer"]);
     expect(handoffs.handoffs).toEqual([
       { from: "architect", to: "engineer" },
-      { from: "engineer", to: "reviewer" },
+      { from: "engineer", to: "test" },
+      { from: "test", to: "reviewer" },
     ]);
     expect(handoffs.note).toMatch(/no pre-tool gate hook/i);
     expect(copilot.get(".github/copilot-instructions.md")).toMatch(/no pre-tool gate hook/i);
@@ -100,10 +113,12 @@ describe("compiled loop shape", () => {
       note: string;
     };
     expect(handoffs.track).toBe("full");
-    expect(handoffs.order).toEqual(["architect", "engineer", "reviewer", "wrap-up"]);
+    expect(handoffs.order).toEqual(["architect", "engineer", "test", "reviewer", "wrap-up"]);
     expect(handoffs.handoffs).toContainEqual({ from: "reviewer", to: "wrap-up" });
     // wrap-up is a stage, not a role — the Engineer (sole writer) performs it.
     expect(handoffs.stageAgents["wrap-up"]).toBe("engineer");
+    // the test stage is performed by the Tester (read-run, never writes).
+    expect(handoffs.stageAgents.test).toBe("tester");
     expect(handoffs.note).toMatch(/wrap-up stage runs as the Engineer/i);
   });
 
