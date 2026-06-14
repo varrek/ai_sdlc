@@ -12,10 +12,11 @@ import { fingerprint } from "../customize/setup-state.js";
  * fingerprint is stable even without a lock and a base upgrade always
  * invalidates downstream phases.
  */
-export function baseFingerprint(baseDir: string, sdlcDir: string): string {
+export function baseFingerprint(baseDir: string, sdlcDir: string, packDirs: string[] = []): string {
   const lock = readProjectLock(join(sdlcDir, "project.lock"));
-  if (lock) return fingerprint(["lock", lock.baseVersion]);
-  return fingerprint(["dir", ...hashDir(baseDir)]);
+  const packParts = hashPackDirs(packDirs);
+  if (lock) return fingerprint(["lock", lock.baseVersion, ...packParts]);
+  return fingerprint(["dir", ...hashDir(baseDir), ...packParts]);
 }
 
 /**
@@ -72,6 +73,14 @@ function hashDir(dir: string): string[] {
   const files: string[] = [];
   walk(dir, dir, files);
   return files;
+}
+
+function hashPackDirs(packDirs: string[]): string[] {
+  const parts: string[] = [];
+  for (const packDir of packDirs) {
+    parts.push("pack", packDir, ...hashDir(packDir));
+  }
+  return parts;
 }
 
 function walk(root: string, current: string, out: string[]): void {

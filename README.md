@@ -63,6 +63,18 @@ aisdlc smoke --repo . --config .
 `compile` and `smoke` automatically pick up the overlay written by `customize`
 (`.sdlc/overlay/.customize.yaml`), so you usually don't need `--overlay`.
 
+To extend the base without forking it, pass additive packs during compile and
+smoke:
+
+```bash
+aisdlc compile --base /path/to/ai_sdlc/sdlc-base --packs ./packs/security,./packs/mobile --out .
+aisdlc smoke --repo . --config . --packs ./packs/security,./packs/mobile --compile
+```
+
+Each pack is a directory with `pack.yaml` plus optional `AGENTS.md`, `roles/`,
+`skills/`, and `integrations/`. Pack artifacts are additive: duplicate role,
+skill, integration, or pack names fail validation instead of overriding the base.
+
 A repo is **setup-ready** when: there are no blocking interview gaps, the smoke
 gate passes, and the emitted config is schema-valid. Integration bindings
 (GitLab/Jira) are deferred — they're bound just-in-time when a task actually
@@ -92,9 +104,11 @@ phase. The CLI commands above are what that skill calls under the hood.
 Common flags:
 
 - `customize`: `--repo <dir>` (default: cwd), `--answers-file <file>`, `--force`
-- `compile`: `--base <dir>` (default: `sdlc-base`), `--out <dir>` (required),
-  `--overlay <file>`, `--hosts cursor,claude-code,copilot`, `--force`
-- `smoke`: `--repo <dir>`, `--config <dir>`, `--overlay <file>`, `--compile`
+- `compile`: `--base <dir>` (default: `sdlc-base`), `--packs <dir,dir>`,
+  `--out <dir>` (required), `--overlay <file>`,
+  `--hosts cursor,claude-code,copilot`, `--force`
+- `smoke`: `--repo <dir>`, `--config <dir>`, `--packs <dir,dir>`,
+  `--overlay <file>`, `--compile`
 
 ## What gets emitted
 
