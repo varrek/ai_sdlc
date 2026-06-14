@@ -1,5 +1,7 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
+import { exclusionDirs } from "../shared/exclusions.js";
 import { extractSection } from "../shared/markdown.js";
+import { copilotPackageInstructionFiles } from "../shared/package-instructions.js";
 
 /**
  * Copilot reads `AGENTS.md` natively and also a `.github/copilot-instructions.md`.
@@ -17,6 +19,17 @@ export function emitInstructions(model: NeutralModel): EmittedFile[] {
   // on AGENTS.md. Only emitted when the overlay actually contributed standards.
   const standards = extractSection(model.constitution, "Project standards (from overlay)");
 
+  // Steer Copilot away from vendored/generated/cache directories so it spends
+  // context on source. Sourced from the mined ProjectContext, else the default.
+  const excluded = exclusionDirs(model);
+  const exclusionsNote = [
+    "## Directories to ignore",
+    "",
+    "Do not search or read these directories (vendored, generated, or caches):",
+    "",
+    ...excluded.map((dir) => `- \`${dir}\``),
+  ].join("\n");
+
   const excerpt = [
     "# Copilot instructions",
     "",
@@ -25,6 +38,8 @@ export function emitInstructions(model: NeutralModel): EmittedFile[] {
     "",
     gates,
     ...(standards ? ["", standards] : []),
+    "",
+    exclusionsNote,
     "",
     "Note: Copilot's IDE has no pre-tool gate hook, so the `Approved?` gate is",
     "enforced through this checklist plus branch-protection / CI. Do not push",
@@ -35,5 +50,6 @@ export function emitInstructions(model: NeutralModel): EmittedFile[] {
   return [
     { path: "AGENTS.md", contents: model.constitution },
     { path: ".github/copilot-instructions.md", contents: excerpt },
+    ...copilotPackageInstructionFiles(model),
   ];
 }

@@ -1,4 +1,5 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
+import { packageInstructionFiles } from "../shared/package-instructions.js";
 
 /**
  * Claude Code reads `CLAUDE.md`. We keep `AGENTS.md` as the single source of
@@ -26,5 +27,6 @@ export function emitInstructions(model: NeutralModel): EmittedFile[] {
   return [
     { path: "AGENTS.md", contents: model.constitution },
     { path: "CLAUDE.md", contents: claudeMd },
+    ...packageInstructionFiles(model, "CLAUDE.md"),
   ];
 }

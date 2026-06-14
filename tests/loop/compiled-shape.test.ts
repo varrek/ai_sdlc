@@ -28,6 +28,27 @@ describe("compiled loop shape", () => {
     expect(m.skills.some((s) => s.frontmatter.name === "sdlc-loop")).toBe(true);
   });
 
+  it("a role addendum reaches the emitted host agent files, fenced under its heading", () => {
+    const m = mergeOverlay(
+      loadBase(baseDir),
+      Overlay.parse({ version: 1, roleAddenda: { engineer: "REPO-MARKER: use Vitest, ESM only." } }),
+    );
+    const cursor = byPath(new CursorAdapter().emit(m).files);
+    const claude = byPath(new ClaudeCodeAdapter().emit(m).files);
+
+    for (const file of [
+      cursor.get(".cursor/agents/engineer.md")!,
+      claude.get(".claude/agents/engineer.md")!,
+    ]) {
+      expect(file).toContain("## Project-specific guidance (generated)");
+      expect(file).toContain("REPO-MARKER: use Vitest, ESM only.");
+      // base body still present ahead of the addendum
+      expect(file).toMatch(/only\*\* role permitted to[\s\S]*Project-specific guidance/);
+    }
+    // a role with no addendum is unaffected
+    expect(cursor.get(".cursor/agents/reviewer.md")!).not.toContain("Project-specific guidance");
+  });
+
   it("the tester is emitted read-run on every host", () => {
     const m = model();
     const cursor = byPath(new CursorAdapter().emit(m).files);

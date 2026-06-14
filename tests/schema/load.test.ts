@@ -106,4 +106,21 @@ describe("overlay", () => {
       expect(codes).toContain("unrecognized_keys");
     }
   });
+
+  it("accepts well-formed roleAddenda and defaults to empty", () => {
+    expect(Overlay.parse({ version: 1 }).roleAddenda).toEqual({});
+    const overlay = Overlay.parse({
+      version: 1,
+      roleAddenda: { engineer: "Use Vitest (ESM). Run `npm test`." },
+    });
+    expect(overlay.roleAddenda.engineer).toContain("Vitest");
+  });
+
+  it("rejects malformed roleAddenda (bad key, empty, over cap)", () => {
+    expect(Overlay.safeParse({ version: 1, roleAddenda: { Engineer: "x" } }).success).toBe(false);
+    expect(Overlay.safeParse({ version: 1, roleAddenda: { engineer: "" } }).success).toBe(false);
+    expect(
+      Overlay.safeParse({ version: 1, roleAddenda: { engineer: "x".repeat(2000) } }).success,
+    ).toBe(false);
+  });
 });

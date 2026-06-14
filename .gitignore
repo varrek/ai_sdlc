@@ -8,6 +8,9 @@ dist/
 coverage/
 .vitest/
 
+# Scratch / local verification output (corpus runs, ad-hoc compiles)
+.verify/
+
 # Generated host configs (compiled from sdlc-base + overlay)
 .sdlc/
 .cursor/generated/

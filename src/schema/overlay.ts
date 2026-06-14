@@ -2,6 +2,13 @@ import { z } from "zod";
 
 const SLUG = /^[a-z][a-z0-9-]*$/;
 
+/**
+ * Hard cap on a single role addendum (see `core/role-addenda.ts` for the full
+ * contract). Defined in the schema layer because the schema enforces the bound;
+ * `core` imports it so the cap has a single source of truth.
+ */
+export const ROLE_ADDENDUM_MAX_CHARS = 1500;
+
 export const CeremonyTrack = z.enum(["quick", "standard", "full"]);
 export type CeremonyTrack = z.infer<typeof CeremonyTrack>;
 
@@ -52,6 +59,14 @@ export const Overlay = z
     integrations: z.record(z.string().regex(SLUG), IntegrationBinding).default({}),
     /** role-name -> model id override */
     roleModels: z.record(z.string().regex(SLUG), z.string().min(1)).default({}),
+    /**
+     * role-name -> repo-specific prose appended to that role's body, authored by
+     * the host agent (see the `tune-roles` skill) and bounded by the addenda
+     * contract. Capped here; gate-safety is enforced at merge.
+     */
+    roleAddenda: z
+      .record(z.string().regex(SLUG), z.string().min(1).max(ROLE_ADDENDUM_MAX_CHARS))
+      .default({}),
     /** Free-form answers captured by the /customize interview. */
     interviewAnswers: z.record(z.string(), z.string()).default({}),
   })

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { compile, type CompileResult } from "../core/engine.js";
-import { loadBase, loadOverlay } from "../core/loader.js";
+import { loadBase, loadOverlay, loadProjectContext, projectContextPathFor } from "../core/loader.js";
 import { mergeOverlay } from "../core/merge.js";
 import { isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
 import type { HostId } from "../schema/index.js";
@@ -53,7 +53,8 @@ export function runCompileCli(options: CompileCliOptions): CompileCliResult {
 export function runCompile(options: CompileCliOptions): CompileResult {
   const base = loadBase(options.baseDir);
   const overlay = loadOverlay(options.overlayPath);
-  const model = mergeOverlay(base, overlay);
+  const projectContext = loadProjectContext(projectContextPathFor(options.overlayPath));
+  const model = mergeOverlay(base, overlay, projectContext);
   const registry = buildRegistry();
   return compile(model, registry, { outDir: options.outDir, hosts: options.hosts });
 }

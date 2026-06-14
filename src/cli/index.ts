@@ -131,6 +131,14 @@ function cmdCustomize(rest: string[]): void {
       `Drift: +${result.drift.added.length} / -${result.drift.removed.length} standards since last run.\n`,
     );
   }
+  if (result.packageCount > 1) {
+    process.stdout.write(
+      `Detected ${result.packageCount} workspace packages — emitted per-package instruction files and scoped standards.\n`,
+    );
+  }
+  if (result.rootAdvisory) {
+    process.stdout.write(`Advisory: ${result.rootAdvisory}\n`);
+  }
   if (result.deferredIntegrations.length) {
     process.stdout.write(
       `Integrations deferred (bind just-in-time when a task needs them): ${result.deferredIntegrations.join(", ")}.\n`,

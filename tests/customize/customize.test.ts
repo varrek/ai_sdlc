@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,9 +6,15 @@ import { parse as parseYaml, stringify } from "yaml";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCompileCli } from "../../src/cli/compile.js";
 import { loadAnswersFile, runCustomize } from "../../src/cli/customize.js";
-import { buildStandardsIndex, suggestTrack } from "../../src/customize/emitters.js";
+import {
+  buildCodebaseMap,
+  buildProjectContext,
+  buildStandardsIndex,
+  suggestTrack,
+} from "../../src/customize/emitters.js";
 import { computeGaps, DEFERRED_INTEGRATIONS } from "../../src/customize/gap-interview.js";
 import { mineRepo } from "../../src/customize/repo-miner.js";
+import { parseProjectContext } from "../../src/core/project-context.js";
 import { Overlay } from "../../src/schema/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -60,10 +66,66 @@ describe("repo miner", () => {
     expect(p.linters).toContain("eslint");
   });
 
+  it("ignores a framework named only under an optional/dev dependency group", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-fw-"));
+    tmpDirs.push(dir);
+    writeFileSync(
+      join(dir, "pyproject.toml"),
+      [
+        "[project]",
+        'name = "fastapi"',
+        "dependencies = [",
+        '  "starlette",',
+        "]",
+        "",
+        "[dependency-groups]",
+        "dev = [",
+        '  "flask >=3.0.0",', // benchmark/test dep, not the project framework
+        "]",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    const p = mineRepo(dir);
+    expect(p.frameworks).toContain("fastapi");
+    expect(p.frameworks).not.toContain("flask");
+  });
+
+  it("does not count a single stray-language file in a large repo", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-stray-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x" }), "utf8");
+    mkdirSync(join(dir, "scripts"), { recursive: true });
+    writeFileSync(join(dir, "scripts", "analyze.py"), "print(1)\n", "utf8"); // lone .py
+    for (let i = 0; i < 30; i++) writeFileSync(join(dir, `m${i}.js`), "export {};\n", "utf8");
+    const p = mineRepo(dir);
+    expect(p.languages).toContain("javascript");
+    expect(p.languages).not.toContain("python");
+  });
+
   it("suggests the Quick track for a thin POC and emits a minimal set", () => {
     const p = mineRepo(repo("thin-poc"));
     expect(suggestTrack(p)).toBe("quick");
     expect(buildStandardsIndex(p).standards).toHaveLength(0);
+  });
+
+  it("suggests Full for a CI repo with a resolved test command but no known runner (Go)", () => {
+    // testRunner is only set for pytest/jest/vitest, so a Go repo's Full track
+    // must hinge on the resolved testCommand, not the runner name.
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-go-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "go.mod"), "module example.com/x\n\ngo 1.22\n", "utf8");
+    writeFileSync(join(dir, "main.go"), "package main\n\nfunc main() {}\n", "utf8");
+    mkdirSync(join(dir, ".github", "workflows"), { recursive: true });
+    writeFileSync(
+      join(dir, ".github", "workflows", "ci.yml"),
+      ["name: ci", "on: [push]", "jobs:", "  t:", "    steps:", "      - run: go test ./...", ""].join("\n"),
+      "utf8",
+    );
+    const p = mineRepo(dir);
+    expect(p.testRunner).toBeUndefined();
+    expect(p.testCommand).toBe("go test ./...");
+    expect(suggestTrack(p)).toBe("full");
   });
 
   it("does not mine its own emitted config (mining is stable across an in-repo compile)", () => {
@@ -82,6 +144,142 @@ describe("repo miner", () => {
     expect(after.fileCount).toBe(before.fileCount);
     expect(after.languages).toEqual(before.languages);
     expect(suggestTrack(after)).toBe(suggestTrack(before));
+  });
+
+  it("stays idempotent when compile overwrites a pre-existing AGENTS.md/CLAUDE.md", () => {
+    // Repos commonly ship their own AGENTS.md / CLAUDE.md (and .claude/.cursor)
+    // before adopting the SDLC. Compile overwrites those in place and records
+    // them in emitted.json — so the manifest alone can't keep mining stable: the
+    // first compile would turn a counted source file into an excluded one. The
+    // mined fileCount must not move across an in-repo compile.
+    const work = mkdtempSync(join(tmpdir(), "aisdlc-pre-"));
+    tmpDirs.push(work);
+    cpSync(repo("ts-app"), work, { recursive: true });
+    writeFileSync(join(work, "AGENTS.md"), "# hand-written constitution\n", "utf8");
+    writeFileSync(join(work, "CLAUDE.md"), "# hand-written guide\n", "utf8");
+    mkdirSync(join(work, ".claude"), { recursive: true });
+    writeFileSync(join(work, ".claude", "settings.json"), "{}\n", "utf8");
+
+    const before = mineRepo(work);
+    runCompileCli({ baseDir, overlayPath: undefined, outDir: work, sdlcDir: join(work, ".sdlc") });
+    const after = mineRepo(work);
+
+    expect(after.fileCount).toBe(before.fileCount);
+    expect(after.languages).toEqual(before.languages);
+    expect(suggestTrack(after)).toBe(suggestTrack(before));
+  });
+});
+
+describe("workspace mining (monorepo)", () => {
+  it("detects workspace packages from declared globs and mines each independently", () => {
+    const p = mineRepo(repo("monorepo"));
+    expect(p.packages?.map((pkg) => pkg.path).sort()).toEqual(["packages/api", "packages/web"]);
+
+    const api = p.packages!.find((pkg) => pkg.path === "packages/api")!;
+    expect(api.languages).toContain("python");
+    expect(api.frameworks).toContain("fastapi");
+    expect(api.testCommand).toBe("pytest");
+
+    const web = p.packages!.find((pkg) => pkg.path === "packages/web")!;
+    expect(web.languages).toContain("typescript");
+    expect(web.frameworks).toContain("next");
+    expect(web.testCommand).toBe("vitest run");
+  });
+
+  it("re-prefixes per-package evidence so paths stay repo-relative", () => {
+    const p = mineRepo(repo("monorepo"));
+    for (const pkg of p.packages!) {
+      for (const paths of Object.values(pkg.evidence)) {
+        for (const path of paths) {
+          if (!path.startsWith("git log")) expect(path.startsWith(`${pkg.path}/`)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("scopes per-package standards out of the root and into the project context", () => {
+    const p = mineRepo(repo("monorepo"));
+    const index = buildStandardsIndex(p);
+    const scoped = index.standards.filter((s) => s.scope);
+    expect(scoped.length).toBeGreaterThan(0);
+    expect(scoped.every((s) => s.scope === "packages/api" || s.scope === "packages/web")).toBe(true);
+
+    // The codebase map has one row per package, each citing evidence.
+    const map = buildCodebaseMap(p);
+    expect(map.map((m) => m.path).sort()).toEqual(["packages/api", "packages/web"]);
+    expect(map.every((m) => m.sources.length > 0)).toBe(true);
+
+    // Per-package instruction bodies carry that package's scoped standards.
+    const ctx = buildProjectContext(p, index);
+    const apiCtx = ctx.packages.find((pkg) => pkg.path === "packages/api")!;
+    expect(apiCtx.instructionBody).toContain("pytest");
+    expect(apiCtx.testCommand).toBe("pytest");
+  });
+
+  it("leaves packages undefined for a single-package repo (common case unchanged)", () => {
+    expect(mineRepo(repo("ts-app")).packages).toBeUndefined();
+  });
+
+  it("excludes playground/demo/__tests__ dirs matched by a declared workspace glob", () => {
+    // Mirrors Vite: `playground/**` and `packages/**/__tests__/**` globs also
+    // match demo apps and test fixtures — those must not each become a package.
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-ws-"));
+    tmpDirs.push(dir);
+    writeFileSync(
+      join(dir, "package.json"),
+      JSON.stringify({ workspaces: ["packages/*", "playground/**"] }),
+      "utf8",
+    );
+    for (const real of ["api", "web"]) {
+      mkdirSync(join(dir, "packages", real), { recursive: true });
+      writeFileSync(join(dir, "packages", real, "package.json"), JSON.stringify({ name: real }), "utf8");
+    }
+    mkdirSync(join(dir, "packages", "web", "__tests__", "fixture"), { recursive: true });
+    writeFileSync(join(dir, "packages", "web", "__tests__", "fixture", "package.json"), "{}", "utf8");
+    mkdirSync(join(dir, "playground", "demo"), { recursive: true });
+    writeFileSync(join(dir, "playground", "demo", "package.json"), "{}", "utf8");
+
+    const p = mineRepo(dir);
+    expect(p.packages?.map((pkg) => pkg.path).sort()).toEqual(["packages/api", "packages/web"]);
+  });
+
+  it("does not treat examples/* as workspace packages without a declared workspace", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-ex-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = \"lib\"\n", "utf8");
+    for (const name of ["a", "b"]) {
+      mkdirSync(join(dir, "examples", name), { recursive: true });
+      writeFileSync(join(dir, "examples", name, "pyproject.toml"), `[project]\nname = "${name}"\n`, "utf8");
+    }
+    expect(mineRepo(dir).packages).toBeUndefined();
+  });
+});
+
+describe("workspace customize → compile handoff", () => {
+  it("persists a parseable project-context.json and emits per-package instruction files", () => {
+    const overlayDir = tmpOverlay();
+    const result = runCustomize({ repoRoot: repo("monorepo"), overlayDir });
+    expect(result.packageCount).toBe(2);
+
+    const ctxPath = join(overlayDir, "project-context.json");
+    const ctx = parseProjectContext(readFileSync(ctxPath, "utf8"));
+    expect(ctx?.packages.map((p) => p.path).sort()).toEqual(["packages/api", "packages/web"]);
+
+    // Compile reads the context and writes nested instruction files per host.
+    const outDir = mkdtempSync(join(tmpdir(), "aisdlc-mono-out-"));
+    tmpDirs.push(outDir);
+    runCompileCli({
+      baseDir,
+      overlayPath: join(overlayDir, ".customize.yaml"),
+      outDir,
+      sdlcDir: join(overlayDir, ".."),
+    });
+    expect(existsSync(join(outDir, "packages", "api", "CLAUDE.md"))).toBe(true);
+    expect(existsSync(join(outDir, "packages", "web", "AGENTS.md"))).toBe(true);
+    expect(existsSync(join(outDir, ".github", "instructions", "packages-api.instructions.md"))).toBe(true);
+
+    const apiClaude = readFileSync(join(outDir, "packages", "api", "CLAUDE.md"), "utf8");
+    expect(apiClaude).toContain("pytest");
   });
 });
 
@@ -121,6 +319,128 @@ describe("test command mining", () => {
   it("leaves testCommand undefined when there is no test signal", () => {
     const p = mineRepo(repo("thin-poc"));
     expect(p.testCommand).toBeUndefined();
+  });
+
+  it("does not fabricate pytest for a tests/ dir with no pytest signal (custom runner)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-custom-runner-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = \"x\"\ndependencies = []\n", "utf8");
+    mkdirSync(join(dir, "tests"), { recursive: true });
+    writeFileSync(join(dir, "tests", "runtests.py"), "print('custom runner')\n", "utf8");
+    writeFileSync(join(dir, "tests", "test_app.py"), "def test_x():\n    assert True\n", "utf8");
+    const p = mineRepo(dir);
+    expect(p.testRunner).toBeUndefined(); // tests/ alone must not assert pytest
+    expect(p.testCommand).toBeUndefined();
+    expect(computeGaps(p).map((g) => g.id)).toEqual(["test-command"]); // fall open
+  });
+
+  it("skips install steps and normalizes env/CI-template lines in a CI test command", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-ci-norm-"));
+    tmpDirs.push(dir);
+    mkdirSync(join(dir, ".github", "workflows"), { recursive: true });
+    writeFileSync(
+      join(dir, ".github", "workflows", "ci.yml"),
+      [
+        "name: ci",
+        "on: [push]",
+        "jobs:",
+        "  test:",
+        "    runs-on: ubuntu-latest",
+        "    steps:",
+        "      - run: python -m pip install --upgrade tox", // install: must be ignored
+        "      - run: |",
+        "          tox run -f py${{ matrix.python-version }}", // CI expression: not runnable
+        "          CI=true tox -e py3", // env prefix must be stripped
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = \"x\"\n", "utf8");
+    const p = mineRepo(dir);
+    expect(p.testCommand).toBe("tox -e py3");
+    expect(p.evidence["test-command"]).toEqual([".github/workflows/ci.yml"]);
+  });
+});
+
+describe("test command mining — language & workflow heuristics", () => {
+  /** Write a minimal repo at a fresh tmp dir and return its path. */
+  function scaffold(files: Record<string, string>): string {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-tc-"));
+    tmpDirs.push(dir);
+    for (const [rel, body] of Object.entries(files)) {
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body, "utf8");
+    }
+    return dir;
+  }
+
+  /** A workflow whose only test step runs `cmd`. */
+  const wf = (cmd: string): string =>
+    ["name: x", "on: [push]", "jobs:", "  t:", "    steps:", `      - run: ${cmd}`, ""].join("\n");
+
+  it("rejects a minority-language test command (Python repo with an auxiliary npm test)", () => {
+    // Mirrors Django: a ~95% Python repo ships a package.json (asset build) and a
+    // CI workflow that runs the JS suite via `npm test`. That must NOT be chosen
+    // as the project's test command — the gap stays open instead.
+    const files: Record<string, string> = {
+      "package.json": JSON.stringify({ scripts: { test: "node run-js-tests.js" } }),
+      ".github/workflows/ci.yml": wf("npm test"),
+    };
+    for (let i = 0; i < 12; i++) files[`pkg/mod${i}.py`] = "x = 1\n";
+    const p = mineRepo(scaffold(files));
+    expect(p.languages).toEqual(expect.arrayContaining(["python", "javascript"]));
+    expect(p.testCommand).toBeUndefined(); // npm test rejected, package.json script gated out
+    expect(computeGaps(p).map((g) => g.id)).toEqual(["test-command"]); // falls open
+  });
+
+  it("keeps a JS test command when JS/TS is a primary language", () => {
+    // The mirror case: JS dominates, so `npm test` is legitimately the suite.
+    const files: Record<string, string> = { ".github/workflows/ci.yml": wf("npm test") };
+    for (let i = 0; i < 12; i++) files[`src/mod${i}.js`] = "export const x = 1;\n";
+    files["scripts/analyze.py"] = "print(1)\n"; // lone minority Python file
+    const p = mineRepo(scaffold(files));
+    expect(p.testCommand).toBe("npm test");
+  });
+
+  it("prefers a test/ci-named workflow over an alphabetically-earlier incidental one", () => {
+    const p = mineRepo(
+      scaffold({
+        "pyproject.toml": "[tool.pytest.ini_options]\n",
+        ".github/workflows/aaa-nightly.yml": wf("pytest tests/perf/huge.py"),
+        ".github/workflows/ci.yml": wf("pytest"),
+      }),
+    );
+    expect(p.testCommand).toBe("pytest");
+    expect(p.evidence["test-command"]).toEqual([".github/workflows/ci.yml"]);
+  });
+
+  it("skips shell comments and unexpanded array placeholders in a CI run block", () => {
+    const p = mineRepo(
+      scaffold({
+        "pyproject.toml": "[tool.pytest.ini_options]\n",
+        ".github/workflows/ci.yml": [
+          "name: x",
+          "on: [push]",
+          "jobs:",
+          "  t:",
+          "    steps:",
+          "      - run: |",
+          "          # build pytest args carefully",
+          '          pytest scenarios/ "${PYTEST_ARGS[@]}"',
+          "          pytest",
+          "",
+        ].join("\n"),
+      }),
+    );
+    expect(p.testCommand).toBe("pytest"); // not the comment, not the array-laden line
+  });
+
+  it("trims a trailing bare `--` argument separator", () => {
+    const p = mineRepo(
+      scaffold({ "package.json": "{}", ".github/workflows/ci.yml": wf("npm test --") }),
+    );
+    expect(p.testCommand).toBe("npm test");
   });
 });
 

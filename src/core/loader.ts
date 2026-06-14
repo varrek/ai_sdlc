@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   HostManifest,
   IntegrationContract,
@@ -9,7 +9,11 @@ import {
   loadMarkdown,
   loadYaml,
 } from "../schema/index.js";
+import { parseProjectContext, type ProjectContext } from "./project-context.js";
 import type { NeutralModel } from "./types.js";
+
+/** Filename of the persisted ProjectContext, written beside the overlay. */
+export const PROJECT_CONTEXT_FILE = "project-context.json";
 
 /** Default empty overlay (a repo that has not run /customize yet). */
 const EMPTY_OVERLAY: Overlay = Overlay.parse({ version: 1 });
@@ -64,6 +68,18 @@ export function loadBase(baseDir: string): LoadedBase {
 export function loadOverlay(overlayPath: string | undefined): Overlay {
   if (!overlayPath || !existsSync(overlayPath)) return EMPTY_OVERLAY;
   return loadYaml(overlayPath, Overlay);
+}
+
+/** The ProjectContext path that sits beside a given overlay file, if any. */
+export function projectContextPathFor(overlayPath: string | undefined): string | undefined {
+  if (!overlayPath) return undefined;
+  return join(dirname(overlayPath), PROJECT_CONTEXT_FILE);
+}
+
+/** Load a persisted ProjectContext, or `undefined` when absent or malformed. */
+export function loadProjectContext(path: string | undefined): ProjectContext | undefined {
+  if (!path || !existsSync(path)) return undefined;
+  return parseProjectContext(readFileSync(path, "utf8"));
 }
 
 export { EMPTY_OVERLAY };

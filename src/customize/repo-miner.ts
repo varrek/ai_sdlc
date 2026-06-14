@@ -19,6 +19,16 @@ const IGNORE_DIRS = new Set([
   ".next",
   "coverage",
   ".tox",
+  // Agent-host config dirs: emitted by the compiler (constitution skills/agents/
+  // hooks) or pre-existing host setup, never user source. Excluded so a re-mine
+  // after an in-repo compile stays stable — including when a host dir symlinks
+  // into a generated skills tree (e.g. `.codex/skills` -> the emitted skills).
+  // See isGeneratedArtifact for the file-level companions (AGENTS.md, …).
+  ".claude",
+  ".cursor",
+  ".codex",
+  ".windsurf",
+  ".aider",
   // SDLC phase cache + overlay + logs: state, never user source. Skipping it
   // also makes the emitted-config exclusion below the single source of truth.
   ".sdlc",
@@ -44,6 +54,24 @@ export interface Conventions {
   testLayout?: "co-located" | "separate";
 }
 
+/**
+ * A single workspace package mined in its own right. Languages, frameworks,
+ * test command and linters are local to the package; `evidence` paths are
+ * repo-relative (prefixed with the package path) so they stay portable. Used to
+ * scope standards and emit per-package instruction files in a monorepo.
+ */
+export interface PackageProfile {
+  /** Repo-relative POSIX path of the package directory (e.g. `packages/api`). */
+  path: string;
+  languages: string[];
+  frameworks: string[];
+  /** A runnable test command local to this package, when one is discoverable. */
+  testCommand?: string;
+  linters: string[];
+  /** claim -> repo-relative paths (prefixed with `path`) that justify it. */
+  evidence: Record<string, string[]>;
+}
+
 export interface RepoProfile {
   root: string;
   languages: string[];
@@ -61,10 +89,25 @@ export interface RepoProfile {
   architecture?: Architecture;
   /** Mined conventions (commit style, test layout); fields absent when ambiguous. */
   conventions?: Conventions;
+  /**
+   * Workspace packages, mined individually. Present only for a detected
+   * multi-package workspace (>=2 packages); absent for a single-package repo so
+   * the common case is unchanged.
+   */
+  packages?: PackageProfile[];
   /** Total non-ignored files seen (drives thin-repo / track suggestion). */
   fileCount: number;
   /** claim -> repo-relative paths that justify it (evidence-backed artifacts). */
   evidence: Record<string, string[]>;
+}
+
+/** Options for {@link mineRepo}. */
+export interface MineOptions {
+  /**
+   * Detect workspace packages and mine each one (default `true`). Set `false`
+   * when mining a single package in isolation to avoid infinite recursion.
+   */
+  detectPackages?: boolean;
 }
 
 /** Top-level dirs that are not source modules — excluded from the architecture map. */
@@ -108,13 +151,40 @@ function walk(root: string, excluded: ReadonlySet<string>): string[] {
         // would scan the emitted `.claude/`, `.cursor/`, `AGENTS.md`, etc. as if
         // they were repo source — corrupting language/track detection and
         // breaking the mined-phase fingerprint (and thus freshness/idempotency).
-        if (excluded.has(rel)) continue;
+        // The static `isGeneratedArtifact` check covers files the compiler may
+        // overwrite in place (a pre-existing `AGENTS.md`), which `excluded`
+        // (the emitted manifest) cannot make symmetric across the first compile.
+        if (excluded.has(rel) || isGeneratedArtifact(rel)) continue;
         out.push(rel);
       }
     }
   };
   visit(root, 0);
   return out.sort();
+}
+
+/**
+ * Files the compiler emits into the repo's own namespace (the constitution, host
+ * instruction files, generated agents/skills/hooks, the SDLC gate workflow).
+ * Unlike the rest of `.github/`, these collide with paths a user may already
+ * own — compile overwrites a pre-existing `AGENTS.md` in place — so the
+ * `emitted.json` manifest alone can't keep mining stable: the first compile
+ * would turn a counted source file into an excluded one, shifting the mined
+ * fingerprint. Excluding the whole generated namespace unconditionally makes a
+ * re-mine after an in-repo compile a true no-op. Real user workflows under
+ * `.github/workflows/` (minus our own gate) are deliberately still mined.
+ */
+function isGeneratedArtifact(rel: string): boolean {
+  const base = rel.slice(rel.lastIndexOf("/") + 1);
+  if (base === "AGENTS.md" || base === "CLAUDE.md") return true;
+  if (rel === ".github/copilot-instructions.md") return true;
+  if (rel === ".github/workflows/sdlc-gate.yml") return true;
+  return (
+    rel.startsWith(".github/agents/") ||
+    rel.startsWith(".github/skills/") ||
+    rel.startsWith(".github/hooks/") ||
+    rel.startsWith(".github/instructions/")
+  );
 }
 
 /**
@@ -310,7 +380,7 @@ function mineConventions(
  * back gracefully. Every claim records the repo paths that justify it so
  * downstream artifacts are evidence-backed.
  */
-export function mineRepo(root: string): RepoProfile {
+export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
   const files = walk(root, readEmittedPaths(root));
   const fileSet = new Set(files);
   const evidence: Record<string, string[]> = {};
@@ -326,16 +396,26 @@ export function mineRepo(root: string): RepoProfile {
   let pkgTestScript = "";
   let codeowners: string | undefined;
 
+  // Count files per extension-detected language. A single stray file in a large
+  // repo (e.g. one analysis script in an otherwise-JS monorepo) is not a project
+  // language; require either >=2 files or a meaningful share of the repo so a
+  // small single-language package still counts. Manifests below assert a language
+  // regardless of count.
+  const extLangCount = new Map<string, number>();
+  const bumpLang = (lang: string): void => {
+    extLangCount.set(lang, (extLangCount.get(lang) ?? 0) + 1);
+  };
   for (const f of files) {
     const ext = f.slice(f.lastIndexOf("."));
-    if (ext === ".py") {
-      languages.add("python");
-    } else if (ext === ".ts" || ext === ".tsx") {
-      languages.add("typescript");
-    } else if (ext === ".js" || ext === ".jsx" || ext === ".mjs") {
-      languages.add("javascript");
-    } else if (ext === ".go") {
-      languages.add("go");
+    if (ext === ".py") bumpLang("python");
+    else if (ext === ".ts" || ext === ".tsx") bumpLang("typescript");
+    else if (ext === ".js" || ext === ".jsx" || ext === ".mjs") bumpLang("javascript");
+    else if (ext === ".go") bumpLang("go");
+  }
+  const LANG_SHARE_FLOOR = 0.05;
+  for (const [lang, count] of extLangCount) {
+    if (count >= 2 || count / Math.max(files.length, 1) >= LANG_SHARE_FLOOR) {
+      languages.add(lang);
     }
   }
 
@@ -358,8 +438,6 @@ export function mineRepo(root: string): RepoProfile {
   const pyproject = read(root, "pyproject.toml");
   const requirements = read(root, "requirements.txt");
   const makefile = read(root, "Makefile");
-  const hasTestsDir = files.some((f) => f.startsWith("tests/") || f.startsWith("test/"));
-
   if (fileSet.has("pyproject.toml") || fileSet.has("requirements.txt") || fileSet.has("setup.py")) {
     languages.add("python");
     packageManagers.add(pyproject.includes("[tool.poetry]") ? "poetry" : "pip");
@@ -382,19 +460,34 @@ export function mineRepo(root: string): RepoProfile {
     linters.add("flake8");
     addEvidence(evidence, "linter:flake8", fileSet.has(".flake8") ? ".flake8" : "setup.cfg");
   }
+  // pytest is asserted only on an explicit signal — a dependency, a `[tool.pytest]`
+  // / `pytest.ini` / `setup.cfg [tool:pytest]` config, or a `conftest.py`. A bare
+  // `tests/` directory is NOT enough: many Python projects use a custom runner
+  // (e.g. Django's `python tests/runtests.py`), so inferring pytest from the
+  // directory alone fabricates a command that collects nothing. Without a signal
+  // the test-command gap stays open (fall-open), which is the intended behavior.
+  const hasConftest = fileSet.has("conftest.py") || files.some((f) => f.endsWith("/conftest.py"));
   const pytestNamed =
     pyproject.includes("pytest") ||
     requirements.includes("pytest") ||
-    makefile.includes("pytest");
-  if (languages.has("python") && (pytestNamed || hasTestsDir)) {
+    makefile.includes("pytest") ||
+    fileSet.has("pytest.ini") ||
+    read(root, "setup.cfg").includes("[tool:pytest]") ||
+    hasConftest;
+  if (languages.has("python") && pytestNamed) {
     testRunner = "pytest";
     if (pyproject.includes("pytest")) addEvidence(evidence, "test-runner:pytest", "pyproject.toml");
     if (makefile.includes("pytest")) addEvidence(evidence, "test-runner:pytest", "Makefile");
-    if (hasTestsDir) addEvidence(evidence, "test-runner:pytest", "tests/");
+    if (fileSet.has("pytest.ini")) addEvidence(evidence, "test-runner:pytest", "pytest.ini");
+    if (hasConftest) addEvidence(evidence, "test-runner:pytest", "conftest.py");
   }
   const pyDepFile = fileSet.has("requirements.txt") ? "requirements.txt" : "pyproject.toml";
+  // Detect frameworks from runtime deps only: a framework named solely under an
+  // optional/dev/test extra (e.g. fastapi listing `flask` under
+  // `[dependency-groups]` for benchmarks) is not the project's framework.
+  const pyFrameworkText = `${requirements}\n${stripOptionalDepSections(pyproject)}`;
   const addPyFramework = (name: string, re: RegExp): void => {
-    if (re.test(requirements) || re.test(pyproject)) {
+    if (re.test(pyFrameworkText)) {
       frameworks.add(name);
       addEvidence(evidence, `framework:${name}`, pyDepFile);
     }
@@ -430,7 +523,10 @@ export function mineRepo(root: string): RepoProfile {
       linters.add("eslint");
       addEvidence(evidence, "linter:eslint", "eslint" in deps ? "package.json" : ".eslintrc");
     }
-    if ("prettier" in deps) linters.add("prettier");
+    if ("prettier" in deps) {
+      linters.add("prettier");
+      addEvidence(evidence, "linter:prettier", "package.json");
+    }
     if ("react" in deps) {
       frameworks.add("react");
       addEvidence(evidence, "framework:react", "package.json");
@@ -445,6 +541,12 @@ export function mineRepo(root: string): RepoProfile {
     addEvidence(evidence, "typescript", "tsconfig.json");
   }
 
+  // ---- Go signals ----
+  if (fileSet.has("go.mod")) {
+    languages.add("go");
+    addEvidence(evidence, "go", "go.mod");
+  }
+
   // ---- CI, ownership, docs ----
   for (const f of files) {
     if (f.startsWith(".github/workflows/") && (f.endsWith(".yml") || f.endsWith(".yaml"))) ciFiles.push(f);
@@ -457,18 +559,37 @@ export function mineRepo(root: string): RepoProfile {
   if (codeowners) addEvidence(evidence, "codeowners", codeowners);
 
   // ---- Runnable test command (priority CI > Makefile > manifest) ----
+  // Extension-based language shares let the resolver reject a test command from
+  // a minority-language toolchain (e.g. a Python repo that ships a `package.json`
+  // for asset builds — its `npm test` must not hijack the Python suite).
+  const sourceFileTotal = [...extLangCount.values()].reduce((a, b) => a + b, 0);
+  const langShares = new Map<string, number>();
+  for (const [lang, count] of extLangCount) langShares.set(lang, count / Math.max(sourceFileTotal, 1));
   const testCommand = resolveTestCommand(root, {
     ciFiles,
     fileSet,
     makefile,
     pkgTestScript,
     testRunner,
+    langShares,
+    sourceFileTotal,
   });
   if (testCommand) addEvidence(evidence, "test-command", testCommand.evidence);
 
   // ---- Architecture + conventions ----
   const architecture = mineArchitecture(root, files, fileSet, evidence);
   const conventions = mineConventions(root, files, evidence);
+
+  // ---- Workspace packages (monorepo) ----
+  // Only a genuine multi-package workspace (>=2 packages) is reported; a single
+  // package or a flat repo leaves `packages` absent so the common case is
+  // unchanged. `detectPackages: false` (used when mining a package in isolation)
+  // skips this entirely to avoid recursing forever.
+  let packages: PackageProfile[] | undefined;
+  if (options.detectPackages !== false) {
+    const pkgDirs = detectWorkspacePackages(root, files, fileSet);
+    if (pkgDirs.length >= 2) packages = pkgDirs.map((dir) => minePackage(root, dir));
+  }
 
   return {
     root,
@@ -484,9 +605,217 @@ export function mineRepo(root: string): RepoProfile {
     docs: docs.sort(),
     architecture,
     conventions,
+    packages,
     fileCount: files.length,
     evidence,
   };
+}
+
+/** Manifest filenames whose presence in a subdirectory marks it as a package. */
+const PACKAGE_MANIFESTS = new Set([
+  "package.json",
+  "pyproject.toml",
+  "setup.py",
+  "Cargo.toml",
+  "go.mod",
+]);
+
+/**
+ * Top-level dirs whose nested manifests are sample/demo/doc apps, not workspace
+ * members. Only consulted in the fallback path (no declared workspace): an
+ * explicit `examples/*` workspace glob is still honored. Prevents a non-workspace
+ * repo (e.g. Flask, whose `examples/*` each ship a `pyproject.toml`) from being
+ * mis-detected as a monorepo.
+ */
+const NON_PACKAGE_TOPDIRS = new Set([
+  "examples",
+  "example",
+  "samples",
+  "sample",
+  "demo",
+  "demos",
+  "docs",
+  "doc",
+  "fixtures",
+  "testdata",
+  "e2e",
+  "integration",
+  "benchmarks",
+  "bench",
+  "template",
+  "templates",
+  "playground",
+  "playgrounds",
+]);
+
+/**
+ * Path segments that mark a directory as non-source even mid-path, so a declared
+ * workspace glob like `packages/**` or `playground/**` does not pull in test
+ * fixtures, mocks, or nested demo apps as if they were workspace members.
+ */
+const NON_PACKAGE_SEGMENTS = new Set([
+  ...NON_PACKAGE_TOPDIRS,
+  "__tests__",
+  "__mocks__",
+  "__fixtures__",
+  "node_modules",
+]);
+
+/** A candidate dir is not a real package when any path segment is a non-source segment. */
+function isExcludedPackageDir(dir: string): boolean {
+  return dir.split("/").some((seg) => NON_PACKAGE_SEGMENTS.has(seg));
+}
+
+/**
+ * Detect workspace package directories. Declared globs win when present (npm /
+ * yarn / pnpm workspaces, Cargo `[workspace] members`, `go.work use`); otherwise
+ * fall back to scanning for nested manifest directories. Returns sorted
+ * repo-relative POSIX paths, excluding the root itself.
+ */
+function detectWorkspacePackages(root: string, files: string[], fileSet: Set<string>): string[] {
+  const candidates = manifestDirs(files);
+  const globs = declaredWorkspaceGlobs(root, fileSet);
+
+  const dirs = new Set<string>();
+  if (globs.length > 0) {
+    // A declared workspace glob is authoritative for *where* members live, but
+    // globs like `playground/**` or `packages/**/__tests__/**` also match demo
+    // apps and test fixtures — exclude those so they don't each emit a package.
+    const matchers = globs.map(globToRegExp);
+    for (const dir of candidates) {
+      if (matchers.some((re) => re.test(dir)) && !isExcludedPackageDir(dir)) dirs.add(dir);
+    }
+  } else {
+    // No declared workspace: a nested manifest only marks a package when it isn't
+    // a sample/demo/doc app, so an examples-heavy single repo stays single.
+    for (const dir of candidates) {
+      if (!isExcludedPackageDir(dir)) dirs.add(dir);
+    }
+  }
+  return [...dirs].sort();
+}
+
+/** Directories (excluding the root) that directly contain a package manifest. */
+function manifestDirs(files: string[]): Set<string> {
+  const dirs = new Set<string>();
+  for (const f of files) {
+    const slash = f.lastIndexOf("/");
+    const dir = slash === -1 ? "." : f.slice(0, slash);
+    const name = slash === -1 ? f : f.slice(slash + 1);
+    if (dir !== "." && PACKAGE_MANIFESTS.has(name)) dirs.add(dir);
+  }
+  return dirs;
+}
+
+/** Workspace member globs declared by the root manifests (normalized, `./` stripped). */
+function declaredWorkspaceGlobs(root: string, fileSet: Set<string>): string[] {
+  const globs: string[] = [];
+  if (fileSet.has("package.json")) {
+    const ws = safeJson(read(root, "package.json")).workspaces;
+    if (Array.isArray(ws)) globs.push(...ws.filter((w): w is string => typeof w === "string"));
+    else if (ws && typeof ws === "object") {
+      const pkgs = (ws as { packages?: unknown }).packages;
+      if (Array.isArray(pkgs)) globs.push(...pkgs.filter((w): w is string => typeof w === "string"));
+    }
+  }
+  if (fileSet.has("pnpm-workspace.yaml")) {
+    let doc: unknown;
+    try {
+      doc = parseYaml(read(root, "pnpm-workspace.yaml"));
+    } catch {
+      doc = undefined;
+    }
+    const pkgs = (doc as { packages?: unknown } | null)?.packages;
+    if (Array.isArray(pkgs)) globs.push(...pkgs.filter((w): w is string => typeof w === "string"));
+  }
+  if (fileSet.has("Cargo.toml")) globs.push(...cargoWorkspaceMembers(read(root, "Cargo.toml")));
+  if (fileSet.has("go.work")) globs.push(...goWorkUses(read(root, "go.work")));
+  return globs.map((g) => g.replace(/^\.\//, "").replace(/\/+$/, "")).filter(Boolean);
+}
+
+/** Parse `[workspace] members = [...]` paths from a `Cargo.toml`. */
+function cargoWorkspaceMembers(text: string): string[] {
+  const block = text.match(/\[workspace\][\s\S]*?members\s*=\s*\[([^\]]*)\]/);
+  if (!block) return [];
+  return [...block[1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+}
+
+/** Parse `use` directive paths (single-line and block form) from a `go.work`. */
+function goWorkUses(text: string): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(/^\s*use\s+(\S+)/gm)) {
+    if (m[1] !== "(") out.push(m[1]!);
+  }
+  const block = text.match(/use\s*\(([^)]*)\)/);
+  if (block) {
+    for (const line of block[1]!.split("\n")) {
+      const t = line.trim();
+      if (t) out.push(t);
+    }
+  }
+  return out.map((p) => p.replace(/^\.\//, "").replace(/^\//, "")).filter(Boolean);
+}
+
+/**
+ * Compile a workspace glob to an anchored RegExp over a POSIX dir path. `*`
+ * matches one path segment; `**` matches any depth. Other glob metacharacters
+ * are treated literally — workspace members rarely use them.
+ */
+function globToRegExp(glob: string): RegExp {
+  const body = glob
+    .split("/")
+    .map((seg) =>
+      seg === "**" ? ".*" : seg.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*"),
+    )
+    .join("/");
+  return new RegExp(`^${body}$`);
+}
+
+/**
+ * Mine a single workspace package by re-running the scan rooted at its
+ * directory (without package detection, to avoid recursion), then re-prefixing
+ * its evidence paths so they remain repo-relative.
+ */
+function minePackage(root: string, pkgDir: string): PackageProfile {
+  const sub = mineRepo(join(root, pkgDir), { detectPackages: false });
+  const evidence: Record<string, string[]> = {};
+  for (const [claim, paths] of Object.entries(sub.evidence)) {
+    // Git-derived evidence (commit subjects) has no repo path to prefix.
+    evidence[claim] = paths.map((p) => (p.startsWith("git log") ? p : `${pkgDir}/${p}`));
+  }
+  return {
+    path: pkgDir,
+    languages: sub.languages,
+    frameworks: sub.frameworks,
+    testCommand: sub.testCommand,
+    linters: sub.linters,
+    evidence,
+  };
+}
+
+/**
+ * Drop optional / dev / test dependency tables from a `pyproject.toml` so a
+ * framework named only as a test or benchmark extra isn't mis-read as the
+ * project's framework. Runtime deps (`[project].dependencies`) and the rest of
+ * the manifest are preserved. A line is skipped while inside an excluded table,
+ * resuming at the next table header.
+ */
+function stripOptionalDepSections(toml: string): string {
+  const isOptional = (name: string): boolean =>
+    name === "project.optional-dependencies" ||
+    name.startsWith("project.optional-dependencies.") ||
+    name === "dependency-groups" ||
+    name.startsWith("dependency-groups.") ||
+    name.startsWith("tool.poetry.group.") ||
+    name === "tool.poetry.dev-dependencies";
+  const out: string[] = [];
+  let skipping = false;
+  for (const line of toml.split("\n")) {
+    const header = line.match(/^\s*\[+\s*([^\]]+?)\s*\]+/);
+    if (header) skipping = isOptional(header[1]!);
+    if (!skipping) out.push(line);
+  }
+  return out.join("\n");
 }
 
 function safeJson(text: string): Record<string, unknown> {
@@ -501,12 +830,100 @@ function safeJson(text: string): Record<string, unknown> {
 const TEST_TOOL =
   /(^|\s)(pytest|vitest|jest|tox|mocha)\b|(npm|yarn|pnpm)\s+(run\s+)?test\b|\bgo\s+test\b|\bmake\s+test\b/;
 
+/** Leading `FOO=bar BAZ="qux" ` environment assignments before the real command. */
+const ENV_ASSIGN_PREFIX = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s+)+/;
+
+/** Run-wrappers that precede the real program; stripped only to find the leading token. */
+const RUN_WRAPPER = /^(?:python3?\s+-m\s+|uv\s+run\s+(?:--\S+\s+)*|npx\s+|poetry\s+run\s+|pdm\s+run\s+|hatch\s+run\s+)/;
+
+/**
+ * A dependency-install / setup command, never a test invocation — even when it
+ * names a test tool as an argument (e.g. `pip install --upgrade tox`). Checked
+ * after env + run-wrapper prefixes are stripped so the leading token is the
+ * program being run.
+ */
+const INSTALL_LIKE =
+  /^(?:pip3?|uv\s+pip|pipx|poetry|pdm|conda|apt|apt-get|brew|gem|cargo|go|npm|yarn|pnpm|bun|dotnet|mvn)\s+(?:install|add|sync|ci|i|download|upgrade|update|uninstall|remove|get|restore|mod)\b/;
+
+function isInstallCommand(segment: string): boolean {
+  return INSTALL_LIKE.test(segment.replace(RUN_WRAPPER, "").trim());
+}
+
 interface TestCommandSignals {
   ciFiles: string[];
   fileSet: Set<string>;
   makefile: string;
   pkgTestScript: string;
   testRunner: string | undefined;
+  /** Extension-based language share (0..1), keyed by language. Empty when no source. */
+  langShares: Map<string, number>;
+  /** Total extension-classified source files; 0 for a manifest-only repo. */
+  sourceFileTotal: number;
+}
+
+/** The language toolchain a test command belongs to, or `undefined` if neutral. */
+type Ecosystem = "js" | "python" | "go" | undefined;
+
+/** Below this extension share a language is a minority — its test command can't be the suite. */
+const LANG_PRIMARY_FLOOR = 0.15;
+
+/** Classify a shell test command by toolchain so a minority-language command can be rejected. */
+function commandEcosystem(command: string): Ecosystem {
+  const c = command.toLowerCase();
+  if (/\bgo\s+test\b/.test(c)) return "go";
+  if (/\b(pytest|tox|nox)\b/.test(c) || /\bpython3?\s+-m\b/.test(c) || /\buv\s+run\b/.test(c)) {
+    return "python";
+  }
+  if (/\b(npm|yarn|pnpm|npx|node)\b/.test(c) || /\b(jest|vitest|mocha)\b/.test(c)) return "js";
+  return undefined;
+}
+
+/**
+ * Whether a command's toolchain language is a primary language of the repo.
+ * A neutral command (`make test`, a bare script) is always allowed. When no
+ * source files are classified (manifest-only repo) the share is unknowable, so
+ * nothing is rejected. Otherwise the toolchain's language must clear the floor —
+ * this is what keeps a Python repo's auxiliary `npm test` from being chosen.
+ */
+function ecosystemAllowed(command: string, signals: TestCommandSignals): boolean {
+  const eco = commandEcosystem(command);
+  if (eco === undefined || signals.sourceFileTotal === 0) return true;
+  const share = (lang: string): number => signals.langShares.get(lang) ?? 0;
+  switch (eco) {
+    case "js":
+      return share("javascript") >= LANG_PRIMARY_FLOOR || share("typescript") >= LANG_PRIMARY_FLOOR;
+    case "python":
+      return share("python") >= LANG_PRIMARY_FLOOR;
+    case "go":
+      return share("go") >= LANG_PRIMARY_FLOOR;
+    default:
+      return true;
+  }
+}
+
+/** True when JS/TS is a primary language (or unknowable) — gates the package.json test script. */
+function jsTsPrimary(signals: TestCommandSignals): boolean {
+  if (signals.sourceFileTotal === 0) return true;
+  const share = (lang: string): number => signals.langShares.get(lang) ?? 0;
+  return share("javascript") >= LANG_PRIMARY_FLOOR || share("typescript") >= LANG_PRIMARY_FLOOR;
+}
+
+/**
+ * Rank a workflow filename so the project's primary test/CI workflow is consulted
+ * before incidental ones (a scheduled job, a narrow regression workflow). Lower
+ * is better; ties fall back to lexicographic order.
+ */
+function workflowRank(path: string): number {
+  const base = path.slice(path.lastIndexOf("/") + 1).replace(/\.(ya?ml)$/, "").toLowerCase();
+  if (base === "test" || base === "tests" || base === "ci" || base === "main") return 0;
+  if (/(^|[-_.])(tests?|ci)([-_.]|$)/.test(base)) return 1;
+  if (base.includes("test") || base.includes("ci")) return 2;
+  return 3;
+}
+
+/** Drop a trailing bare `--` (a CI argument separator left dangling), e.g. `… --headless --`. */
+function trimTrailingSeparator(command: string): string {
+  return command.replace(/\s+--\s*$/, "").trim();
 }
 
 /**
@@ -519,23 +936,30 @@ function resolveTestCommand(
   root: string,
   signals: TestCommandSignals,
 ): { command: string; evidence: string } | undefined {
-  // 1. CI — first GitHub Actions workflow (lexicographic) with a test step.
-  const workflows = signals.ciFiles.filter((f) => f.startsWith(".github/workflows/")).sort();
+  // 1. CI — GitHub Actions workflows, primary test/CI workflow first. A command
+  //    from a minority-language toolchain is skipped (a Python repo's CI may run
+  //    a JS asset suite via `npm test`; that is not the project's test command).
+  const workflows = signals.ciFiles
+    .filter((f) => f.startsWith(".github/workflows/"))
+    .sort((a, b) => workflowRank(a) - workflowRank(b) || (a < b ? -1 : a > b ? 1 : 0));
   for (const wf of workflows) {
     const command = testCommandFromWorkflow(read(root, wf));
-    if (command) return { command, evidence: wf };
+    if (command && ecosystemAllowed(command, signals)) {
+      return { command: trimTrailingSeparator(command), evidence: wf };
+    }
   }
   // 2. Makefile `test:` target recipe.
   const mk = testCommandFromMakefile(signals.makefile);
-  if (mk) return { command: mk, evidence: "Makefile" };
-  // 3. package.json scripts.test.
+  if (mk && ecosystemAllowed(mk, signals)) return { command: trimTrailingSeparator(mk), evidence: "Makefile" };
+  // 3. package.json scripts.test — a JS/TS command by definition, so only trust
+  //    it when JS/TS is a primary language (else it's an asset/lint helper).
   const script = signals.pkgTestScript.trim();
-  if (script && !/no test specified/i.test(script)) {
-    return { command: pickTestSegment(script) ?? script, evidence: "package.json" };
+  if (script && !/no test specified/i.test(script) && jsTsPrimary(signals)) {
+    return { command: trimTrailingSeparator(pickTestSegment(script) ?? script), evidence: "package.json" };
   }
   // 4. Inferred runner default (e.g. a pytest repo with no scripts).
   const fallback = runnerDefaultCommand(signals.testRunner);
-  if (fallback) {
+  if (fallback && ecosystemAllowed(fallback, signals)) {
     const evidence = signals.fileSet.has("pyproject.toml")
       ? "pyproject.toml"
       : signals.fileSet.has("package.json")
@@ -559,13 +983,25 @@ function runnerDefaultCommand(runner: string | undefined): string | undefined {
   }
 }
 
-/** Normalize a shell line to the test invocation, dropping `&&`-chained prefixes. */
+/**
+ * Normalize a shell line to a bare test invocation. Splits on `&&`, `;`, and
+ * newlines, then for each statement: skips CI-template (`${{ … }}`) lines that
+ * can't run locally, strips leading env-var assignments, and skips
+ * dependency-install / setup steps. Returns the first real test command — so
+ * `npm ci && CI=1 npm test` yields `npm test` and an `Install tox` step never
+ * leaks `pip install --upgrade tox` as the test command.
+ */
 function pickTestSegment(run: string): string | undefined {
   const segments = run
-    .split(/\n|&&/)
+    .split(/\n|&&|;/)
     .map((s) => s.trim())
     .filter(Boolean);
-  for (const segment of segments) {
+  for (const raw of segments) {
+    if (raw.includes("${{")) continue; // CI expression — not a local command
+    if (raw.includes("[@]}")) continue; // unexpanded shell array (e.g. "${PYTEST_ARGS[@]}")
+    if (raw.startsWith("#")) continue; // shell comment (e.g. `# build pytest args …`)
+    const segment = raw.replace(ENV_ASSIGN_PREFIX, "").trim();
+    if (!segment || segment.startsWith("#") || isInstallCommand(segment)) continue;
     if (TEST_TOOL.test(segment)) return segment;
   }
   return undefined;

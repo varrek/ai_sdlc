@@ -3,8 +3,10 @@ import { dirname, join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
   buildOverlay,
+  buildProjectContext,
   buildStandardsIndex,
   diffStandardsIndex,
+  rootInstructionAdvisory,
   serializeOverlay,
   serializeStandardsIndex,
   suggestTrack,
@@ -14,7 +16,8 @@ import {
 import { computeGaps, DEFERRED_INTEGRATIONS, type GapQuestion } from "../customize/gap-interview.js";
 import { mineRepo, type RepoProfile } from "../customize/repo-miner.js";
 import { fingerprint, isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
-import { loadOverlay } from "../core/loader.js";
+import { loadOverlay, PROJECT_CONTEXT_FILE } from "../core/loader.js";
+import { renderCodebaseMap, serializeProjectContext } from "../core/project-context.js";
 import type { CeremonyTrack, Overlay } from "../schema/index.js";
 
 export interface CustomizeOptions {
@@ -48,6 +51,10 @@ export interface CustomizeResult {
   firstRun: boolean;
   /** Number of standards in the freshly built index (for the first-run summary). */
   standardsCount: number;
+  /** Workspace packages detected (0 for a single-package repo). */
+  packageCount: number;
+  /** Lean-root advisory when the root instruction surface has grown large; else absent. */
+  rootAdvisory?: string;
   writtenPaths: string[];
 }
 
@@ -68,6 +75,7 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   const sdlcDir = options.sdlcDir ?? dirname(overlayDir);
   const overlayPath = join(overlayDir, OVERLAY_FILE);
   const standardsPath = join(overlayDir, STANDARDS_FILE);
+  const projectContextPath = join(overlayDir, PROJECT_CONTEXT_FILE);
 
   const priorOverlay = existsSync(overlayPath) ? loadOverlay(overlayPath) : undefined;
   const answers = mergeAnswers(priorOverlay, options.answers ?? {});
@@ -88,6 +96,7 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
 
   const overlay = buildOverlay(profile, answers, priorOverlay);
   const overlaySerialized = serializeOverlay(overlay);
+  const projectContext = buildProjectContext(profile, standardsIndex);
 
   // Freshness: compare the mined inputs and the *would-be* overlay (which folds
   // in prior edits + any --answers-file) against recorded fingerprints. A
@@ -104,10 +113,15 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   if (!fresh) {
     write(overlayPath, overlaySerialized);
     write(standardsPath, serializeStandardsIndex(standardsIndex));
+    write(projectContextPath, serializeProjectContext(projectContext));
     writeSetupPhases(sdlcDir, { mined: minedFp, "overlay-written": overlayFp });
   }
 
   const deferredIntegrations = DEFERRED_INTEGRATIONS.filter((id) => !(id in overlay.integrations));
+
+  // Approximate the root instruction surface (overlay standards + appended map)
+  // to decide whether to advise moving package detail out of the root.
+  const rootSurface = [...overlay.standards, renderCodebaseMap(projectContext.map)].join("\n");
 
   return {
     profile,
@@ -119,7 +133,9 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
     freshnessSkipped: fresh,
     firstRun,
     standardsCount: standardsIndex.standards.length,
-    writtenPaths: [overlayPath, standardsPath],
+    packageCount: profile.packages?.length ?? 0,
+    rootAdvisory: rootInstructionAdvisory(rootSurface),
+    writtenPaths: [overlayPath, standardsPath, projectContextPath],
   };
 }
 

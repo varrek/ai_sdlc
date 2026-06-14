@@ -1,0 +1,10 @@
+[project]
+name = "api"
+version = "0.1.0"
+dependencies = ["fastapi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

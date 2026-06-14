@@ -1,11 +1,23 @@
 import { stringify } from "yaml";
+import {
+  DEFAULT_EXCLUSIONS,
+  type MapEntry,
+  type PackageContext,
+  type ProjectContext,
+} from "../core/project-context.js";
 import { Overlay, type CeremonyTrack, type IntegrationBinding } from "../schema/index.js";
-import type { RepoProfile } from "./repo-miner.js";
+import type { PackageProfile, RepoProfile } from "./repo-miner.js";
 
 export interface StandardEntry {
   statement: string;
   /** Repo paths that justify the statement (evidence-backed). */
   sources: string[];
+  /**
+   * The workspace package this standard is scoped to (its repo-relative path).
+   * Absent ⇒ a root / cross-cutting standard. Scoped standards are routed to
+   * per-package instruction files rather than the root constitution.
+   */
+  scope?: string;
 }
 
 export interface StandardsIndex {
@@ -19,13 +31,16 @@ export { type LoopStage, stagesForTrack } from "../core/loop.js";
 
 /**
  * Suggest a ceremony track from repo richness. A thin POC (few files, no tests,
- * no CI) gets Quick — not an over-built config; a repo with both CI and a test
- * runner gets Full; everything else lands on Standard.
+ * no CI) gets Quick — not an over-built config; a repo with CI and a runnable
+ * test command gets Full; everything else lands on Standard. Keying Full on the
+ * resolved `testCommand` (not just a recognized `testRunner`) means Go, mocha,
+ * and tox projects — whose runner isn't one of pytest/jest/vitest — still reach
+ * Full when CI proves they have a real, gating suite.
  */
 export function suggestTrack(profile: RepoProfile): CeremonyTrack {
   const thin = !profile.testRunner && profile.fileCount <= 6 && profile.ciFiles.length === 0;
   if (thin) return "quick";
-  if (profile.ciFiles.length > 0 && profile.testRunner) return "full";
+  if (profile.ciFiles.length > 0 && (profile.testRunner || profile.testCommand)) return "full";
   return "standard";
 }
 
@@ -92,6 +107,33 @@ export function buildStandardsIndex(profile: RepoProfile): StandardsIndex {
     standards.push({ statement, sources: profile.evidence["convention:test-layout"] ?? [] });
   }
 
+  // Per-package (scoped) standards for a detected workspace. These carry a
+  // `scope` so the overlay/root constitution excludes them and they instead
+  // flow into per-package instruction files (e.g. `packages/api/CLAUDE.md`).
+  for (const pkg of profile.packages ?? []) {
+    if (pkg.testCommand) {
+      standards.push({
+        statement: `In \`${pkg.path}\`, run tests with \`${pkg.testCommand}\`.`,
+        sources: pkg.evidence["test-command"] ?? [],
+        scope: pkg.path,
+      });
+    }
+    for (const linter of pkg.linters) {
+      standards.push({
+        statement: `In \`${pkg.path}\`, lint/format with ${linter}.`,
+        sources: pkg.evidence[`linter:${linter}`] ?? [],
+        scope: pkg.path,
+      });
+    }
+    for (const fw of pkg.frameworks) {
+      standards.push({
+        statement: `\`${pkg.path}\` is built with ${fw}; follow its conventions.`,
+        sources: pkg.evidence[`framework:${fw}`] ?? [],
+        scope: pkg.path,
+      });
+    }
+  }
+
   return { version: 1, standards };
 }
 
@@ -125,11 +167,95 @@ export function buildOverlay(
   return Overlay.parse({
     version: 1,
     defaultTrack: prior?.defaultTrack ?? suggestTrack(profile),
-    standards: index.standards.map((s) => s.statement),
+    // Only unscoped (root / cross-cutting) standards land in the constitution;
+    // package-scoped ones flow into per-package instruction files via the
+    // ProjectContext instead, keeping the root lean in a monorepo.
+    standards: index.standards.filter((s) => !s.scope).map((s) => s.statement),
     integrations,
     roleModels: prior?.roleModels ?? {},
     interviewAnswers: answers,
   });
+}
+
+/**
+ * Build the navigable codebase map from the mined profile. Prefers workspace
+ * packages (one row per package); falls back to the architecture module map for
+ * a single-package repo; empty for a genuinely flat repo. Every row cites
+ * evidence so the map stays trustworthy.
+ */
+export function buildCodebaseMap(profile: RepoProfile): MapEntry[] {
+  if (profile.packages && profile.packages.length > 0) {
+    return profile.packages.map((pkg) => ({
+      path: pkg.path,
+      role: packageRole(pkg),
+      sources: packageMapSources(pkg),
+    }));
+  }
+  if (profile.architecture) {
+    const { sourceRoot, modules } = profile.architecture;
+    return modules.map((m) => {
+      const path = sourceRoot === "." ? m : `${sourceRoot}/${m}`;
+      const cited = profile.evidence[`architecture:module:${m}`]?.[0];
+      return { path, role: "Source module", sources: [cited ?? path] };
+    });
+  }
+  return [];
+}
+
+function packageRole(pkg: PackageProfile): string {
+  const lang = pkg.languages[0] ? capitalize(pkg.languages[0]) : "Package";
+  const fw = pkg.frameworks.length > 0 ? ` (${pkg.frameworks.join(", ")})` : "";
+  const test = pkg.testCommand ? `, tests via \`${pkg.testCommand}\`` : "";
+  return `${lang}${fw}${test}`;
+}
+
+function packageMapSources(pkg: PackageProfile): string[] {
+  for (const paths of Object.values(pkg.evidence)) {
+    if (paths.length > 0) return [paths[0]!];
+  }
+  return [pkg.path];
+}
+
+function capitalize(s: string): string {
+  return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1);
+}
+
+/**
+ * Build the structured ProjectContext handed to the compiler: a rendered
+ * instruction body per workspace package (carrying that package's scoped
+ * standards), the codebase map, and the exclusion set. For a single-package
+ * repo `packages` is empty and only the map + exclusions carry information.
+ */
+export function buildProjectContext(profile: RepoProfile, index: StandardsIndex): ProjectContext {
+  const packages: PackageContext[] = (profile.packages ?? []).map((pkg) => {
+    const scoped = index.standards.filter((s) => s.scope === pkg.path);
+    return {
+      path: pkg.path,
+      testCommand: pkg.testCommand,
+      instructionBody: renderPackageInstructionBody(pkg.path, scoped),
+    };
+  });
+  return {
+    packages,
+    map: buildCodebaseMap(profile),
+    exclusions: [...DEFAULT_EXCLUSIONS],
+  };
+}
+
+function renderPackageInstructionBody(pkgPath: string, scoped: StandardEntry[]): string {
+  const lines = [
+    `# \`${pkgPath}\` — local conventions`,
+    "",
+    "Conventions specific to this package, compiled from its own evidence. The",
+    "repo-wide constitution still applies; this file adds package-local detail.",
+    "",
+  ];
+  if (scoped.length === 0) {
+    lines.push("- No package-specific standards were mined; follow the root constitution.");
+  } else {
+    for (const s of scoped) lines.push(`- ${s.statement}`);
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 export function serializeOverlay(overlay: Overlay): string {
@@ -151,6 +277,27 @@ export interface EvidenceCoverage {
 export function evidenceCoverage(index: StandardsIndex): EvidenceCoverage {
   const uncited = index.standards.filter((s) => s.sources.length === 0).map((s) => s.statement);
   return { total: index.standards.length, covered: index.standards.length - uncited.length, uncited };
+}
+
+/** Root instructions larger than this (lines OR chars) trigger a lean-root advisory. */
+const ROOT_ADVISORY_MAX_LINES = 200;
+const ROOT_ADVISORY_MAX_CHARS = 10000;
+
+/**
+ * Advisory string when the root instruction surface has grown large enough that
+ * package-specific guidance should move into per-package files. Returns
+ * `undefined` when the root is comfortably within budget. Purely advisory — it
+ * never blocks or rewrites anything.
+ */
+export function rootInstructionAdvisory(rootBody: string): string | undefined {
+  const lineCount = rootBody.split("\n").length;
+  if (lineCount <= ROOT_ADVISORY_MAX_LINES && rootBody.length <= ROOT_ADVISORY_MAX_CHARS) {
+    return undefined;
+  }
+  return (
+    `Root instructions are large (${lineCount} lines, ${rootBody.length} chars). ` +
+    "Consider moving package-specific standards into per-package instruction files to keep the root lean."
+  );
 }
 
 export interface StandardsDrift {

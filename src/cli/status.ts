@@ -9,6 +9,8 @@ export interface StatusReport {
   /** Open blocking interview gaps (deferred integrations excluded by construction). */
   blockingGaps: number;
   coverage: EvidenceCoverage;
+  /** Workspace packages detected (0 for a single-package repo). */
+  packages: number;
   /** Standard statements, in the order `aisdlc explain <n>` numbers them (1-based). */
   standards: string[];
 }
@@ -27,6 +29,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
     upToDate: inspection.upToDate,
     blockingGaps: inspection.gaps.length,
     coverage: evidenceCoverage(inspection.standardsIndex),
+    packages: inspection.profile.packages?.length ?? 0,
     standards: inspection.standardsIndex.standards.map((s) => s.statement),
   };
 }
@@ -53,6 +56,9 @@ export function formatStatus(report: StatusReport): string {
       : "Freshness: stale — re-run `aisdlc customize` to re-align",
   );
   lines.push(`Blocking gaps: ${report.blockingGaps}`);
+  if (report.packages > 0) {
+    lines.push(`Workspace packages: ${report.packages} (per-package instructions emitted)`);
+  }
   lines.push(
     `Evidence coverage: ${coverage.covered}/${coverage.total} standards cite a source (${pct(coverage.covered, coverage.total)})`,
   );

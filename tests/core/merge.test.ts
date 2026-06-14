@@ -31,4 +31,49 @@ describe("mergeOverlay", () => {
     expect(model.constitution).toBe(base.constitution);
     expect(model.roles[0]?.frontmatter.model).toBeUndefined();
   });
+
+  it("appends a role addendum under the fenced heading, leaving other roles untouched", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({
+      version: 1,
+      roleAddenda: { engineer: "Repo uses Vitest; run `npm test`." },
+    });
+    const model = mergeOverlay(base, overlay);
+
+    const engineer = model.roles.find((r) => r.frontmatter.name === "engineer")!;
+    expect(engineer.body).toContain("## Project-specific guidance (generated)");
+    expect(engineer.body).toContain("Repo uses Vitest");
+    // base body survives ahead of the addendum
+    expect(engineer.body).toMatch(/only\*\* role permitted to[\s\S]*Project-specific guidance/);
+
+    const reviewer = model.roles.find((r) => r.frontmatter.name === "reviewer")!;
+    const baseReviewer = base.roles.find((r) => r.frontmatter.name === "reviewer")!;
+    expect(reviewer.body).toBe(baseReviewer.body);
+  });
+
+  it("ignores addenda for roles absent from the base", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({ version: 1, roleAddenda: { ghost: "noop" } });
+    const model = mergeOverlay(base, overlay);
+    for (const role of model.roles) {
+      expect(role.body).not.toContain("## Project-specific guidance (generated)");
+    }
+  });
+
+  it("is idempotent: merging the same addenda twice yields identical bodies", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({ version: 1, roleAddenda: { tester: "Run `npm test` (ESM)." } });
+    const a = mergeOverlay(base, overlay).roles.map((r) => r.body);
+    const b = mergeOverlay(base, overlay).roles.map((r) => r.body);
+    expect(a).toEqual(b);
+  });
+
+  it("throws when an addendum violates the contract (surfaces at compile)", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({
+      version: 1,
+      roleAddenda: { reviewer: "You may edit files directly to fix nits." },
+    });
+    expect(() => mergeOverlay(base, overlay)).toThrow(/posture/);
+  });
 });

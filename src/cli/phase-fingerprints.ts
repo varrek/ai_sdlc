@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { EMITTED_MANIFEST_PATH } from "../core/engine.js";
+import { PROJECT_CONTEXT_FILE } from "../core/loader.js";
 import { readProjectLock } from "../core/overlay.js";
 import { fingerprint } from "../customize/setup-state.js";
 
@@ -17,10 +18,18 @@ export function baseFingerprint(baseDir: string, sdlcDir: string): string {
   return fingerprint(["dir", ...hashDir(baseDir)]);
 }
 
-/** Content of the overlay file, or `""` when none exists yet. */
+/**
+ * Content of the overlay file folded with the sibling `project-context.json`, or
+ * `""` when neither exists. Including the project context means a change to
+ * per-package instructions, the codebase map, or exclusions invalidates the
+ * `compiled` phase even when `.customize.yaml` itself is unchanged.
+ */
 export function overlayFingerprint(overlayPath: string | undefined): string {
   if (!overlayPath || !existsSync(overlayPath)) return fingerprint(["overlay", ""]);
-  return fingerprint(["overlay", readFileSync(overlayPath, "utf8")]);
+  const overlay = readFileSync(overlayPath, "utf8");
+  const ctxPath = join(dirname(overlayPath), PROJECT_CONTEXT_FILE);
+  const ctx = existsSync(ctxPath) ? readFileSync(ctxPath, "utf8") : "";
+  return fingerprint(["overlay", overlay, "project-context", ctx]);
 }
 
 /** `compiled` phase fingerprint: overlay content folded with the base hash. */

@@ -6,6 +6,7 @@ import type {
   Role,
   Skill,
 } from "../schema/index.js";
+import type { ProjectContext } from "./project-context.js";
 
 /**
  * The fully-resolved, host-neutral model produced by loading `sdlc-base/` and
@@ -20,6 +21,13 @@ export interface NeutralModel {
   skills: Skill[];
   integrations: IntegrationContract[];
   overlay: Overlay;
+  /**
+   * Structured repo-shape context (per-package instructions, codebase map,
+   * exclusions). Absent when compiling without a prior customize; adapters fall
+   * back to today's output (single root instruction file) and the static
+   * exclusion default.
+   */
+  projectContext?: ProjectContext;
 }
 
 /** A single file an adapter wants written, with a path relative to the target repo root. */

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { loadBase, loadOverlay } from "../core/loader.js";
+import { loadBase, loadOverlay, loadProjectContext, projectContextPathFor } from "../core/loader.js";
 import { mergeOverlay } from "../core/merge.js";
 import { computeGaps, DEFERRED_INTEGRATIONS } from "../customize/gap-interview.js";
 import { mineRepo } from "../customize/repo-miner.js";
@@ -63,7 +63,8 @@ export function runSmokeCli(options: SmokeCliOptions): SmokeCliResult {
     });
   }
 
-  const model = mergeOverlay(loadBase(options.baseDir), overlay);
+  const projectContext = loadProjectContext(projectContextPathFor(options.overlayPath));
+  const model = mergeOverlay(loadBase(options.baseDir), overlay, projectContext);
   const result = runSmoke({ model, configDir: options.configDir });
 
   const profile = mineRepo(options.repoRoot ?? process.cwd());
