@@ -88,13 +88,14 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   if (profile.testCommand && !answers["test-command"]) {
     answers["test-command"] = profile.testCommand;
   }
+  const gapClosureProvenance = resolveGapClosureProvenance(profile, answers, priorOverlay, options.answers ?? {});
   const gaps = computeGaps(profile, answers);
 
   const firstRun = !existsSync(standardsPath);
   const standardsIndex = buildStandardsIndex(profile);
   const drift = diffStandardsIndex(standardsIndex, readPriorStandards(standardsPath));
 
-  const overlay = buildOverlay(profile, answers, priorOverlay);
+  const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance);
   const overlaySerialized = serializeOverlay(overlay);
   const projectContext = buildProjectContext(profile, standardsIndex);
 
@@ -142,6 +143,7 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
 export interface RepoInspection {
   profile: RepoProfile;
   standardsIndex: StandardsIndex;
+  overlay: Overlay;
   gaps: GapQuestion[];
   /** True when no blocking gaps remain. */
   ready: boolean;
@@ -170,10 +172,11 @@ export function inspectRepo(options: {
   const answers = mergeAnswers(priorOverlay, {});
   const profile = mineRepo(options.repoRoot);
   if (profile.testCommand && !answers["test-command"]) answers["test-command"] = profile.testCommand;
+  const gapClosureProvenance = resolveGapClosureProvenance(profile, answers, priorOverlay, {});
   const gaps = computeGaps(profile, answers);
   const standardsIndex = buildStandardsIndex(profile);
 
-  const overlay = buildOverlay(profile, answers, priorOverlay);
+  const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance);
   const minedFp = fingerprint([stableProfileJson(profile)]);
   const overlayFp = fingerprint([serializeOverlay(overlay)]);
   const state = readSetupState(sdlcDir);
@@ -184,11 +187,40 @@ export function inspectRepo(options: {
   return {
     profile,
     standardsIndex,
+    overlay,
     gaps,
     ready: gaps.length === 0,
     upToDate,
     initialized: existsSync(overlayPath),
   };
+}
+
+function resolveGapClosureProvenance(
+  profile: RepoProfile,
+  answers: Record<string, string>,
+  prior: Overlay | undefined,
+  explicit: Record<string, string>,
+): Overlay["gapClosureProvenance"] {
+  const provenance: Overlay["gapClosureProvenance"] = { ...(prior?.gapClosureProvenance ?? {}) };
+  const answer = answers["test-command"];
+  if (!answer) return provenance;
+  if (explicit["test-command"]) {
+    provenance["test-command"] = "interview";
+    return provenance;
+  }
+  if (prior?.interviewAnswers["test-command"] === answer) {
+    provenance["test-command"] = prior.gapClosureProvenance["test-command"] ?? "unknown";
+    return provenance;
+  }
+  if (profile.testCommand && profile.testCommand === answer) {
+    const sources = profile.evidence["test-command"] ?? [];
+    provenance["test-command"] = sources.some((source) => source.startsWith(".github/") || source.endsWith(".gitlab-ci.yml"))
+      ? "ci"
+      : "miner";
+    return provenance;
+  }
+  provenance["test-command"] ??= "unknown";
+  return provenance;
 }
 
 /** A stable, path-independent projection of the profile used as the `mined` fingerprint input. */

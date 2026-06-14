@@ -208,6 +208,8 @@ function cmdStatus(rest: string[]): void {
     repoRoot: options.get("repo") ?? process.cwd(),
     overlayDir: options.get("overlay-dir"),
     sdlcDir: options.get("sdlc-dir"),
+    baseDir: options.get("base"),
+    outDir: options.get("out"),
   });
   process.stdout.write(`${formatStatus(report)}\n`);
   // Not-yet-set-up is a non-zero exit so scripts can gate on it.

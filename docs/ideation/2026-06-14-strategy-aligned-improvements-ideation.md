@@ -1,77 +1,220 @@
-# Ideation — Strategy-aligned improvements to ai-sdlc
-
-_Date: 2026-06-14 · Mode: repo-grounded · Grounding: `STRATEGY.md`, `src/customize/repo-miner.ts`, `src/cli/*`, prior shipped work (setup chain, track-aware compilation)_
-
-## Grounding context
-
-**Strategy (verbatim anchors).**
-- **Target problem:** off-the-shelf agents/skills don't fit a real project (wrong test command, linter, framework, conventions); hand-alignment is costly and drifts.
-- **Approach:** derive each agent's config from the repo itself — mine the real stack **and architecture** into an evidence-backed overlay where every standard cites its source, so roles like the **Architect carry rules grounded in the actual project**; keep aligned via freshness/drift.
-- **Tracks:** (1) Repo mining & evidence, (2) Freshness & re-alignment, (3) Setup orchestration & UX.
-- **Metrics:** hands-off setup rate, blocking gaps at first run, evidence coverage, re-run-is-a-no-op.
-
-**Codebase reality (the gap to close).** `RepoProfile` mines `languages, frameworks, testRunner, testCommand, linters, packageManagers, manifests, ciFiles, codeowners, docs, evidence`. It does **not** mine **architecture** (module/layer structure, entrypoints, directory roles) or **conventions** (naming, commit style, test-file layout). The Architect role therefore carries no project-specific architectural rules — a direct miss against the stated approach. Separately, the four strategy metrics are **defined but uninstrumented**: nothing computes or reports them.
-
-> Generation method: grounded directly by the orchestrator (deep prior context this session) across the three tracks + cross-cutting; external research skipped for momentum.
-
+---
+date: 2026-06-14
+topic: strategy-aligned-improvements
+focus: STRATEGY.md, current implementation, /tmp/aisdlc-corpus, LLM-agentic and deterministic setup paths
+mode: repo-grounded
 ---
 
-## Survivors (ranked)
+# Ideation: Strategy-Aligned Improvements to ai-sdlc
 
-### S1. Architecture mining → Architect-grounded standards _(Track: Repo mining & evidence)_
-Detect concrete architecture signals — top-level module/directory roles, entrypoints, layering (e.g. `src/adapters`, `src/core`, `src/cli`), and the dependency direction between them — and emit an **evidence-backed "project architecture" standard** plus Architect-role context.
-- **basis** `direct:` `RepoProfile` has no architecture field; the Architect role body is generic. STRATEGY's approach explicitly names "mine … architecture … so the Architect carries rules grounded in the actual project."
-- **why it matters** Closes the single biggest gap between the stated approach and the implementation. This is the headline differentiator.
-- **meeting test** Yes — what counts as "architecture" worth mining is a real design discussion.
+## Grounding Context
 
-### S2. `aisdlc status` — instrument the strategy metrics _(Track: Freshness & re-alignment / cross-cutting)_
-A read-only command that reports the four strategy metrics for the current repo: hands-off setup rate proxy (blocking gaps at first run = 0?), open blocking gaps, **evidence coverage** (% of emitted standards citing a source), and freshness state (which phases are fresh / a re-run would be a no-op).
-- **basis** `direct:` metrics live latently in `.sdlc/setup-state.yaml`, `standards-index.yaml`, and the gap list, but nothing surfaces them. `STRATEGY.md` defines them as the feedback loop.
-- **why it matters** You can't improve hands-off rate or evidence coverage without measuring them; cheap to build on existing artifacts; makes the strategy self-monitoring.
-- **meeting test** Yes — which metrics to surface and their exact definitions.
+**Strategy anchors:** ai-sdlc should derive agent configuration from the repo itself, keep every standard evidence-backed, make re-alignment a cheap re-run, and improve four metrics: hands-off setup rate, blocking gaps at first run, evidence coverage, and re-run-is-a-no-op.
 
-### S3. Convention mining _(Track: Repo mining & evidence)_
-Mine project conventions with evidence: file/naming casing, test-file layout (`*.test.ts` vs `tests/`), and **commit-message convention** (sampled from `git log`). Emit as evidence-backed standards.
-- **basis** `direct:` the target problem literally names "wrong … conventions"; miner detects CODEOWNERS but no naming/commit conventions.
-- **why it matters** Directly attacks the stated problem; conventions are what generic configs most often get wrong.
-- **meeting test** Yes — which conventions are worth asserting vs noise.
+**Current implementation reality:** the earlier S1-S4 cluster is now mostly shipped. The CLI mines stack, CI, test command, frameworks, CODEOWNERS, docs, evidence, module maps, entrypoints, conventions, and workspaces. `aisdlc status` and `aisdlc explain` exist. `roleAddenda` are quarantined in the overlay and validated at compile, with `tune-roles` as the opt-in LLM authoring path.
 
-### S4. `aisdlc explain <standard>` + evidence-coverage surfacing _(Track: Setup orchestration & UX)_
-Show the source files behind any emitted standard, and surface evidence coverage (and any zero-source standards) at compile/customize time.
-- **basis** `direct:` `evidence` is already recorded per claim and we recently fixed framework standards to carry sources; nothing lets a user *see* the evidence or catch a coverage regression.
-- **why it matters** Makes the "evidence-backed" bet legible and trustworthy — the trust half of the approach; very low cost.
-- **meeting test** Borderline-yes — pairs naturally with S2.
+**Corpus signal:** `/tmp/aisdlc-corpus` shows strong basic mining and evidence coverage, but the quality gap moved deeper. FastAPI architecture can select `docs_src/` tutorial trees; Vite can surface `playground/` demos as architecture/package context; all corpus overlays carry `interviewAnswers.test-command`, obscuring true hands-off rate; and role addenda are not systematic, especially for Architect.
 
-### S5. Language/framework breadth (Go, Rust, Java, Ruby) _(Track: Repo mining & evidence)_
-Extend detection beyond Python/JS-TS to more stacks, each evidence-backed.
-- **basis** `reasoned:` widening alignment to more repos extends the existing manifest-detection pattern with low architectural risk.
-- **why it matters** Grows the set of projects the tool can align for; modest, incremental.
-- **meeting test** Weak-yes — mostly mechanical; included as breadth.
+**External context:** 2026 prior art clusters around deterministic repo scanners, canonical context sync, drift CI, provenance/explainability, claim confidence, and behavior-level agent evals. Few tools combine deterministic mining, multi-host compile, evidence-linked rules, corpus regression, and optional reviewed LLM addenda.
 
-### S6. Monorepo / nested-manifest mining _(Track: Repo mining & evidence)_
-Detect workspaces and resolve per-package test commands and stacks.
-- **basis** `direct:` explicitly deferred in the setup plan ("monorepo/nested-manifest test-command resolution").
-- **why it matters** Real for non-trivial repos; heavier lift, lower near-term frequency for the solo-dev persona.
-- **meeting test** Yes.
+## Topic Axes
 
-### S7. CI mining beyond GitHub Actions (GitLab CI) _(Track: Repo mining & evidence)_
-Mine `.gitlab-ci.yml` for the test command, mirroring the GitHub Actions miner.
-- **basis** `direct:` deferred in the setup plan; coherent with the existing `gitlab` integration contract.
-- **why it matters** Extends test-command mining to GitLab shops; medium.
-- **meeting test** Weak-yes.
+- Source-root and architecture signal quality.
+- End-to-end corpus and readiness validation.
+- Deterministic versus LLM role personalization.
+- Metrics, status, explain, and freshness.
+- Workspace, language, and CI breadth.
 
----
+## Ranked Ideas
 
-## Rejected (with reasons)
+### 1. Confidence-Gated Architecture Mining
 
-- **`--watch` mode (auto re-run on file change).** YAGNI — freshness already makes manual re-runs cheap; a watcher is heavy daemon surface for little gain. A git hook (below) is the lighter form, and even that is deferred.
-- **Git pre-commit/post-checkout hook to auto-re-align.** Plausible but adds host-git coupling and lifecycle complexity; freshness makes re-runs a no-op already. Revisit after S2 makes drift visible.
-- **Interactive CLI (TTY) interview for blocking gaps.** Duplicates the product's actual delivery model — the agent/skill conducts the interview and writes the overlay. Building a second prompt path competes with the core bet.
-- **`aisdlc doctor`.** Folds entirely into S2 (`status`) + existing `smoke`; no distinct value.
-- **Standalone drift-history changelog.** Partially exists (`core/memory.ts` `recordStandardsDelta`); fold the surfacing into S2 rather than a new artifact.
+**Description:** Treat architecture as a claim that can be suppressed when source-root evidence conflicts. Prefer manifest/workspace/entrypoint/CI signals over raw file counts; demote tutorial/demo/doc trees; and emit an explicit "architecture not confidently inferred" state instead of a wrong module map.
 
----
+**Axis:** Source-root and architecture signal quality.
+
+**Basis:** `direct:` corpus outputs show FastAPI `docs_src/` and Vite `playground/` false positives while `repo-miner.ts` currently relies on directory/file-count heuristics.
+
+**Rationale:** Wrong architecture poisons the Architect and Engineer context while still looking evidence-backed. Honest uncertainty protects the core strategy promise.
+
+**Downsides:** Requires threshold design and careful false-negative handling for repos that really do ship from unusual directories.
+
+**Confidence:** 92%.
+
+**Complexity:** Medium.
+
+**Status:** Explored.
+
+### 2. Corpus Regression Harness with Semantic Assertions
+
+**Description:** Promote the local corpus workflow into a repeatable regression suite that runs `customize -> compile -> smoke -> status` and asserts semantic invariants: setup-ready, evidence coverage, architecture root sanity, forbidden demo/doc roots, and known portability gaps.
+
+**Axis:** End-to-end corpus and readiness validation.
+
+**Basis:** `direct:` corpus smoke can pass even when architecture quality is poor; `.verify/` and `/tmp/aisdlc-corpus` are already being used manually.
+
+**Rationale:** This turns "testing on the corpus" into a durable gate rather than ad-hoc validation.
+
+**Downsides:** Needs fixture policy and stable assertions that catch real regressions without pinning every generated byte.
+
+**Confidence:** 90%.
+
+**Complexity:** Medium.
+
+**Status:** Explored.
+
+### 3. Honest Hands-Off Setup Metric
+
+**Description:** Split "blocking gaps are closed" from "setup was hands-off." Record whether a gap was miner-closed, CI-closed, user/interview-closed, seeded, or manually edited; then expose the true hands-off signal in `status`.
+
+**Axis:** Metrics, status, explain, and freshness.
+
+**Basis:** `direct:` STRATEGY defines hands-off setup rate, but corpus overlays all contain `interviewAnswers.test-command`, making the metric ambiguous.
+
+**Rationale:** The top strategy metric cannot improve until it is measured honestly.
+
+**Downsides:** Requires schema/backfill choices so existing overlays do not look falsely manual.
+
+**Confidence:** 88%.
+
+**Complexity:** Medium.
+
+**Status:** Explored.
+
+### 4. Deterministic Architect Grounding Pack
+
+**Description:** Compile a deterministic Architect grounding section from mined architecture, entrypoints, test command, conventions, and evidence. Keep LLM-authored `roleAddenda` optional and quarantined; do not depend on `tune-roles` for baseline Architect usefulness.
+
+**Axis:** Deterministic versus LLM role personalization.
+
+**Basis:** `direct:` STRATEGY explicitly says the Architect should carry repo-grounded rules, while current role addenda are opt-in and rare in the corpus.
+
+**Rationale:** This gives the highest-leverage planning role project-specific facts without adding non-determinism to compile.
+
+**Downsides:** Needs duplication control between constitution standards, codebase map, and role body text.
+
+**Confidence:** 86%.
+
+**Complexity:** Medium.
+
+**Status:** Explored.
+
+### 5. Status as the Setup Chain Ledger
+
+**Description:** Extend `status` to show the full chain state: mined, overlay-written, compiled, smoke-passed, setup-ready, stale phases, next command, evidence coverage, and hands-off provenance. Avoid adding `doctor` or `watch`.
+
+**Axis:** Metrics, status, explain, and freshness.
+
+**Basis:** `direct:` setup-state records phases but status currently does not present a complete "am I done?" ledger.
+
+**Rationale:** The solo developer needs one read-only answer for readiness and drift.
+
+**Downsides:** Terminal UX can get noisy if standards remain expanded by default.
+
+**Confidence:** 84%.
+
+**Complexity:** Low to Medium.
+
+**Status:** Explored.
+
+### 6. Explain by Stable Claim Key and Evidence Quality
+
+**Description:** Extend `explain` beyond numeric standard indexes so users and harnesses can inspect stable claim keys such as architecture modules, confidence, positive evidence, and negative evidence for rejected roots.
+
+**Axis:** Metrics, status, explain, and freshness.
+
+**Basis:** `direct:` miners already produce evidence keys, but `explain` is tied to standard order and does not show why a candidate path was rejected.
+
+**Rationale:** Debugging architecture and convention mining needs stable provenance, not fragile numbered output.
+
+**Downsides:** Needs a claim-key schema that will remain stable across miner versions.
+
+**Confidence:** 78%.
+
+**Complexity:** Medium.
+
+**Status:** Unexplored.
+
+### 7. Deterministic Role Addenda Pre-Seeds
+
+**Description:** Generate reviewable role addenda drafts or grounding snippets from mined facts for Architect, Tester, Reviewer, and Engineer; let `tune-roles` refine only the gaps.
+
+**Axis:** Deterministic versus LLM role personalization.
+
+**Basis:** `direct:` `roleAddenda` are valuable but rare in corpus; `tune-roles` currently starts from prose authoring rather than a deterministic fact pack.
+
+**Rationale:** This raises role personalization coverage while preserving the "LLM outside compile" boundary.
+
+**Downsides:** Field ownership and round-trip preservation need care.
+
+**Confidence:** 76%.
+
+**Complexity:** Medium to High.
+
+**Status:** Unexplored.
+
+### 8. Workspace-Scoped Architecture and Test Commands
+
+**Description:** In workspace repos, prefer primary workspace roots and package-local commands over one root-level architecture/test-command story. Collapse demo/playground workspaces unless evidence shows they are primary targets.
+
+**Axis:** Workspace, language, and CI breadth.
+
+**Basis:** `direct:` Vite/React-style repos show package contexts and playground noise; large-repo scaling work already introduced scoped standards.
+
+**Rationale:** Monorepo support is partially shipped, but root-level false context undermines package-level wins.
+
+**Downsides:** Primary-package detection is a harder product decision than simple workspace enumeration.
+
+**Confidence:** 74%.
+
+**Complexity:** High.
+
+**Status:** Unexplored.
+
+### 9. GitLab and Generic CI Test-Command Mining
+
+**Description:** Extend CI test-command mining beyond GitHub Actions, beginning with `.gitlab-ci.yml`, and eventually unify job-selection heuristics across CI formats.
+
+**Axis:** Workspace, language, and CI breadth.
+
+**Basis:** `direct:` `.gitlab-ci.yml` is detected as CI evidence but test-command extraction was deferred.
+
+**Rationale:** This directly improves hands-off rate for GitLab shops.
+
+**Downsides:** Lower urgency than architecture/corpus quality unless target users are GitLab-heavy.
+
+**Confidence:** 70%.
+
+**Complexity:** Medium.
+
+**Status:** Unexplored.
+
+### 10. Agent Behavior Eval Slice
+
+**Description:** Add a small eval layer after setup-ready that checks whether generated context makes an agent choose the right module/test command for a pinned corpus scenario.
+
+**Axis:** End-to-end corpus and readiness validation.
+
+**Basis:** `external:` agent eval prior art stresses trace/behavior assertions; `direct:` current smoke validates files and gate mechanics, not agent adherence.
+
+**Rationale:** The product promise is agent behavior, not just emitted files.
+
+**Downsides:** Harder to keep deterministic and cheap; should follow the corpus semantic harness, not precede it.
+
+**Confidence:** 66%.
+
+**Complexity:** High.
+
+**Status:** Unexplored.
+
+## Rejection Summary
+
+- New `doctor`, `watch`, or interactive TTY setup commands were rejected because the same value belongs in `status`, `customize`, `compile`, and `smoke`.
+- Full LLM-in-compile architecture classification was rejected because it breaks the deterministic path; optional LLM mining/classification remains a later experiment only if deterministic confidence gating is insufficient.
+- Single-host compile by default was rejected for now because the product's multi-host promise is already central; the right near-term move is better capability/gap visibility.
+- Broad language expansion was downgraded because the corpus quality failures are more urgent than adding Java/Ruby/Rust breadth.
+- Giant module-list expansion and per-package file explosion were rejected because they worsen token budget and agent attention.
 
 ## Handoff
 
-Strongest cohesive cluster for one implementable plan: **S1–S4** (deepen mining with architecture + conventions, and instrument/expose the evidence+alignment metrics). **S5–S7** are breadth/heavier — carry as deferred follow-ups. Next: `ce-brainstorm` on the surviving set to define scope precisely.
+Selected cluster for brainstorm/plan/work: ideas 1-5 together. They form one coherent improvement: make architecture claims confidence-gated, validate the full corpus chain semantically, measure hands-off/setup-ready honestly, and carry deterministic role grounding before optional LLM prose.

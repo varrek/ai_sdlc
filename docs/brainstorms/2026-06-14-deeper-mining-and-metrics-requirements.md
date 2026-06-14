@@ -1,79 +1,161 @@
 ---
-status: ready
+date: 2026-06-14
+topic: deeper-mining-and-metrics
 origin_ideation: docs/ideation/2026-06-14-strategy-aligned-improvements-ideation.md
 actors: [A1]
-flows: [F1, F2, F3]
-acceptance_examples: [AE1, AE2, AE3, AE4, AE5]
+flows: [F1, F2, F3, F4]
+acceptance_examples: [AE1, AE2, AE3, AE4, AE5, AE6, AE7]
 ---
 
-# Requirements — Deeper mining (architecture + conventions) and strategy-metric instrumentation
+# Requirements - Quality-Depth Setup Hardening
 
-## Problem
+## Summary
 
-`ai-sdlc` derives evidence-backed agent config from the repo, but two pieces of its own strategy are unimplemented:
+Harden the now-built mining, status, explain, and role-personalization loop so setup-readiness reflects useful repo alignment, not just valid emitted files. The scope centers on confidence-gated architecture claims, semantic corpus regression, honest hands-off metrics, and deterministic role grounding before optional LLM-authored addenda.
 
-1. **Mining stops short of architecture and conventions.** `RepoProfile` captures stack signals (languages, frameworks, test command, linters, manifests, CI, CODEOWNERS) but not **project architecture** (module/layer structure, entrypoints) or **conventions** (commit style, test layout). STRATEGY's approach explicitly promises the Architect carries rules "grounded in the actual project," and names "wrong conventions" as a core symptom of the target problem — yet neither is mined today.
-2. **The strategy metrics are uninstrumented.** Hands-off setup rate, blocking gaps at first run, evidence coverage, and re-run-is-a-no-op are defined in `STRATEGY.md` but nothing computes or surfaces them, and a user can't see the evidence behind any emitted standard.
+---
+
+## Problem Frame
+
+The first strategy-aligned pass added the missing surfaces: architecture/convention mining, `aisdlc status`, `aisdlc explain`, freshness-aware setup phases, workspace detection, and quarantined `roleAddenda`. That moved the product from feature absence to quality risk.
+
+The corpus now shows the sharper failure mode: generated config can be schema-valid and evidence-cited while still pointing agents at low-value context. FastAPI can surface tutorial trees such as `docs_src/` as architecture, Vite can overrepresent playground/demo packages, and all corpus overlays can carry `interviewAnswers.test-command`, making the true hands-off setup rate unclear. For a product whose promise is repo-derived agent alignment, a green setup that teaches the Architect the wrong map is worse than an honest gap.
+
+---
+
+## Key Decisions
+
+- **Deterministic path remains primary.** Compile and default setup must stay deterministic; any LLM-assisted role prose remains optional, reviewable, and quarantined in the Overlay.
+- **Quality beats breadth for this slice.** Architecture/root confidence and corpus-readiness gates are higher priority than adding new language ecosystems or CI formats.
+- **Visibility extends existing commands.** `status`, `explain`, `customize`, and `smoke` absorb readiness and evidence visibility; this work does not introduce `doctor`, `watch`, or a TTY setup flow.
+- **Wrong architecture is a reportable failure.** When architecture signals conflict, the system should prefer an explicit low-confidence state over an over-specific standard.
+
+---
 
 ## Actors
 
-- **A1 — Individual developer** setting up / re-aligning AI agents on their own repo (the STRATEGY persona).
+- A1. **Individual developer** setting up or re-aligning AI agents on a repo and expecting generated context to reflect the real project.
 
-## Goals
-
-- Mine concrete **architecture** signals and emit an evidence-backed architecture standard plus Architect-role grounding.
-- Mine **conventions** (commit-message style, test layout) as evidence-backed standards.
-- Surface the **four strategy metrics** and per-standard **evidence** through read-only CLI commands.
-- Keep every new standard **evidence-backed** (every claim cites a source path or sampled artifact) and every command **idempotent / freshness-aware**, consistent with the existing model.
-
-## Non-goals
-
-- No new AI/LLM in artifact generation — mining stays deterministic TypeScript.
-- No interactive TTY interview, no file watcher, no git hooks (rejected in ideation).
-- No new host adapters; architecture/convention standards flow through the existing overlay → adapter emit path.
+---
 
 ## Requirements
 
-- **R1 (S1).** Mine architecture: the top-level source-module map (directory roles under the primary source root, to depth ≤2) and entrypoints (from manifests/`bin`), recorded with evidence (the dirs/files observed). Empty/flat repos yield no architecture standard rather than a fabricated one.
-- **R2 (S1).** Emit an evidence-backed **"Project architecture"** standard from R1, and make the architecture summary available to the Architect role's grounding so its rules reference the real module map.
-- **R3 (S3).** Mine **commit convention**: sample recent `git log` subjects; if a clear majority match Conventional Commits, assert it as an evidence-backed standard (evidence = sampled commit subjects / count). No git history or no clear majority → no claim.
-- **R4 (S3).** Mine **test layout**: detect co-located (`*.test.*`/`*.spec.*`) vs separate (`tests/`/`spec/`) and assert it as an evidence-backed standard (evidence = sample test paths).
-- **R5 (S2).** Add `aisdlc status`: a read-only report of (a) setup phase state + whether a re-run would be a no-op (freshness), (b) open blocking gaps count, (c) **evidence coverage** = % of emitted standards with ≥1 source, listing any zero-source standards. Never mutates state.
-- **R6 (S4).** Add `aisdlc explain <n>`: print standard *n* (as numbered by `status`/standards-index) with its full statement and source list. Out-of-range / no-overlay → a clear, non-crashing message.
-- **R7 (S4).** Surface evidence coverage at `customize`/`compile` time (one line; warn when any standard has zero sources) so a coverage regression is visible without running `status`.
-- **R8 (cross-cutting).** All mined claims remain evidence-backed; architecture/convention inputs participate in the `mined` fingerprint so freshness/drift continue to hold (re-run is a no-op when inputs are unchanged).
+**Architecture confidence**
 
-## Key flows
+- R1. Architecture mining must classify candidate roots with confidence signals instead of relying on file-count dominance alone.
+- R2. Architecture mining must demote tutorial, documentation, fixture, demo, and playground trees unless repo evidence shows they are primary product surfaces.
+- R3. When architecture confidence is below the chosen threshold, Customize must emit an explicit low-confidence architecture state rather than a detailed architecture standard.
+- R4. High-confidence architecture output must stay bounded enough for agents to use, with overflow details available through evidence or codebase-map surfaces instead of a giant constitution bullet.
 
-- **F1 — Deeper customize.** `aisdlc customize` mines stack **+ architecture + conventions**; the overlay/standards-index gains architecture, commit-convention, and test-layout standards, each citing sources.
-- **F2 — Status check.** `aisdlc status` prints phase/freshness, blocking gaps, and evidence coverage for the current repo.
-- **F3 — Explain a standard.** `aisdlc explain 3` prints standard #3 and the files that justify it.
+**Corpus and readiness**
 
-## Acceptance examples
+- R5. The corpus validation flow must exercise `customize -> compile -> smoke -> status` for selected fixtures, not only customize or structural smoke.
+- R6. Corpus assertions must include semantic invariants for known repos, including setup-ready state, evidence coverage, architecture root sanity, and absence of known false-positive roots.
+- R7. Negative or adversarial fixtures must prove that ambiguous repos fail honestly or surface low-confidence states instead of silently reaching setup-ready.
+- R8. Readiness reporting must distinguish structural validity from alignment quality so a repo can be valid-but-needs-attention when mined context is suspect.
 
-- **AE1 (R1,R2).** In this repo, customize records an architecture map including `src/adapters`, `src/core`, `src/cli`, `src/customize` with evidence = those directories, and emits a "Project architecture" standard whose sources are non-empty.
-- **AE2 (R3).** A repo whose recent commits are majority `feat:/fix:/chore:` gets a Conventional Commits standard citing sampled subjects; a repo with freeform commits gets no such standard.
-- **AE3 (R4).** A repo using `*.test.ts` gets a "tests are co-located" standard; a repo using a top-level `tests/` dir gets a "tests live in tests/" standard — each with sample paths as sources.
-- **AE4 (R5,R7).** `aisdlc status` on a freshly set-up repo reports 0 blocking gaps, a re-run-is-a-no-op = true, and an evidence-coverage percentage; a standard with zero sources is listed explicitly.
-- **AE5 (R6).** `aisdlc explain <n>` prints the n-th standard's statement and sources; `explain 999` prints a clear out-of-range message and exits non-zero without a stack trace.
+**Hands-off and freshness metrics**
 
-## Scope boundaries
+- R9. `status` must report a hands-off setup signal that distinguishes miner-closed gaps from human/interview/seeded answers.
+- R10. `status` must show the setup chain ledger: mined, overlay-written, compiled, smoke-passed, setup-ready, stale phases, and the next action needed.
+- R11. Freshness reporting must explain which phase is stale and why at a user-actionable level, without requiring users to inspect fingerprints.
+- R12. Evidence reporting must distinguish cited evidence from useful evidence when citations come only from low-value roots such as tutorials or demos.
+
+**Role grounding**
+
+- R13. Architect must receive deterministic grounding from mined repo facts when those facts are high-confidence.
+- R14. Deterministic role grounding must be bounded and additive, preserving hard gates and avoiding contradiction with the Constitution.
+- R15. Optional LLM-authored addenda must remain outside the deterministic compile path and must not be required for baseline Architect usefulness.
+- R16. Role-personalization status must make generic, deterministically grounded, and LLM-authored role states visible.
+
+---
+
+## Key Flows
+
+- F1. **Confidence-gated customize**
+  - **Trigger:** The developer runs Customize on a repo with mixed source, docs, demo, and test fixture directories.
+  - **Actors:** A1.
+  - **Steps:** Customize mines stack and architecture signals, scores candidate roots, emits high-confidence architecture or an explicit low-confidence state, and records evidence for the decision.
+  - **Outcome:** Generated standards avoid misleading architecture claims when the source-root signal is ambiguous.
+
+- F2. **Corpus readiness regression**
+  - **Trigger:** A developer or CI run validates ai-sdlc against the selected corpus fixtures.
+  - **Actors:** A1.
+  - **Steps:** The harness runs the full setup chain, collects status output, and checks semantic invariants for each fixture.
+  - **Outcome:** Regressions in architecture quality, setup-ready, evidence coverage, or known portability gaps fail with targeted diagnostics.
+
+- F3. **Status as setup ledger**
+  - **Trigger:** The developer runs `aisdlc status` after setup or after repo changes.
+  - **Actors:** A1.
+  - **Steps:** Status reports phase freshness, setup-ready, hands-off provenance, evidence quality, and the next action.
+  - **Outcome:** The developer can tell whether the repo is done, stale, or valid-but-needs-attention from one read-only command.
+
+- F4. **Deterministic Architect grounding**
+  - **Trigger:** Compile emits role files for a repo with high-confidence architecture or related mined facts.
+  - **Actors:** A1.
+  - **Steps:** Compile includes bounded Architect grounding derived from mined facts and reports whether each role is generic, deterministic, or LLM-authored.
+  - **Outcome:** Architect receives project-specific guidance even when `tune-roles` has not run.
+
+---
+
+## Acceptance Examples
+
+- AE1. **Covers R1-R4, F1.** Given a FastAPI-like repo where tutorial files outnumber library files, when Customize runs, then architecture mining does not emit a detailed standard rooted only in tutorial directories.
+- AE2. **Covers R1-R4, F1.** Given a Vite-like repo with many playground packages and primary product packages, when Customize runs, then playground/demo roots are demoted or scoped so the root architecture summary does not present them as the primary project architecture.
+- AE3. **Covers R5-R8, F2.** Given the selected corpus fixtures, when the corpus harness runs, then each fixture completes the full setup chain and reports semantic pass/fail checks beyond structural smoke.
+- AE4. **Covers R7, F2.** Given an adversarial fixture with ambiguous roots and no reliable product source signal, when the corpus harness runs, then the fixture fails honestly or reports low architecture confidence instead of producing a confident wrong standard.
+- AE5. **Covers R9-R12, F3.** Given a repo whose test command was mined from CI, when `status` runs, then hands-off setup does not count that command as a human interview answer.
+- AE6. **Covers R10-R11, F3.** Given a repo whose overlay is current but compiled output is stale, when `status` runs, then it names compile as the stale phase and points to compile as the next action.
+- AE7. **Covers R13-R16, F4.** Given a repo with high-confidence architecture facts and no LLM-authored addenda, when compile emits roles, then Architect has deterministic repo grounding and status shows that it is deterministic rather than LLM-authored.
+
+---
+
+## Success Criteria
+
+- Corpus validation catches the known FastAPI/Vite architecture-quality failures that structural smoke previously allowed.
+- `status` reports setup-ready, hands-off provenance, phase freshness, and evidence quality without mutating `.sdlc`.
+- Architect receives useful deterministic repo grounding when architecture confidence is high.
+- Optional LLM addenda remain additive, reviewable, and unnecessary for baseline setup-readiness.
+- Re-running setup with unchanged inputs remains a no-op except when confidence or semantic corpus assertions intentionally change.
+
+---
+
+## Scope Boundaries
 
 ### In scope
-- S1 architecture mining, S2 `status`, S3 convention mining, S4 `explain` + coverage surfacing (R1–R8).
+
+- Confidence-gated architecture mining and bounded architecture output.
+- Semantic corpus regression for setup-readiness and architecture quality.
+- Hands-off provenance and setup-chain reporting in `status`.
+- Deterministic Architect grounding from high-confidence mined facts.
 
 ### Deferred to follow-up work
-- **S5** — language/framework breadth (Go, Rust, Java, Ruby).
-- **S6** — monorepo / nested-manifest mining.
-- **S7** — CI mining beyond GitHub Actions (GitLab CI).
-- Git hooks / `--watch` auto-re-alignment (rejected in ideation; revisit after `status` makes drift visible).
 
-## Success criteria
+- Behavior-level agent evals that ask an actual agent to choose the right module or test command.
+- GitLab and generic CI test-command mining.
+- Java, Ruby, Rust, and broader language/framework expansion.
+- Full role-addenda pre-seeding for every role beyond the deterministic Architect baseline.
+- Workspace-scoped package policy beyond what is needed to prevent root-level architecture noise.
 
-- Architecture + convention standards appear in the emitted overlay for this repo, all with non-empty sources (evidence coverage does not regress).
-- `aisdlc status` and `aisdlc explain` run read-only, are covered by tests, and never mutate `.sdlc`.
-- Re-running `customize`/`compile` with unchanged inputs remains a no-op (golden + freshness tests stay green after the new fingerprint inputs are added).
+### Out of scope
 
-## Outstanding questions
+- New `doctor`, `watch`, `init`, or TTY interview commands.
+- LLM execution in the deterministic compile path.
+- New host adapters or a single-host default compile mode.
+- Rewriting the Base role system or weakening hard gates.
 
-- None blocking. Architecture detection is heuristic by nature; AE1 pins the expected shape for this repo so "good enough" is testable.
+---
+
+## Sources / Research
+
+- `STRATEGY.md` defines the product promise and strategy metrics.
+- `docs/ideation/2026-06-14-strategy-aligned-improvements-ideation.md` ranks the updated quality-depth idea cluster.
+- `docs/plans/2026-06-14-003-feat-deeper-mining-and-metrics-plan.md` and prior implementation work establish the now-shipped mining/status/explain baseline.
+- `docs/plans/2026-06-14-005-feat-llm-authored-role-addenda-plan.md` defines the LLM addenda quarantine model.
+- `/tmp/aisdlc-corpus` provides the FastAPI, Vite, and multi-framework validation signals used to sharpen this scope.
+
+---
+
+## Outstanding Questions
+
+- None blocking for planning. The architecture-confidence threshold, corpus fixture list, and exact hands-off provenance schema are planning-owned decisions.

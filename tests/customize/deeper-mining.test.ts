@@ -1,17 +1,20 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCustomize } from "../../src/cli/customize.js";
+import { runCompileCli } from "../../src/cli/compile.js";
 import { explainStandard } from "../../src/cli/explain.js";
+import { runSmokeCli } from "../../src/cli/smoke.js";
 import { buildStatus } from "../../src/cli/status.js";
 import { buildStandardsIndex, evidenceCoverage } from "../../src/customize/emitters.js";
 import { mineRepo } from "../../src/customize/repo-miner.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repos = resolve(here, "..", "fixtures", "sample-repos");
+const baseDir = resolve(here, "..", "..", "sdlc-base");
 const repo = (name: string) => join(repos, name);
 
 const tmpDirs: string[] = [];
@@ -44,6 +47,7 @@ describe("U1 architecture mining", () => {
   it("maps modules under a root-level source layout and cites them as evidence", () => {
     const p = mineRepo(repo("python-rags"));
     expect(p.architecture).toBeDefined();
+    expect(p.architecture!.confidence).toBe("high");
     expect(p.architecture!.modules).toContain("src");
 
     const arch = buildStandardsIndex(p).standards.find((s) =>
@@ -61,6 +65,42 @@ describe("U1 architecture mining", () => {
   it("makes no architecture claim for a genuinely flat repo", () => {
     const p = mineRepo(repo("thin-poc"));
     expect(p.architecture).toBeUndefined();
+  });
+
+  it("demotes FastAPI docs_src tutorial trees instead of publishing them as architecture", () => {
+    const p = mineRepo(repo("fastapi-like"));
+    expect(p.architecture).toBeDefined();
+    expect(p.architecture!.sourceRoot).toBe("fastapi");
+    expect(p.architecture!.confidence).toBe("high");
+    expect(p.architecture!.demotedRoots).toContain("docs_src");
+
+    const index = buildStandardsIndex(p);
+    const arch = index.standards.find((s) => s.statement.startsWith("Project architecture:"));
+    expect(arch?.statement).toContain("`fastapi/`");
+    expect(arch?.statement).not.toContain("docs_src");
+  });
+
+  it("does not publish playground packages as Vite-like primary map context", () => {
+    const p = mineRepo(repo("vite-like"));
+    expect(p.architecture?.confidence).toBe("high");
+    const index = buildStandardsIndex(p);
+    const work = tmp("aisdlc-vite-map-");
+    cpSync(repo("vite-like"), work, { recursive: true });
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+    const projectContext = JSON.parse(readFileSync(join(overlayDir, "project-context.json"), "utf8")) as {
+      map: { path: string }[];
+    };
+    expect(projectContext.map.map((entry) => entry.path)).toEqual(["packages/vite"]);
+    expect(index.standards.map((s) => s.statement).join("\n")).not.toContain("playground");
+  });
+
+  it("reports low confidence instead of fabricating a root for ambiguous architecture", () => {
+    const p = mineRepo(repo("ambiguous-architecture"));
+    expect(p.architecture?.confidence).toBe("low");
+    const index = buildStandardsIndex(p);
+    expect(index.standards.some((s) => s.statement.startsWith("Project architecture: modules"))).toBe(false);
+    expect(index.standards.some((s) => s.statement.includes("confidence is low"))).toBe(true);
   });
 });
 
@@ -135,6 +175,51 @@ describe("U4 status (read-only)", () => {
     expect(report.standards.length).toBeGreaterThan(0);
     expect(report.coverage.total).toBe(report.standards.length);
     expect(report.blockingGaps).toBeGreaterThanOrEqual(0);
+  });
+
+  it("reports mined test-command provenance as hands-off setup input", () => {
+    const work = tmp("aisdlc-status-provenance-");
+    cpSync(repo("fastapi-like"), work, { recursive: true });
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+    expect(report.gapClosureProvenance["test-command"]).toBe("miner");
+  });
+
+  it("preserves interview provenance when a human answer matches the mined command", () => {
+    const work = tmp("aisdlc-status-interview-");
+    cpSync(repo("fastapi-like"), work, { recursive: true });
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir, answers: { "test-command": "pytest" } });
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+    expect(report.gapClosureProvenance["test-command"]).toBe("interview");
+    expect(report.handsOff).toBe(false);
+  });
+
+  it("names compiled as stale and compile as next action when overlay is fresh but compile is missing", () => {
+    const work = tmp("aisdlc-status-stale-");
+    cpSync(repo("python-rags"), work, { recursive: true });
+    const sdlcDir = join(work, ".sdlc");
+    const overlayDir = join(sdlcDir, "overlay");
+    runCustomize({ repoRoot: work, overlayDir, sdlcDir });
+
+    const report = buildStatus({ repoRoot: work, overlayDir, sdlcDir, baseDir, outDir: work });
+    expect(report.stalePhases).toContain("compiled");
+    expect(report.nextAction).toBe("compile");
+  });
+
+  it("separates setup-ready from alignment-ready for low-confidence architecture", () => {
+    const work = tmp("aisdlc-status-align-");
+    cpSync(repo("ambiguous-architecture"), work, { recursive: true });
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+    expect(report.architectureConfidence).toBe("low");
+    expect(report.alignmentReady).toBe(false);
+    expect(report.validButNeedsAttention).toBe(true);
   });
 });
 

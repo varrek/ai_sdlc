@@ -36,6 +36,15 @@ The reviewable delta between a freshly mined Standards Index and the prior one o
 ### Interview Gap
 A question Customize must ask because neither repo mining nor prior answers resolve it — for example, which MCP server backs a given integration.
 
+### Setup-ready
+The state where a target repo has closed blocking Interview Gaps, compiled host-native config, and passed the smoke gate. It is stronger than Customize being ready because emitted files and validation must also be current.
+
+### Hands-off Setup
+A setup run that reaches setup-ready without requiring human-owned Overlay answers or edits for blocking setup concerns. Miner-closed gaps count as hands-off; interview answers and manual overlay edits do not.
+
+### Corpus
+The representative set of target repositories used to validate ai-sdlc mining, compile, smoke, and status behavior across real project shapes. Corpus checks are regression signals for setup quality, not product source code.
+
 ### Ceremony Track
 The level of process formality chosen for a project — Quick (the minimal single-writer slice), Standard (adds up-front planning), or Full (adds the integration wrap-up) — which selects how many loop stages run.
 

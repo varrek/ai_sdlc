@@ -21,6 +21,7 @@ coverage/
 __pycache__/
 *.pyc
 venv/
+.worktrees
 .venv/
 
 # TypeScript incremental build info

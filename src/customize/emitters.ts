@@ -80,17 +80,23 @@ export function buildStandardsIndex(profile: RepoProfile): StandardsIndex {
     });
   }
 
-  if (profile.architecture) {
-    const { sourceRoot, modules, entrypoints } = profile.architecture;
+  if (profile.architecture?.confidence === "high") {
+    const { sourceRoot, modules, entrypoints, overflowModules } = profile.architecture;
     const where = sourceRoot === "." ? "the repo root" : `\`${sourceRoot}/\``;
     const moduleList = modules.map((m) => `\`${m}\``).join(", ");
     const entry = entrypoints.length > 0 ? ` Entrypoints: ${entrypoints.map((e) => `\`${e}\``).join(", ")}.` : "";
+    const overflow = overflowModules > 0 ? ` ${overflowModules} additional modules are available in the codebase map.` : "";
     const archSources = Object.entries(profile.evidence)
       .filter(([k]) => k.startsWith("architecture:"))
       .flatMap(([, v]) => v);
     standards.push({
-      statement: `Project architecture: modules ${moduleList} under ${where}; respect these module boundaries.${entry}`,
+      statement: `Project architecture: modules ${moduleList} under ${where}; respect these module boundaries.${entry}${overflow}`,
       sources: [...new Set(archSources)],
+    });
+  } else if (profile.architecture?.confidence === "low") {
+    standards.push({
+      statement: `Project architecture confidence is low; do not treat any single directory as authoritative. Reasons: ${profile.architecture.reasons.join("; ")}.`,
+      sources: profile.evidence["architecture:low-confidence"] ?? [],
     });
   }
   if (profile.conventions?.commits === "conventional") {
@@ -152,6 +158,7 @@ export function buildOverlay(
   profile: RepoProfile,
   answers: Record<string, string> = {},
   prior?: Overlay,
+  gapClosureProvenance: Overlay["gapClosureProvenance"] = {},
 ): Overlay {
   const index = buildStandardsIndex(profile);
   const integrations: Record<string, IntegrationBinding> = { ...(prior?.integrations ?? {}) };
@@ -174,6 +181,7 @@ export function buildOverlay(
     integrations,
     roleModels: prior?.roleModels ?? {},
     interviewAnswers: answers,
+    gapClosureProvenance: { ...(prior?.gapClosureProvenance ?? {}), ...gapClosureProvenance },
   });
 }
 
@@ -184,6 +192,7 @@ export function buildOverlay(
  * evidence so the map stays trustworthy.
  */
 export function buildCodebaseMap(profile: RepoProfile): MapEntry[] {
+  if (profile.architecture?.confidence === "low") return [];
   if (profile.packages && profile.packages.length > 0) {
     return profile.packages.map((pkg) => ({
       path: pkg.path,
@@ -191,10 +200,10 @@ export function buildCodebaseMap(profile: RepoProfile): MapEntry[] {
       sources: packageMapSources(pkg),
     }));
   }
-  if (profile.architecture) {
+  if (profile.architecture?.confidence === "high") {
     const { sourceRoot, modules } = profile.architecture;
     return modules.map((m) => {
-      const path = sourceRoot === "." ? m : `${sourceRoot}/${m}`;
+      const path = m === "." ? sourceRoot : sourceRoot === "." ? m : `${sourceRoot}/${m}`;
       const cited = profile.evidence[`architecture:module:${m}`]?.[0];
       return { path, role: "Source module", sources: [cited ?? path] };
     });
@@ -273,10 +282,31 @@ export interface EvidenceCoverage {
   uncited: string[];
 }
 
+export interface EvidenceQuality {
+  /** Evidence paths that come from roots demoted during architecture mining. */
+  lowValueSources: string[];
+}
+
 /** Fraction of standards that cite at least one source — the strategy evidence metric. */
 export function evidenceCoverage(index: StandardsIndex): EvidenceCoverage {
   const uncited = index.standards.filter((s) => s.sources.length === 0).map((s) => s.statement);
   return { total: index.standards.length, covered: index.standards.length - uncited.length, uncited };
+}
+
+export function evidenceQuality(profile: RepoProfile, index: StandardsIndex): EvidenceQuality {
+  const demoted = new Set(
+    (profile.architecture?.demotedRoots ?? []).filter(
+      (root) => !["tests", "test", "spec", "__tests__"].includes(root),
+    ),
+  );
+  const lowValueSources = new Set<string>();
+  for (const standard of index.standards) {
+    for (const source of standard.sources) {
+      const root = source.split("/")[0] ?? source;
+      if (demoted.has(root)) lowValueSources.add(source);
+    }
+  }
+  return { lowValueSources: [...lowValueSources].sort() };
 }
 
 /** Root instructions larger than this (lines OR chars) trigger a lean-root advisory. */

@@ -1,0 +1,13 @@
+{
+  "name": "vite-like",
+  "workspaces": [
+    "packages/*",
+    "playground/**"
+  ],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0"
+  }
+}

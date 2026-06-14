@@ -29,6 +29,7 @@ const IGNORE_DIRS = new Set([
   ".codex",
   ".windsurf",
   ".aider",
+  ".agents",
   // SDLC phase cache + overlay + logs: state, never user source. Skipping it
   // also makes the emitted-config exclusion below the single source of truth.
   ".sdlc",
@@ -38,10 +39,18 @@ const WALK_DEPTH = 4;
 
 /** Observable architecture: the source module map + entrypoints (never inferred layering). */
 export interface Architecture {
+  /** Whether the source root is strong enough to publish as authoritative guidance. */
+  confidence: "high" | "low";
+  /** Deterministic reasons explaining the confidence decision. */
+  reasons: string[];
   /** The dominant source directory (e.g. `src`), or `.` for root-level source. */
   sourceRoot: string;
   /** Immediate source modules under the source root (e.g. `adapters`, `core`). */
   modules: string[];
+  /** Candidate roots demoted as tutorial/docs/demo/fixture surfaces. */
+  demotedRoots: string[];
+  /** Number of modules omitted from the bounded prompt-facing summary. */
+  overflowModules: number;
   /** Declared entrypoints from manifests (e.g. a `package.json` `bin`/`main`). */
   entrypoints: string[];
 }
@@ -114,16 +123,38 @@ export interface MineOptions {
 const NON_SOURCE_DIRS = new Set([
   "docs",
   "doc",
+  "docs_src",
   "tests",
   "test",
   "spec",
   "__tests__",
   "examples",
   "example",
+  "demo",
+  "demos",
   "fixtures",
+  "playground",
+  "playgrounds",
   ".github",
   ".circleci",
 ]);
+
+const LOW_VALUE_ROOTS = new Set([
+  ...NON_SOURCE_DIRS,
+  "sample",
+  "samples",
+  "testdata",
+  "benchmark",
+  "benchmarks",
+  "template",
+  "templates",
+]);
+
+const MAX_ARCHITECTURE_MODULES = 12;
+
+function isLowValueRoot(seg: string): boolean {
+  return LOW_VALUE_ROOTS.has(seg) || /^docs?[_-]/.test(seg) || /[_-](demo|example|fixture)s?$/.test(seg);
+}
 
 function walk(root: string, excluded: ReadonlySet<string>): string[] {
   const out: string[] = [];
@@ -252,36 +283,98 @@ function mineArchitecture(
     bySeg.set(seg, (bySeg.get(seg) ?? 0) + 1);
   }
 
-  // Prefer the non-source-excluded top-level dir holding the most files as the
-  // source root; fall back to root-level source when no such dir has submodules.
-  let sourceRoot: string | undefined;
-  let best = 0;
-  for (const [seg, count] of bySeg) {
-    if (seg === "." || NON_SOURCE_DIRS.has(seg)) continue;
-    if (count > best) {
-      best = count;
-      sourceRoot = seg;
-    }
-  }
+  const entrypoints = mineEntrypoints(root, fileSet, evidence);
+  const productHints = productRootHints(root, fileSet, entrypoints);
+  const demotedRoots = [...bySeg.keys()].filter((seg) => seg !== "." && isLowValueRoot(seg)).sort();
+  const candidates = [...bySeg.entries()]
+    .filter(([seg]) => seg !== ".")
+    .map(([seg, count]) => {
+      const product = productHints.has(seg);
+      const demoted = isLowValueRoot(seg);
+      return {
+        seg,
+        count,
+        product,
+        demoted,
+        score: count + (product ? 10_000 : 0) - (demoted ? 10_000 : 0),
+      };
+    })
+    .sort((a, b) => b.score - a.score || b.count - a.count || (a.seg < b.seg ? -1 : a.seg > b.seg ? 1 : 0));
 
+  // Prefer repo-declared product hints over raw file count. A demoted/tutorial
+  // tree may contain the most files, but it must not become authoritative
+  // architecture unless no better evidence exists.
+  let sourceRoot = candidates[0]?.seg;
   let modules: string[] = [];
   if (sourceRoot) modules = immediateSubdirs(files, sourceRoot);
+  if (sourceRoot && modules.length === 0 && productHints.has(sourceRoot) && !isLowValueRoot(sourceRoot)) {
+    modules = ["."];
+  }
 
   // Root-level source: no dominant src/-style dir with submodules. Treat the
   // repo root as the source root and use its source subdirs as modules.
   if (modules.length === 0) {
-    const rootDirs = [...bySeg.keys()].filter((s) => s !== "." && !NON_SOURCE_DIRS.has(s));
+    const rootDirs = [...bySeg.keys()].filter((s) => s !== "." && !isLowValueRoot(s));
     if (rootDirs.length === 0) return undefined; // genuinely flat — no claim
     sourceRoot = ".";
     modules = rootDirs.sort();
   }
 
-  for (const m of modules) {
-    addEvidence(evidence, `architecture:module:${m}`, sourceRoot === "." ? m : `${sourceRoot}/${m}`);
+  const selected = candidates.find((c) => c.seg === sourceRoot);
+  const runnerUp = candidates.find((c) => c.seg !== sourceRoot);
+  const reasons: string[] = [];
+  if (sourceRoot === ".") reasons.push("root-level source directories");
+  if (selected?.product) reasons.push("product evidence");
+  if (selected?.demoted) reasons.push("selected root is demoted");
+  if (runnerUp && selected && runnerUp.score === selected.score) reasons.push("tied root candidates");
+  if (demotedRoots.length > 0) reasons.push(`demoted roots: ${demotedRoots.join(", ")}`);
+
+  const confidence =
+    sourceRoot !== "." &&
+    selected &&
+    !selected.demoted &&
+    selected.product &&
+    (!runnerUp || selected.score > runnerUp.score)
+      ? "high"
+      : sourceRoot === "." && modules.length > 0
+        ? "high"
+        : "low";
+
+  const boundedModules = modules.slice(0, MAX_ARCHITECTURE_MODULES);
+  for (const m of boundedModules) {
+    const path = m === "." ? sourceRoot! : sourceRoot === "." ? m : `${sourceRoot}/${m}`;
+    addEvidence(evidence, `architecture:module:${m}`, path);
+  }
+  if (confidence === "low") {
+    addEvidence(evidence, "architecture:low-confidence", sourceRoot === "." ? "." : sourceRoot!);
   }
 
-  const entrypoints = mineEntrypoints(root, fileSet, evidence);
-  return { sourceRoot: sourceRoot!, modules, entrypoints };
+  return {
+    confidence,
+    reasons: reasons.length > 0 ? reasons : ["file-count fallback"],
+    sourceRoot: sourceRoot!,
+    modules: boundedModules,
+    demotedRoots,
+    overflowModules: Math.max(0, modules.length - boundedModules.length),
+    entrypoints,
+  };
+}
+
+function productRootHints(root: string, fileSet: Set<string>, entrypoints: string[]): Set<string> {
+  const hints = new Set<string>();
+  for (const entry of entrypoints) {
+    const slash = entry.indexOf("/");
+    if (slash > 0) hints.add(entry.slice(0, slash));
+  }
+  for (const pkg of detectWorkspacePackages(root, [...fileSet], fileSet)) {
+    const slash = pkg.indexOf("/");
+    hints.add(slash === -1 ? pkg : pkg.slice(0, slash));
+  }
+  const pkg = safeJson(read(root, "package.json"));
+  if (typeof pkg.name === "string") hints.add(pkg.name.split("/").pop()!.replace(/^@/, ""));
+  const pyName = read(root, "pyproject.toml").match(/^\s*name\s*=\s*["']([^"']+)["']/m)?.[1];
+  if (pyName) hints.add(pyName.replace(/-/g, "_"));
+  return hints;
 }
 
 /** Read declared entrypoints from manifests (currently `package.json` `bin`/`main`). */

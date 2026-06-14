@@ -12,6 +12,9 @@ export const ROLE_ADDENDUM_MAX_CHARS = 1500;
 export const CeremonyTrack = z.enum(["quick", "standard", "full"]);
 export type CeremonyTrack = z.infer<typeof CeremonyTrack>;
 
+export const GapClosureProvenance = z.enum(["miner", "ci", "interview", "seeded", "manual", "unknown"]);
+export type GapClosureProvenance = z.infer<typeof GapClosureProvenance>;
+
 /**
  * How to launch/reach an MCP server. Values in `env` are environment-variable
  * names (or `${VAR}` references), never literal secrets — the compiler emits
@@ -69,6 +72,8 @@ export const Overlay = z
       .default({}),
     /** Free-form answers captured by the /customize interview. */
     interviewAnswers: z.record(z.string(), z.string()).default({}),
+    /** gap-id -> how the blocking setup concern was closed. */
+    gapClosureProvenance: z.record(z.string(), GapClosureProvenance).default({}),
   })
   .strict();
 
