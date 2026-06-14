@@ -61,3 +61,15 @@ export function buildRolePolicy(model: NeutralModel): Record<string, RolePolicyE
 export function stableJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
+
+/**
+ * The linear SDLC loop order (single-writer). Debugger is on-demand and not part
+ * of the linear handoff chain. Used to derive per-host dispatch/handoffs.
+ */
+export const SDLC_LOOP_ORDER = ["architect", "engineer", "reviewer"] as const;
+
+/** The loop roles present in the model, in canonical order. */
+export function presentLoopRoles(model: NeutralModel): string[] {
+  const names = new Set(model.roles.map((r) => r.frontmatter.name));
+  return SDLC_LOOP_ORDER.filter((r) => names.has(r));
+}

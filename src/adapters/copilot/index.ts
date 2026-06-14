@@ -7,6 +7,7 @@ import type {
 } from "../../core/types.js";
 import { emitAgents } from "./agents.js";
 import { emitGates } from "./gates.js";
+import { emitHandoffs } from "./handoffs.js";
 import { emitInstructions } from "./instructions.js";
 import { emitMcp } from "./mcp.js";
 import { emitSkills } from "./skills.js";
@@ -43,6 +44,7 @@ export class CopilotAdapter implements Adapter {
         ...emitInstructions(model),
         ...emitSkills(model),
         ...emitAgents(model),
+        ...emitHandoffs(model),
         ...emitGates(model),
         ...emitMcp(model),
       ],
