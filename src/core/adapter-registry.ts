@@ -17,4 +17,9 @@ export class AdapterRegistry {
   has(host: HostId): boolean {
     return this.adapters.has(host);
   }
+
+  /** All registered adapters (insertion order). */
+  all(): Adapter[] {
+    return [...this.adapters.values()];
+  }
 }

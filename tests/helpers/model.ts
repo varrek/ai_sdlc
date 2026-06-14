@@ -1,5 +1,31 @@
-import { HostManifest, Overlay, Skill, type Role } from "../../src/schema/index.js";
+import {
+  HostManifest,
+  IntegrationContract,
+  Overlay,
+  Role,
+  Skill,
+  type ToolPosture,
+} from "../../src/schema/index.js";
 import type { NeutralModel } from "../../src/core/types.js";
+
+export function makeRole(
+  name: string,
+  posture: ToolPosture,
+  integrations: string[] = [],
+): Role {
+  return Role.parse({
+    frontmatter: { name, description: `Role ${name}.`, posture, integrations },
+    body: `You are the ${name}.`,
+  });
+}
+
+export function makeContract(name: string): IntegrationContract {
+  return IntegrationContract.parse({
+    name,
+    description: `Contract ${name}.`,
+    operations: [{ id: "do-thing", tool: `${name}_do_thing` }],
+  });
+}
 
 export function makeSkill(name: string, opts: { disableModelInvocation?: boolean; paths?: string | string[] } = {}): Skill {
   return Skill.parse({

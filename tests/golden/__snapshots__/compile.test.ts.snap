@@ -2,6 +2,166 @@
 
 exports[`golden compile output > emits a stable tree across all three adapters 1`] = `
 {
+  ".claude/agents/architect.md": "---
+name: architect
+description: Plans the change, defines scope and interfaces, and produces a
+  technical approach before any code is written.
+tools: Read, Grep, Glob
+---
+
+You are the **Architect** in the AI SDLC loop.
+
+Your job is to turn a task into a clear, bounded technical approach — not to
+write the implementation. You operate read-only: you may read the repository,
+issue tracker, and prior decisions, but you do not modify files or run commands.
+
+When you receive a task:
+
+1. Restate the goal and the explicit non-goals.
+2. Identify the files and interfaces likely to change.
+3. Surface risks, unknowns, and decisions that need human input.
+4. Hand a concrete approach to the Software Engineer.
+
+Stop at the **Approved?** gate before implementation begins. Do not proceed past
+a gate without explicit human approval.
+",
+  ".claude/hooks/approved-gate.mjs": "#!/usr/bin/env node
+// Claude Code PreToolUse Approved? gate. Blocks Write/Edit/MCP tool use until
+// the orchestration loop sets SDLC_APPROVED=1 (after human approval).
+if (process.env.SDLC_APPROVED !== "1") {
+  console.error("SDLC gate: changes are not Approved? yet. Halting before write/MCP.");
+  process.exit(2);
+}
+process.exit(0);
+",
+  ".claude/settings.json": "{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./.claude/hooks/approved-gate.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}
+",
+  ".cursor/agents/architect.md": "---
+name: architect
+description: Plans the change, defines scope and interfaces, and produces a
+  technical approach before any code is written.
+posture: read-only
+---
+
+You are the **Architect** in the AI SDLC loop.
+
+Your job is to turn a task into a clear, bounded technical approach — not to
+write the implementation. You operate read-only: you may read the repository,
+issue tracker, and prior decisions, but you do not modify files or run commands.
+
+When you receive a task:
+
+1. Restate the goal and the explicit non-goals.
+2. Identify the files and interfaces likely to change.
+3. Surface risks, unknowns, and decisions that need human input.
+4. Hand a concrete approach to the Software Engineer.
+
+Stop at the **Approved?** gate before implementation begins. Do not proceed past
+a gate without explicit human approval.
+",
+  ".cursor/hooks.json": "{
+  "version": 1,
+  "hooks": {
+    "beforeMCPExecution": [
+      {
+        "command": "node ./.cursor/hooks/mcp-gate.mjs"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node ./.cursor/hooks/approved-gate.mjs"
+      }
+    ]
+  }
+}
+",
+  ".cursor/hooks/approved-gate.mjs": "#!/usr/bin/env node
+// Cursor Approved? gate: block writes leaving the workspace until approval.
+// The orchestration loop sets SDLC_APPROVED=1 only after the human approves.
+if (process.env.SDLC_APPROVED !== "1") {
+  console.error("SDLC gate: changes are not Approved? yet. Halting before write-out.");
+  process.exit(2);
+}
+process.exit(0);
+",
+  ".cursor/hooks/mcp-gate.mjs": "#!/usr/bin/env node
+// Cursor beforeMCPExecution gate: deny MCP calls a role is not permitted to make.
+// Enforces per-role least-privilege that Cursor's global mcpAllowlist cannot.
+import { readFileSync } from "node:fs";
+
+function readStdin() {
+  try { return JSON.parse(readFileSync(0, "utf8")); } catch { return {}; }
+}
+
+const input = readStdin();
+const role = input.role ?? process.env.SDLC_ACTIVE_ROLE ?? "";
+const server = input.server_name ?? input.server ?? "";
+
+let policy = {};
+try { policy = JSON.parse(readFileSync(".cursor/sdlc/role-policy.json", "utf8")); } catch {}
+
+const entry = policy[role];
+if (entry && server && !entry.servers.includes(server)) {
+  console.error(\`SDLC gate: role '\${role}' may not call MCP server '\${server}'.\`);
+  process.exit(2);
+}
+process.exit(0);
+",
+  ".cursor/mcp.json": "{
+  "mcpServers": {}
+}
+",
+  ".cursor/permissions.json": "{
+  "mcpAllowlist": []
+}
+",
+  ".cursor/sdlc/role-policy.json": "{
+  "architect": {
+    "posture": "read-only",
+    "servers": []
+  }
+}
+",
+  ".github/agents/architect.agent.md": "---
+name: architect
+description: Plans the change, defines scope and interfaces, and produces a
+  technical approach before any code is written.
+tools:
+  - Read
+  - Grep
+  - Glob
+---
+
+You are the **Architect** in the AI SDLC loop.
+
+Your job is to turn a task into a clear, bounded technical approach — not to
+write the implementation. You operate read-only: you may read the repository,
+issue tracker, and prior decisions, but you do not modify files or run commands.
+
+When you receive a task:
+
+1. Restate the goal and the explicit non-goals.
+2. Identify the files and interfaces likely to change.
+3. Surface risks, unknowns, and decisions that need human input.
+4. Hand a concrete approach to the Software Engineer.
+
+Stop at the **Approved?** gate before implementation begins. Do not proceed past
+a gate without explicit human approval.
+",
   ".github/copilot-instructions.md": "# Copilot instructions
 
 This repository follows the internal AI SDLC constitution in \`AGENTS.md\`.
@@ -24,14 +184,70 @@ Note: Copilot's IDE has no pre-tool gate hook, so the \`Approved?\` gate is
 enforced through this checklist plus branch-protection / CI. Do not push
 changes that skip review or fail tests.
 ",
+  ".github/hooks/approved-gate.json": "{
+  "version": 1,
+  "event": "preToolUse",
+  "description": "Block mutating tools until the change is Approved? (SDLC_APPROVED=1).",
+  "command": "node ./.github/hooks/approved-gate.mjs"
+}
+",
+  ".github/hooks/approved-gate.mjs": "#!/usr/bin/env node
+// Copilot CLI/cloud Approved? gate (no IDE equivalent — see CI backstop).
+if (process.env.SDLC_APPROVED !== "1") {
+  console.error("SDLC gate: changes are not Approved? yet.");
+  process.exit(2);
+}
+process.exit(0);
+",
+  ".github/workflows/sdlc-gate.yml": "name: SDLC Gate
+# CI backstop for the Approved? + review + tests-pass gates on Copilot IDE,
+# which has no pre-tool hook. Branch protection should require this check.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require review (enforced via branch protection)
+        run: echo "Reviewer approval is required by branch protection before merge."
+      - name: Tests must pass
+        run: echo "Run the project test command here (tests-must-pass gate)."
+",
+  ".mcp.json": "{
+  "mcpServers": {}
+}
+",
   ".sdlc/emitted.json": "{
   "version": 1,
   "files": [
+    ".claude/agents/architect.md",
+    ".claude/hooks/approved-gate.mjs",
+    ".claude/settings.json",
+    ".cursor/agents/architect.md",
+    ".cursor/hooks.json",
+    ".cursor/hooks/approved-gate.mjs",
+    ".cursor/hooks/mcp-gate.mjs",
+    ".cursor/mcp.json",
+    ".cursor/permissions.json",
+    ".cursor/sdlc/role-policy.json",
+    ".github/agents/architect.agent.md",
     ".github/copilot-instructions.md",
+    ".github/hooks/approved-gate.json",
+    ".github/hooks/approved-gate.mjs",
+    ".github/workflows/sdlc-gate.yml",
+    ".mcp.json",
+    ".vscode/mcp.json",
     "AGENTS.md",
     "CLAUDE.md",
     "portability.gap.yml"
   ]
+}
+",
+  ".vscode/mcp.json": "{
+  "servers": {}
 }
 ",
   "AGENTS.md": "# AI SDLC Constitution (base)

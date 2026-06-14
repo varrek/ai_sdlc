@@ -41,6 +41,25 @@ export interface EmitResult {
   gaps: Gap[];
 }
 
+/** How fully a host supports a given capability. Drives the capability matrix. */
+export type CapabilityLevel = "native" | "partial" | "fallback" | "none";
+
+/** Per-host support declaration for the orchestration capabilities that matter. */
+export interface HostCapabilities {
+  /** Project-wide instructions (AGENTS.md and friends). */
+  instructions: CapabilityLevel;
+  /** Agent Skills (SKILL.md). */
+  skills: CapabilityLevel;
+  /** Role subagents + dispatch. */
+  roleSubagents: CapabilityLevel;
+  /** Per-role tool/MCP restriction (least-privilege). */
+  perRoleToolRestriction: CapabilityLevel;
+  /** The Approved? gate / pre-tool hooks. */
+  gates: CapabilityLevel;
+  /** MCP integration. */
+  mcp: CapabilityLevel;
+}
+
 /**
  * Adapters are pure: given the neutral model they return the files + gaps they
  * would emit. The engine owns all disk I/O, which keeps emit deterministic and
@@ -48,5 +67,7 @@ export interface EmitResult {
  */
 export interface Adapter {
   readonly host: HostId;
+  /** Static capability declaration; the capability matrix is generated from this. */
+  readonly capabilities: HostCapabilities;
   emit(model: NeutralModel): EmitResult;
 }

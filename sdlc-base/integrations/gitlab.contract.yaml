@@ -1,0 +1,30 @@
+name: gitlab
+description: Open and update merge requests as the SDLC wrap-up step.
+operations:
+  - id: create-mr
+    tool: gitlab_create_merge_request
+    inputs:
+      - name: sourceBranch
+        type: string
+        required: true
+      - name: targetBranch
+        type: string
+        required: true
+      - name: title
+        type: string
+        required: true
+      - name: description
+        type: string
+    outputs:
+      - name: mrId
+        type: number
+      - name: webUrl
+        type: string
+  - id: update-mr
+    tool: gitlab_update_merge_request
+    inputs:
+      - name: mrId
+        type: number
+        required: true
+      - name: description
+        type: string
