@@ -18,8 +18,10 @@ operations:
     outputs:
       - name: mrId
         type: number
+        required: true
       - name: webUrl
         type: string
+        required: true
   - id: update-mr
     tool: gitlab_update_merge_request
     inputs:

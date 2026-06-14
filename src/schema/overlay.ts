@@ -33,6 +33,8 @@ export const IntegrationBinding = z
   })
   .strict();
 
+export type IntegrationBinding = z.infer<typeof IntegrationBinding>;
+
 /**
  * The project overlay edits only the CONFIGURABLE EDGES of the base. Hard
  * gates (review required, tests must pass, Approved? gate, least-privilege

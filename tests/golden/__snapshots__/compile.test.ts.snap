@@ -94,6 +94,40 @@ single-writer rule.
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
 ",
+  ".agents/skills/wrap-up/SKILL.md": "---
+name: wrap-up
+description: On approval, open/update the GitLab MR and update the Jira issue
+  via least-privilege MCP, validating responses against the integration
+  contracts.
+disable-model-invocation: true
+---
+
+# /wrap-up
+
+The final step of the SDLC loop. Runs **only after** the Reviewer approves and the
+\`Approved?\` gate passes. Performed by the Engineer role (the sole writer); other
+roles are denied these MCP calls by least-privilege.
+
+## Steps
+
+1. **Read bindings.** The MCP server ids for \`gitlab\` and \`jira\` come from the
+   project overlay (\`/customize\` produced them). The base never hardcodes them.
+2. **Open/update the MR.** Call the GitLab \`create-mr\` (or \`update-mr\`) tool on the
+   bound server with the source/target branches, title, and description.
+3. **Update Jira.** Add a comment linking the MR and transition the issue per the
+   \`jira\` contract.
+4. **Validate responses.** Each response is checked against the thin integration
+   contract. A shape mismatch (missing required field, wrong type) is **recorded as
+   a contract gap** for the next \`/customize\` — never silently passed.
+
+## Guarantees
+
+- **Least-privilege:** a role without the \`gitlab\`/\`jira\` integration (e.g. the
+  read-only Reviewer) is denied — the call raises rather than executing.
+- **Contract-checked:** the wrap-up reports gaps instead of trusting the server
+  blindly, so drift in the internal Jira/GitLab MCP surfaces early.
+- **No live creds in CI:** the smoke gate exercises this path against MCP mocks.
+",
   ".claude/agents/architect.md": "---
 name: architect
 description: Plans the change, defines scope and interfaces, and produces a
@@ -294,6 +328,40 @@ single-writer rule.
 - **Copilot:** sequential handoffs (\`.github/agents/handoffs.json\`); the gate
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
+",
+  ".claude/skills/wrap-up/SKILL.md": "---
+name: wrap-up
+description: On approval, open/update the GitLab MR and update the Jira issue
+  via least-privilege MCP, validating responses against the integration
+  contracts.
+disable-model-invocation: true
+---
+
+# /wrap-up
+
+The final step of the SDLC loop. Runs **only after** the Reviewer approves and the
+\`Approved?\` gate passes. Performed by the Engineer role (the sole writer); other
+roles are denied these MCP calls by least-privilege.
+
+## Steps
+
+1. **Read bindings.** The MCP server ids for \`gitlab\` and \`jira\` come from the
+   project overlay (\`/customize\` produced them). The base never hardcodes them.
+2. **Open/update the MR.** Call the GitLab \`create-mr\` (or \`update-mr\`) tool on the
+   bound server with the source/target branches, title, and description.
+3. **Update Jira.** Add a comment linking the MR and transition the issue per the
+   \`jira\` contract.
+4. **Validate responses.** Each response is checked against the thin integration
+   contract. A shape mismatch (missing required field, wrong type) is **recorded as
+   a contract gap** for the next \`/customize\` — never silently passed.
+
+## Guarantees
+
+- **Least-privilege:** a role without the \`gitlab\`/\`jira\` integration (e.g. the
+  read-only Reviewer) is denied — the call raises rather than executing.
+- **Contract-checked:** the wrap-up reports gaps instead of trusting the server
+  blindly, so drift in the internal Jira/GitLab MCP surfaces early.
+- **No live creds in CI:** the smoke gate exercises this path against MCP mocks.
 ",
   ".cursor/agents/architect.md": "---
 name: architect
@@ -546,6 +614,40 @@ single-writer rule.
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
 ",
+  ".cursor/skills/wrap-up/SKILL.md": "---
+name: wrap-up
+description: On approval, open/update the GitLab MR and update the Jira issue
+  via least-privilege MCP, validating responses against the integration
+  contracts.
+disable-model-invocation: true
+---
+
+# /wrap-up
+
+The final step of the SDLC loop. Runs **only after** the Reviewer approves and the
+\`Approved?\` gate passes. Performed by the Engineer role (the sole writer); other
+roles are denied these MCP calls by least-privilege.
+
+## Steps
+
+1. **Read bindings.** The MCP server ids for \`gitlab\` and \`jira\` come from the
+   project overlay (\`/customize\` produced them). The base never hardcodes them.
+2. **Open/update the MR.** Call the GitLab \`create-mr\` (or \`update-mr\`) tool on the
+   bound server with the source/target branches, title, and description.
+3. **Update Jira.** Add a comment linking the MR and transition the issue per the
+   \`jira\` contract.
+4. **Validate responses.** Each response is checked against the thin integration
+   contract. A shape mismatch (missing required field, wrong type) is **recorded as
+   a contract gap** for the next \`/customize\` — never silently passed.
+
+## Guarantees
+
+- **Least-privilege:** a role without the \`gitlab\`/\`jira\` integration (e.g. the
+  read-only Reviewer) is denied — the call raises rather than executing.
+- **Contract-checked:** the wrap-up reports gaps instead of trusting the server
+  blindly, so drift in the internal Jira/GitLab MCP surfaces early.
+- **No live creds in CI:** the smoke gate exercises this path against MCP mocks.
+",
   ".github/agents/architect.agent.md": "---
 name: architect
 description: Plans the change, defines scope and interfaces, and produces a
@@ -794,6 +896,40 @@ single-writer rule.
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
 ",
+  ".github/skills/wrap-up/SKILL.md": "---
+name: wrap-up
+description: On approval, open/update the GitLab MR and update the Jira issue
+  via least-privilege MCP, validating responses against the integration
+  contracts.
+disable-model-invocation: true
+---
+
+# /wrap-up
+
+The final step of the SDLC loop. Runs **only after** the Reviewer approves and the
+\`Approved?\` gate passes. Performed by the Engineer role (the sole writer); other
+roles are denied these MCP calls by least-privilege.
+
+## Steps
+
+1. **Read bindings.** The MCP server ids for \`gitlab\` and \`jira\` come from the
+   project overlay (\`/customize\` produced them). The base never hardcodes them.
+2. **Open/update the MR.** Call the GitLab \`create-mr\` (or \`update-mr\`) tool on the
+   bound server with the source/target branches, title, and description.
+3. **Update Jira.** Add a comment linking the MR and transition the issue per the
+   \`jira\` contract.
+4. **Validate responses.** Each response is checked against the thin integration
+   contract. A shape mismatch (missing required field, wrong type) is **recorded as
+   a contract gap** for the next \`/customize\` — never silently passed.
+
+## Guarantees
+
+- **Least-privilege:** a role without the \`gitlab\`/\`jira\` integration (e.g. the
+  read-only Reviewer) is denied — the call raises rather than executing.
+- **Contract-checked:** the wrap-up reports gaps instead of trusting the server
+  blindly, so drift in the internal Jira/GitLab MCP surfaces early.
+- **No live creds in CI:** the smoke gate exercises this path against MCP mocks.
+",
   ".github/workflows/sdlc-gate.yml": "name: SDLC Gate
 # CI backstop for the Approved? + review + tests-pass gates on Copilot IDE,
 # which has no pre-tool hook. Branch protection should require this check.
@@ -820,6 +956,7 @@ jobs:
   "files": [
     ".agents/skills/customize/SKILL.md",
     ".agents/skills/sdlc-loop/SKILL.md",
+    ".agents/skills/wrap-up/SKILL.md",
     ".claude/agents/architect.md",
     ".claude/agents/debugger.md",
     ".claude/agents/engineer.md",
@@ -828,6 +965,7 @@ jobs:
     ".claude/settings.json",
     ".claude/skills/customize/SKILL.md",
     ".claude/skills/sdlc-loop/SKILL.md",
+    ".claude/skills/wrap-up/SKILL.md",
     ".cursor/agents/architect.md",
     ".cursor/agents/debugger.md",
     ".cursor/agents/engineer.md",
@@ -840,6 +978,7 @@ jobs:
     ".cursor/sdlc/role-policy.json",
     ".cursor/skills/customize/SKILL.md",
     ".cursor/skills/sdlc-loop/SKILL.md",
+    ".cursor/skills/wrap-up/SKILL.md",
     ".github/agents/architect.agent.md",
     ".github/agents/debugger.agent.md",
     ".github/agents/engineer.agent.md",
@@ -850,6 +989,7 @@ jobs:
     ".github/hooks/approved-gate.mjs",
     ".github/skills/customize/SKILL.md",
     ".github/skills/sdlc-loop/SKILL.md",
+    ".github/skills/wrap-up/SKILL.md",
     ".github/workflows/sdlc-gate.yml",
     ".mcp.json",
     ".vscode/mcp.json",
