@@ -13,6 +13,29 @@ export interface StandardsIndex {
   standards: StandardEntry[];
 }
 
+/** A stage in the compiled loop. `wrap-up` is the MCP MR/Jira step. */
+export type LoopStage = "architect" | "engineer" | "reviewer" | "wrap-up";
+
+/**
+ * Map a ceremony track to the loop stages it runs. Quick is the minimal
+ * single-writer slice (Engineer -> Reviewer); Standard adds up-front planning;
+ * Full adds the integration wrap-up.
+ */
+export function stagesForTrack(track: CeremonyTrack): LoopStage[] {
+  switch (track) {
+    case "quick":
+      return ["engineer", "reviewer"];
+    case "standard":
+      return ["architect", "engineer", "reviewer"];
+    case "full":
+      return ["architect", "engineer", "reviewer", "wrap-up"];
+    default: {
+      const _exhaustive: never = track;
+      return _exhaustive;
+    }
+  }
+}
+
 /**
  * Suggest a ceremony track from repo richness. A thin POC (few files, no tests,
  * no CI) gets Quick — not an over-built config; a repo with both CI and a test
