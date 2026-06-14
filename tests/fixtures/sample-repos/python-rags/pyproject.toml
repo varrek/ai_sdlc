@@ -1,0 +1,10 @@
+[project]
+name = "rags"
+version = "0.1.0"
+dependencies = ["fastapi", "pytest"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

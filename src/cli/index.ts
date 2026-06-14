@@ -4,6 +4,7 @@ import { parseArgs } from "./args.js";
 import { runCompile } from "./compile.js";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
+import { runCustomize } from "./customize.js";
 import { runUpgrade } from "./upgrade.js";
 import { HostId } from "../schema/index.js";
 
@@ -59,6 +60,28 @@ function cmdGenMatrix(rest: string[]): void {
   process.stdout.write(`Wrote ${out}\n`);
 }
 
+function cmdCustomize(rest: string[]): void {
+  const { options } = parseArgs(rest);
+  const repoRoot = options.get("repo") ?? process.cwd();
+  const result = runCustomize({ repoRoot, overlayDir: options.get("overlay-dir") });
+
+  process.stdout.write(
+    `Mined ${result.profile.fileCount} files. Languages: ${result.profile.languages.join(", ") || "none"}.\n` +
+      `Suggested track: ${result.suggestedTrack}.\n` +
+      `Wrote: ${result.writtenPaths.join(", ")}.\n`,
+  );
+  if (result.drift.changed) {
+    process.stdout.write(
+      `Drift: +${result.drift.added.length} / -${result.drift.removed.length} standards since last run.\n`,
+    );
+  }
+  if (!result.ready) {
+    process.stdout.write("\nInterview needed (mining could not resolve):\n");
+    for (const gap of result.gaps) process.stdout.write(`  - [${gap.id}] ${gap.question}\n`);
+    process.stdout.write("\nAnswer these in .sdlc/overlay/.customize.yaml, then re-run.\n");
+  }
+}
+
 function cmdUpgrade(rest: string[]): void {
   const { options } = parseArgs(rest);
   const oldBaseDir = options.get("old-base");
@@ -98,6 +121,8 @@ function main(): void {
       cmdUpgrade(rest);
       return;
     case "customize":
+      cmdCustomize(rest);
+      return;
     case "smoke":
       fail(`'${command}' is not implemented yet.`);
       return;
