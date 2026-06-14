@@ -17,10 +17,17 @@ const server = input.server_name ?? input.server ?? "";
 let policy = {};
 try { policy = JSON.parse(readFileSync(".cursor/sdlc/role-policy.json", "utf8")); } catch {}
 
-const entry = policy[role];
-if (entry && server && !entry.servers.includes(server)) {
-  console.error(\`SDLC gate: role '\${role}' may not call MCP server '\${server}'.\`);
-  process.exit(2);
+// Fail CLOSED: when a role policy exists, an MCP call is only allowed if the
+// active role is known AND explicitly permits this server. A missing/unknown
+// role (e.g. the orchestrator forgot to set SDLC_ACTIVE_ROLE) is denied rather
+// than granted blanket access — otherwise least-privilege silently disappears.
+const hasPolicy = Object.keys(policy).length > 0;
+if (server && hasPolicy) {
+  const entry = policy[role];
+  if (!entry || !entry.servers.includes(server)) {
+    console.error(\`SDLC gate: role '\${role || "(unset)"}' may not call MCP server '\${server}'.\`);
+    process.exit(2);
+  }
 }
 process.exit(0);
 `;

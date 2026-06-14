@@ -1,42 +1,67 @@
 ---
 name: customize
-description: Adapt the AI SDLC base to the current repository — mine its stack, emit an evidence-backed overlay + standards index, interview only for gaps, then compile and smoke-test.
+description: Adapt the AI SDLC base to the current repository as a resumable first-run chain — mine the stack, emit an evidence-backed overlay, compile, and gate on a passing smoke run, short-circuiting phases whose inputs are unchanged.
 disableModelInvocation: true
 ---
 
 # /customize
 
-Adapt the host-neutral base to *this* repository. Repo-mine first; interview only
-for what mining cannot answer; emit schema-valid, evidence-backed artifacts; then
-compile and gate on a passing smoke run.
+Drive the full first-run chain for *this* repository: **mine → compile → smoke**.
+Repo-mine first; interview only for what mining cannot answer; emit schema-valid,
+evidence-backed artifacts; then compile and gate on a passing smoke run.
+
+The chain is **resumable**. Each command records a fingerprinted phase in
+`.sdlc/setup-state.yaml` and short-circuits when its inputs are unchanged, so
+re-running `/customize` after a crash or an edit resumes from the earliest changed
+input rather than redoing settled work. Run the three commands in order every time;
+freshness makes the no-op cheap.
 
 ## Steps
 
-1. **Mine the repo.** Run `aisdlc customize --repo .`. The miner detects
-   languages, frameworks, test runner, linters, package managers, CI, CODEOWNERS,
-   and docs — ignoring vendored/env dirs (`venv/`, `node_modules/`, `__pycache__/`,
-   build output). Every detected standard records the repo path(s) that justify it.
+1. **Mine + emit the overlay.** Run `aisdlc customize --repo .` (add
+   `--answers-file <path>` only when you have interview answers to apply — the
+   common first run needs no flag). The miner detects languages, frameworks, the
+   **runnable test command** (CI > Makefile > `package.json`/`pyproject`), test
+   runner, linters, package managers, CI, CODEOWNERS, and docs — ignoring
+   vendored/env dirs (`venv/`, `node_modules/`, `__pycache__/`, build output).
+   Every detected standard records the repo path(s) that justify it. The mined
+   test command closes the "how do tests run" gap automatically.
 
-2. **Review the suggested track.** Thin POCs get **Quick**; repos with CI + tests
-   get **Full**; everything else gets **Standard**. Override in the overlay if wrong.
+   On an unchanged re-run the command prints `customize fresh — skipped`; on a
+   re-run with changed inputs the standards index is diffed against the prior one
+   and the delta reported — a reviewable change, never a silent rewrite.
 
-3. **Answer only the gaps.** Mining resolves most config. For anything it cannot
-   infer (e.g. which internal MCP server backs GitLab/Jira), the command prints a
-   short interview. Record answers in `.sdlc/overlay/.customize.yaml` and re-run.
+2. **Answer only the blocking gaps.** Mining resolves most config. The only
+   blocking gap is a runnable test command when none can be mined; record it (and
+   any other answers) in `.sdlc/overlay/.customize.yaml` or an `--answers-file` and
+   re-run. **Integrations (GitLab/Jira) are *not* blocking gaps** — they are
+   deferred and bind just-in-time as a role precondition when the loop reaches a
+   step that needs them (e.g. wrap-up); see `sdlc-loop`. A fresh repo reaches
+   setup-ready with zero integration hand-editing.
 
-4. **Inspect the drift (re-runs).** On a re-run the standards index is diffed
-   against the prior one and the delta reported. Re-running is a reviewable change,
-   never a silent rewrite.
+3. **Compile.** Run
+   `aisdlc compile --base <base> --overlay .sdlc/overlay/.customize.yaml --out .`
+   to emit host-native config for every host in the manifest. Prints
+   `compiled config fresh — skipped` when the overlay and base are unchanged.
 
-5. **Compile.** Run `aisdlc compile --base <base> --overlay .sdlc/overlay/.customize.yaml --out .`
-   to emit host-native config for every host in the manifest.
-
-6. **Smoke gate (hard exit criterion).** `aisdlc smoke` runs a trivial
-   Engineer→Reviewer change against MCP mocks. **`/customize` is not "done" until
-   smoke passes** — a failure surfaces a structured fix path, not a green flag.
+4. **Smoke gate (the chain's exit criterion).** Run
+   `aisdlc smoke --repo . --overlay .sdlc/overlay/.customize.yaml`. It validates
+   the generated config and pushes a trivial Engineer→Reviewer change through MCP
+   mocks, then reports the single readiness gate:
+   - **`setup-ready (integrations deferred: …)`** — no blocking gaps AND smoke
+     passed. The chain is done. Listed integrations bind later, just-in-time.
+   - **Not setup-ready** — the output names the failing checks (and any open
+     blocking gap) plus the resume entrypoint: re-run `/customize` (or the stale
+     subcommand directly) and freshness skips the phases that are still good.
 
 ## Guarantees
 
+- **"Ready" means setup-ready**: no blocking gaps **and** smoke passes **and** the
+  emitted config is schema-valid. Deferred integrations never hold readiness back.
 - The emitted overlay validates against the base schemas before it is written.
-- Only the configurable edges are touched; the non-negotiable gates come from the
-  base constitution and are never rewritten here.
+- Only configurable edges are touched; the non-negotiable gates come from the base
+  constitution and are never rewritten here.
+- The chain is idempotent: re-running with unchanged inputs is a no-op, and a base
+  upgrade invalidates the compiled + smoke phases so they re-run.
+- Placeholder integration server IDs are forbidden — an integration is either bound
+  to a real server just-in-time or left deferred, never faked at setup.

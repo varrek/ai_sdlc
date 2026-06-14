@@ -2,6 +2,8 @@
 name: wrap-up
 description: On approval, open/update the GitLab MR and update the Jira issue via least-privilege MCP, validating responses against the integration contracts.
 disableModelInvocation: true
+tracks:
+  - full
 ---
 
 # /wrap-up

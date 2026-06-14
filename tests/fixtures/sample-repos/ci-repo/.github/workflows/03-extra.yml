@@ -1,0 +1,7 @@
+name: extra
+on: [push]
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pytest -q

@@ -1,9 +1,11 @@
 import { mkdtempSync, readFileSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildRegistry } from "../../src/adapters/registry.js";
 import { compile } from "../../src/core/engine.js";
+import { runSmokeCli } from "../../src/cli/smoke.js";
 import { evaluateReadiness, runSmoke, smokeExitCode } from "../../src/smoke/harness.js";
 import { Overlay } from "../../src/schema/index.js";
 import { makeContract, makeModel, makeRole, makeSkill } from "../helpers/model.js";
@@ -73,5 +75,29 @@ describe("smoke gate", () => {
     const result = runSmoke({ model, configDir, mocks: [] });
     expect(evaluateReadiness(0, result)).toBe(false);
     expect(smokeExitCode(result)).toBe(1);
+  });
+});
+
+describe("runSmokeCli chain gate", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const baseDir = resolve(here, "..", "..", "sdlc-base");
+  const repo = (name: string) => resolve(here, "..", "fixtures", "sample-repos", name);
+
+  it("reports setup-ready when the base gates pass and the repo has a mined test command", () => {
+    const out = freshOut();
+    const cli = runSmokeCli({ baseDir, configDir: out, compileFirst: true, repoRoot: repo("python-rags") });
+    expect(cli.result.passed).toBe(true);
+    expect(cli.blockingGapCount).toBe(0);
+    expect(cli.setupReady).toBe(true);
+    // A bare base overlay binds no integrations, so both are deferred (not blocking).
+    expect(cli.deferredIntegrations).toEqual(expect.arrayContaining(["gitlab", "jira"]));
+  });
+
+  it("is not setup-ready when the repo has no runnable test command, even though smoke passes", () => {
+    const out = freshOut();
+    const cli = runSmokeCli({ baseDir, configDir: out, compileFirst: true, repoRoot: repo("thin-poc") });
+    expect(cli.result.passed).toBe(true);
+    expect(cli.blockingGapCount).toBeGreaterThan(0);
+    expect(cli.setupReady).toBe(false);
   });
 });

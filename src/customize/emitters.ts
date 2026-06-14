@@ -13,28 +13,9 @@ export interface StandardsIndex {
   standards: StandardEntry[];
 }
 
-/** A stage in the compiled loop. `wrap-up` is the MCP MR/Jira step. */
-export type LoopStage = "architect" | "engineer" | "reviewer" | "wrap-up";
-
-/**
- * Map a ceremony track to the loop stages it runs. Quick is the minimal
- * single-writer slice (Engineer -> Reviewer); Standard adds up-front planning;
- * Full adds the integration wrap-up.
- */
-export function stagesForTrack(track: CeremonyTrack): LoopStage[] {
-  switch (track) {
-    case "quick":
-      return ["engineer", "reviewer"];
-    case "standard":
-      return ["architect", "engineer", "reviewer"];
-    case "full":
-      return ["architect", "engineer", "reviewer", "wrap-up"];
-    default: {
-      const _exhaustive: never = track;
-      return _exhaustive;
-    }
-  }
-}
+// The canonical track->stage mapping lives in core/loop.ts (it is shared with
+// the per-host dispatch adapters). Re-exported here for the customize surface.
+export { type LoopStage, stagesForTrack } from "../core/loop.js";
 
 /**
  * Suggest a ceremony track from repo richness. A thin POC (few files, no tests,
@@ -53,10 +34,13 @@ export function buildStandardsIndex(profile: RepoProfile): StandardsIndex {
   const standards: StandardEntry[] = [];
   const ev = profile.evidence;
 
-  if (profile.testRunner) {
+  if (profile.testRunner || profile.testCommand) {
+    const how = profile.testCommand ? `\`${profile.testCommand}\`` : profile.testRunner!;
+    const runnerSources = profile.testRunner ? (ev[`test-runner:${profile.testRunner}`] ?? []) : [];
+    const sources = [...new Set([...runnerSources, ...(ev["test-command"] ?? [])])];
     standards.push({
-      statement: `Tests run with ${profile.testRunner}; the test suite must pass before a change ships.`,
-      sources: ev[`test-runner:${profile.testRunner}`] ?? [],
+      statement: `Run tests with ${how}; the test suite must pass before a change ships.`,
+      sources,
     });
   }
   for (const linter of profile.linters) {
@@ -66,7 +50,10 @@ export function buildStandardsIndex(profile: RepoProfile): StandardsIndex {
     });
   }
   for (const fw of profile.frameworks) {
-    standards.push({ statement: `Built with ${fw}; follow its conventions.`, sources: [] });
+    standards.push({
+      statement: `Built with ${fw}; follow its conventions.`,
+      sources: ev[`framework:${fw}`] ?? [],
+    });
   }
   if (profile.ciFiles.length > 0) {
     standards.push({ statement: "CI runs on every change.", sources: profile.ciFiles });
@@ -76,6 +63,33 @@ export function buildStandardsIndex(profile: RepoProfile): StandardsIndex {
       statement: "Respect code ownership defined in CODEOWNERS.",
       sources: [profile.codeowners],
     });
+  }
+
+  if (profile.architecture) {
+    const { sourceRoot, modules, entrypoints } = profile.architecture;
+    const where = sourceRoot === "." ? "the repo root" : `\`${sourceRoot}/\``;
+    const moduleList = modules.map((m) => `\`${m}\``).join(", ");
+    const entry = entrypoints.length > 0 ? ` Entrypoints: ${entrypoints.map((e) => `\`${e}\``).join(", ")}.` : "";
+    const archSources = Object.entries(profile.evidence)
+      .filter(([k]) => k.startsWith("architecture:"))
+      .flatMap(([, v]) => v);
+    standards.push({
+      statement: `Project architecture: modules ${moduleList} under ${where}; respect these module boundaries.${entry}`,
+      sources: [...new Set(archSources)],
+    });
+  }
+  if (profile.conventions?.commits === "conventional") {
+    standards.push({
+      statement: "Write commit messages in Conventional Commits format.",
+      sources: profile.evidence["convention:commits"] ?? [],
+    });
+  }
+  if (profile.conventions?.testLayout) {
+    const statement =
+      profile.conventions.testLayout === "co-located"
+        ? "Co-locate tests with the code they cover (e.g. `*.test.*`)."
+        : "Place tests under a dedicated `tests/` directory.";
+    standards.push({ statement, sources: profile.evidence["convention:test-layout"] ?? [] });
   }
 
   return { version: 1, standards };
@@ -124,6 +138,19 @@ export function serializeOverlay(overlay: Overlay): string {
 
 export function serializeStandardsIndex(index: StandardsIndex): string {
   return stringify(index, { sortMapEntries: false });
+}
+
+export interface EvidenceCoverage {
+  total: number;
+  covered: number;
+  /** Statements with zero cited sources (an evidence-coverage regression). */
+  uncited: string[];
+}
+
+/** Fraction of standards that cite at least one source — the strategy evidence metric. */
+export function evidenceCoverage(index: StandardsIndex): EvidenceCoverage {
+  const uncited = index.standards.filter((s) => s.sources.length === 0).map((s) => s.statement);
+  return { total: index.standards.length, covered: index.standards.length - uncited.length, uncited };
 }
 
 export interface StandardsDrift {

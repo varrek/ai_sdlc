@@ -88,4 +88,45 @@ describe("compiled loop shape", () => {
     expect(handoffs.order).toEqual(["engineer", "reviewer"]);
     expect(handoffs.handoffs).toEqual([{ from: "engineer", to: "reviewer" }]);
   });
+
+  it("full track wires the wrap-up stage into the handoff chain (performed by engineer)", () => {
+    const full = mergeOverlay(loadBase(baseDir), Overlay.parse({ version: 1, defaultTrack: "full" }));
+    const copilot = byPath(new CopilotAdapter().emit(full).files);
+    const handoffs = JSON.parse(copilot.get(".github/agents/handoffs.json")!) as {
+      track: string;
+      order: string[];
+      stageAgents: Record<string, string>;
+      handoffs: { from: string; to: string }[];
+      note: string;
+    };
+    expect(handoffs.track).toBe("full");
+    expect(handoffs.order).toEqual(["architect", "engineer", "reviewer", "wrap-up"]);
+    expect(handoffs.handoffs).toContainEqual({ from: "reviewer", to: "wrap-up" });
+    // wrap-up is a stage, not a role — the Engineer (sole writer) performs it.
+    expect(handoffs.stageAgents["wrap-up"]).toBe("engineer");
+    expect(handoffs.note).toMatch(/wrap-up stage runs as the Engineer/i);
+  });
+
+  it("ships the wrap-up skill only on the full track", () => {
+    const skillNames = (track: "quick" | "standard" | "full") =>
+      mergeOverlay(loadBase(baseDir), Overlay.parse({ version: 1, defaultTrack: track }))
+        .skills.map((s) => s.frontmatter.name)
+        .sort();
+
+    expect(skillNames("full")).toContain("wrap-up");
+    expect(skillNames("standard")).not.toContain("wrap-up");
+    expect(skillNames("quick")).not.toContain("wrap-up");
+    // General-capability skills survive on every track.
+    for (const track of ["quick", "standard", "full"] as const) {
+      expect(skillNames(track)).toEqual(expect.arrayContaining(["customize", "sdlc-loop", "track-select"]));
+    }
+  });
+
+  it("a full-track repo emits the wrap-up SKILL.md across hosts", () => {
+    const full = mergeOverlay(loadBase(baseDir), Overlay.parse({ version: 1, defaultTrack: "full" }));
+    const files = byPath(new CopilotAdapter().emit(full).files);
+    expect(files.has(".github/skills/wrap-up/SKILL.md")).toBe(true);
+    // The track directive is build-time only — it must not leak into emitted frontmatter.
+    expect(files.get(".github/skills/wrap-up/SKILL.md")).not.toMatch(/tracks:/);
+  });
 });

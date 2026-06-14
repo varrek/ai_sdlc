@@ -32,4 +32,30 @@ describe("instructions emit", () => {
     expect(excerpt).toContain("Non-negotiable gates");
     expect(excerpt).toContain("Review required.");
   });
+
+  it("copilot inlines mined project standards (Copilot does not follow @import reliably)", () => {
+    const model = makeModel({
+      constitution: [
+        makeModel().constitution,
+        "",
+        "## Project standards (from overlay)",
+        "",
+        "- Run tests with `pytest`; the test suite must pass before a change ships.",
+        "- Lint/format with ruff.",
+      ].join("\n"),
+    });
+    const excerpt = byPath(new CopilotAdapter().emit(model).files).get(
+      ".github/copilot-instructions.md",
+    )!;
+    expect(excerpt).toContain("Project standards");
+    expect(excerpt).toContain("pytest");
+    expect(excerpt).toContain("ruff");
+  });
+
+  it("copilot omits the standards section when the overlay contributes none", () => {
+    const excerpt = byPath(new CopilotAdapter().emit(makeModel()).files).get(
+      ".github/copilot-instructions.md",
+    )!;
+    expect(excerpt).not.toContain("Project standards");
+  });
 });

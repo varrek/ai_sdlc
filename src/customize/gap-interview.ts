@@ -12,28 +12,27 @@ interface GapDef extends GapQuestion {
 }
 
 /**
- * The full gap catalog. Each gap is asked ONLY when neither mining nor prior
- * interview answers resolve it — repo-mine first, interview for the remainder.
+ * The blocking gap catalog: only gaps that must close for a repo to reach
+ * "setup-ready". Org-specific integration bindings (GitLab/Jira) are NOT here —
+ * they are deferred (see `DEFERRED_INTEGRATIONS`) and surfaced just-in-time when
+ * a task actually needs them, so a fresh repo reaches ready with zero hand-edits.
  */
 const GAPS: GapDef[] = [
   {
     id: "test-command",
     question: "What command runs the test suite?",
-    answered: (p, a) => Boolean(p.testRunner) || "test-command" in a,
-  },
-  {
-    id: "gitlab-server",
-    question: "Which internal MCP server backs GitLab merge requests? (server id)",
-    answered: (_p, a) => "gitlab-server" in a,
-  },
-  {
-    id: "jira-server",
-    question: "Which internal MCP server backs Jira? (server id)",
-    answered: (_p, a) => "jira-server" in a,
+    answered: (p, a) => Boolean(p.testCommand) || "test-command" in a,
   },
 ];
 
-/** Return the questions that remain unanswered after mining + prior answers. */
+/**
+ * Integration contracts left unbound at setup and surfaced just-in-time as a
+ * role/skill precondition when the loop reaches a step that needs them (e.g.
+ * wrap-up). Informational only — never blocks readiness.
+ */
+export const DEFERRED_INTEGRATIONS = ["gitlab", "jira"] as const;
+
+/** Return the blocking questions that remain unanswered after mining + prior answers. */
 export function computeGaps(
   profile: RepoProfile,
   answers: Record<string, string> = {},

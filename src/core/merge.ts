@@ -1,5 +1,6 @@
 import type { Overlay, Role } from "../schema/index.js";
 import type { LoadedBase } from "./loader.js";
+import { skillsForTrack } from "./loop.js";
 import type { NeutralModel } from "./types.js";
 
 /**
@@ -11,12 +12,17 @@ import type { NeutralModel } from "./types.js";
 export function mergeOverlay(base: LoadedBase, overlay: Overlay): NeutralModel {
   const roles = base.roles.map((role) => applyRoleOverlay(role, overlay));
   const constitution = appendStandards(base.constitution, overlay.standards);
+  // Track-aware: drop skills that don't belong to the chosen track (e.g. the
+  // integration `wrap-up` skill on a quick/standard repo). Filtering here keeps
+  // the NeutralModel the single source of truth — adapters and the smoke gate
+  // all read the already-scoped skill set.
+  const skills = skillsForTrack(base.skills, overlay.defaultTrack ?? "standard");
 
   return {
     manifest: base.manifest,
     constitution,
     roles,
-    skills: base.skills,
+    skills,
     integrations: base.integrations,
     overlay,
   };

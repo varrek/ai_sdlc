@@ -12,6 +12,11 @@ export function emitInstructions(model: NeutralModel): EmittedFile[] {
     extractSection(model.constitution, "Non-negotiable gates") ??
     "See AGENTS.md for the full constitution.";
 
+  // Copilot weights this file heavily but does not reliably follow `@import`-style
+  // references, so we inline the mined project standards instead of relying solely
+  // on AGENTS.md. Only emitted when the overlay actually contributed standards.
+  const standards = extractSection(model.constitution, "Project standards (from overlay)");
+
   const excerpt = [
     "# Copilot instructions",
     "",
@@ -19,6 +24,7 @@ export function emitInstructions(model: NeutralModel): EmittedFile[] {
     "Always honor the non-negotiable gates below; they are not optional.",
     "",
     gates,
+    ...(standards ? ["", standards] : []),
     "",
     "Note: Copilot's IDE has no pre-tool gate hook, so the `Approved?` gate is",
     "enforced through this checklist plus branch-protection / CI. Do not push",

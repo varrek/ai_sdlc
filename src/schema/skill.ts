@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CeremonyTrack } from "./overlay.js";
 
 const SLUG = /^[a-z][a-z0-9-]*$/;
 
@@ -10,6 +11,12 @@ export const SkillFrontmatter = z
     paths: z.union([z.string(), z.array(z.string())]).optional(),
     /** When true, the skill is reference-only and never model-invoked. */
     disableModelInvocation: z.boolean().default(false),
+    /**
+     * Ceremony tracks this skill belongs to. Absent = all tracks (a general
+     * capability). Present = only emitted when the chosen track is in the list,
+     * so e.g. the integration `wrap-up` skill ships only on the `full` track.
+     */
+    tracks: z.array(CeremonyTrack).nonempty().optional(),
   })
   .strict();
 
