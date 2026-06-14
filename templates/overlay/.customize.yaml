@@ -1,0 +1,33 @@
+# Project overlay — the ONLY file teams edit. The base is consumed pinned
+# (git submodule or npm) and is never modified in place; `aisdlc upgrade` will
+# block (never overwrite) if a base push collides with an edit here.
+#
+# This file holds only the configurable EDGES. The non-negotiable gates (review
+# required, tests must pass, Approved? gate, least-privilege MCP) live in the
+# base constitution and cannot be expressed — or disabled — here.
+
+version: 1
+
+# Default ceremony track: quick | standard | full
+defaultTrack: standard
+
+# Extra project standards appended to the base constitution.
+standards: []
+
+# Bind host-neutral integration contracts to concrete MCP servers and scope
+# which roles may reach them. `env` values are environment-variable names —
+# never literal secrets.
+integrations:
+  # gitlab:
+  #   serverId: gitlab-mcp
+  #   allowedRoles: [engineer]
+  #   server:
+  #     command: gitlab-mcp-server
+  #     env:
+  #       GITLAB_TOKEN: GITLAB_TOKEN
+
+# Per-role model overrides (role-name -> model id).
+roleModels: {}
+
+# Answers captured by the /customize interview (free-form key -> value).
+interviewAnswers: {}

@@ -4,6 +4,7 @@ import { parseArgs } from "./args.js";
 import { runCompile } from "./compile.js";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
+import { runUpgrade } from "./upgrade.js";
 import { HostId } from "../schema/index.js";
 
 const HELP = `aisdlc — internal AI SDLC framework compiler
@@ -58,6 +59,32 @@ function cmdGenMatrix(rest: string[]): void {
   process.stdout.write(`Wrote ${out}\n`);
 }
 
+function cmdUpgrade(rest: string[]): void {
+  const { options } = parseArgs(rest);
+  const oldBaseDir = options.get("old-base");
+  const newBaseDir = options.get("new-base");
+  const newBaseVersion = options.get("version");
+  if (!oldBaseDir || !newBaseDir || !newBaseVersion) {
+    fail("upgrade: --old-base <dir> --new-base <dir> --version <ref> are required");
+  }
+
+  const result = runUpgrade({
+    oldBaseDir: oldBaseDir!,
+    newBaseDir: newBaseDir!,
+    newBaseVersion: newBaseVersion!,
+    overlayPath: options.get("overlay"),
+    sdlcDir: options.get("sdlc-dir"),
+  });
+
+  if (!result.upgraded) {
+    fail(
+      `upgrade blocked: ${result.conflicts.length} overlay conflict(s). ` +
+        `See ${result.conflictReportPath}. Nothing was changed.`,
+    );
+  }
+  process.stdout.write(`Upgraded base to ${result.lock!.baseVersion}.\n`);
+}
+
 function main(): void {
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
@@ -67,8 +94,10 @@ function main(): void {
     case "gen-matrix":
       cmdGenMatrix(rest);
       return;
-    case "customize":
     case "upgrade":
+      cmdUpgrade(rest);
+      return;
+    case "customize":
     case "smoke":
       fail(`'${command}' is not implemented yet.`);
       return;
