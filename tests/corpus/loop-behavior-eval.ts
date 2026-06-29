@@ -68,8 +68,8 @@ export function selectLoopRoleForTask(task: string): LoopRole {
   const normalized = task.toLowerCase();
   if (normalized.includes("verify") || normalized.includes("running tests")) return "tester";
   if (normalized.includes("reviewer findings") || normalized.includes("edit the code")) return "engineer";
-  if (normalized.includes("review")) return "reviewer";
   if (normalized.includes("root cause") || normalized.includes("debug")) return "debugger";
+  if (normalized.includes("review")) return "reviewer";
   return "architect";
 }
 

@@ -36,6 +36,7 @@ describe("loop behavior eval", () => {
     for (const scenario of LOOP_ROLE_CHOICE_SCENARIOS) {
       expect(selectLoopRoleForTask(scenario.task)).toBe(scenario.expectedRole);
     }
+    expect(selectLoopRoleForTask("Who should debug the review failure?")).toBe("debugger");
   });
 
   it("accepts a Tester failure only when it hands back to Engineer before done", () => {

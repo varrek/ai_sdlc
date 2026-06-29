@@ -21,7 +21,7 @@ export const LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
 
 export const SETUP_GROUNDING_LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
   architect: ["architecture-demotion", "standard-added"],
-  engineer: ["test-command", "standard-added"],
+  engineer: [],
   reviewer: ["standard-added"],
   tester: ["test-command"],
 };

@@ -118,10 +118,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
       archConfidence === "high" || hasRelevantLearning(acceptedLearnings, "architect"),
       Boolean(inspection.overlay.roleAddenda.architect),
     ),
-    engineer: roleState(
-      engineerDeterministic || hasRelevantLearning(acceptedLearnings, "engineer"),
-      Boolean(inspection.overlay.roleAddenda.engineer),
-    ),
+    engineer: roleState(engineerDeterministic, Boolean(inspection.overlay.roleAddenda.engineer)),
     tester: roleState(
       testerDeterministic || hasRelevantLearning(acceptedLearnings, "tester"),
       Boolean(inspection.overlay.roleAddenda.tester),
