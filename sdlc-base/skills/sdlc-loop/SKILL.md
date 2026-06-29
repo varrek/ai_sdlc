@@ -21,6 +21,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+`continue`, `replan`, `escalate`, or `done`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -31,7 +39,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see `wrap-up`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -41,6 +50,35 @@ the Engineer's own test run. See `track-select` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  ```bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  ```
+- **Handoff**: When transitioning between roles
+  ```bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  ```
+- **Test run**: After running tests (Tester or Engineer)
+  ```bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  ```
+- **Review verdict**: After Reviewer completes their assessment
+  ```bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  ```
+
+Approval gate events are recorded automatically by the gate hooks. For accurate
+multi-gate traces, set `SDLC_TASK_ID` for the current task, `SDLC_GATE_STAGE` or
+`SDLC_STAGE` for the loop stage, and `SDLC_CHECKPOINT` for each distinct human
+decision (for example `before-engineer`, `before-reviewer`, or
+`after-tester-handback`). Repeated approvals at the same stage must use distinct
+checkpoint ids when they represent distinct decisions.
 
 ## Per-host notes
 

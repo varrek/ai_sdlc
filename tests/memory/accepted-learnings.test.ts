@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  acceptedLearningFromGateOutcome,
+  acceptedLearningFromTestCorrection,
   readAcceptedLearnings,
+  upsertGateOutcomeLearning,
+  upsertTestCorrectionLearning,
   upsertAcceptedLearning,
   writeAcceptedLearnings,
 } from "../../src/core/accepted-learnings.js";
@@ -97,5 +101,60 @@ describe("accepted learnings ledger", () => {
       "architecture:docs",
       "test-command",
     ]);
+  });
+
+  it("promotes gate outcomes into keyed loop learnings", () => {
+    const dir = sdlc();
+    const outcome = {
+      taskId: "task-123",
+      verdict: "changes-requested" as const,
+      scope: "src/eval/loop-score.ts",
+      reason: "Reviewer requested stricter gate ordering.",
+    };
+
+    const entry = acceptedLearningFromGateOutcome(outcome);
+    upsertGateOutcomeLearning(dir, outcome);
+    upsertGateOutcomeLearning(dir, outcome);
+
+    expect(entry.kind).toBe("review-finding");
+    expect(entry.claim).toContain("requested changes");
+    expect(entry.provenance).toBe("gate");
+    expect(readAcceptedLearnings(dir)).toEqual([entry]);
+  });
+
+  it("maps approved and blocked gate outcomes to distinct learning kinds", () => {
+    const approved = acceptedLearningFromGateOutcome({
+      taskId: "task-123",
+      verdict: "approved",
+      scope: "src/eval/loop-score.ts",
+      reason: "Reviewer accepted the bounded gate checks.",
+    });
+    const blocked = acceptedLearningFromGateOutcome({
+      taskId: "task-123",
+      verdict: "blocked",
+      scope: "src/eval/loop-score.ts",
+      reason: "CI residual was not resolved.",
+    });
+
+    expect(approved.kind).toBe("gate-approval");
+    expect(approved.claim).toContain("approved");
+    expect(blocked.kind).toBe("bench-residual");
+    expect(blocked.claim).toContain("blocked");
+  });
+
+  it("promotes test corrections into keyed loop learnings", () => {
+    const dir = sdlc();
+    const correction = {
+      taskId: "task-123",
+      scope: "tests/eval/loop-score.test.ts",
+      reason: "Add missing stuck terminal coverage.",
+      sources: ["tests/eval/loop-score.test.ts"],
+    };
+
+    const entry = acceptedLearningFromTestCorrection(correction);
+    upsertTestCorrectionLearning(dir, correction);
+
+    expect(entry.kind).toBe("test-correction");
+    expect(readAcceptedLearnings(dir)).toEqual([entry]);
   });
 });

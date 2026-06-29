@@ -6,6 +6,8 @@ import { mergeOverlay } from "../../src/core/merge.js";
 import type { ProjectContext } from "../../src/core/project-context.js";
 import {
   appendArchitectGrounding,
+  appendAcceptedLearnings,
+  hasDeterministicEngineerGrounding,
   hasDeterministicTesterGrounding,
   ROLE_GROUNDING_HEADING,
 } from "../../src/core/role-grounding.js";
@@ -63,6 +65,50 @@ describe("role grounding", () => {
     expect(tester.body).toContain("Do not infer a test runner");
   });
 
+  it("appends engineer grounding with likely edit areas and verification command", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({
+      version: 1,
+      interviewAnswers: { "test-command": "pytest" },
+    });
+    const model = mergeOverlay(base, overlay, sampleMap);
+    const engineer = model.roles.find((r) => r.frontmatter.name === "engineer")!;
+
+    expect(hasDeterministicEngineerGrounding({ overlay, projectContext: sampleMap })).toBe(true);
+    expect(engineer.body).toContain(ROLE_GROUNDING_HEADING);
+    expect(engineer.body).toContain("Likely edit areas");
+    expect(engineer.body).toContain("`src`");
+    expect(engineer.body).toContain("Run relevant validation");
+    expect(engineer.body).toContain("`pytest`");
+  });
+
+  it("leaves engineer generic when no project map is known", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({ version: 1 });
+    const emptyContext: ProjectContext = { packages: [], map: [], exclusions: [] };
+    const model = mergeOverlay(base, overlay, emptyContext);
+    const engineer = model.roles.find((r) => r.frontmatter.name === "engineer")!;
+
+    expect(hasDeterministicEngineerGrounding({ overlay, projectContext: emptyContext })).toBe(false);
+    expect(engineer.body).not.toContain(ROLE_GROUNDING_HEADING);
+  });
+
+  it("grounds engineer from test-command evidence when the project map is empty", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({
+      version: 1,
+      interviewAnswers: { "test-command": "npm test" },
+    });
+    const emptyContext: ProjectContext = { packages: [], map: [], exclusions: [] };
+    const model = mergeOverlay(base, overlay, emptyContext);
+    const engineer = model.roles.find((r) => r.frontmatter.name === "engineer")!;
+
+    expect(hasDeterministicEngineerGrounding({ overlay, projectContext: emptyContext })).toBe(true);
+    expect(engineer.body).toContain(ROLE_GROUNDING_HEADING);
+    expect(engineer.body).toContain("Run relevant validation");
+    expect(engineer.body).toContain("`npm test`");
+  });
+
   it("appends package-local tester grounding when root test-command gap is open", () => {
     const base = loadBase(baseDir);
     const overlay = Overlay.parse({ version: 1 });
@@ -103,5 +149,39 @@ describe("role grounding", () => {
     expect(tester.body).toContain("## Project-specific guidance (generated)");
     expect(tester.body).toContain("Also run lint before merge.");
     expect(tester.body).toContain("**Root:** `npm test`");
+  });
+
+  it("routes loop-derived accepted learnings to reviewer, tester, and engineer", () => {
+    const base = loadBase(baseDir);
+    const reviewer = base.roles.find((r) => r.frontmatter.name === "reviewer")!;
+    const tester = base.roles.find((r) => r.frontmatter.name === "tester")!;
+    const engineer = base.roles.find((r) => r.frontmatter.name === "engineer")!;
+    const architect = base.roles.find((r) => r.frontmatter.name === "architect")!;
+    const reviewFinding = {
+      key: "review:scope",
+      kind: "review-finding" as const,
+      claim: "Reviewer found scope creep in `src/foo.ts`.",
+      sources: ["src/foo.ts"],
+      provenance: "gate" as const,
+    };
+    const testCorrection = {
+      key: "test:scope",
+      kind: "test-correction" as const,
+      claim: "Tester found missing failure coverage for retry paths.",
+      sources: ["tests/foo.test.ts"],
+      provenance: "gate" as const,
+    };
+    const gateApproval = {
+      key: "gate:scope",
+      kind: "gate-approval" as const,
+      claim: "Approved? gate approved after tests passed.",
+      sources: ["src/foo.ts"],
+      provenance: "gate" as const,
+    };
+
+    expect(appendAcceptedLearnings(reviewer, [reviewFinding, gateApproval]).body).toContain(gateApproval.claim);
+    expect(appendAcceptedLearnings(engineer, [reviewFinding, testCorrection]).body).toContain(testCorrection.claim);
+    expect(appendAcceptedLearnings(tester, [testCorrection]).body).toContain(testCorrection.claim);
+    expect(appendAcceptedLearnings(architect, [reviewFinding]).body).not.toContain(reviewFinding.claim);
   });
 });

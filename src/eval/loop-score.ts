@@ -7,6 +7,7 @@ export type LoopViolationKind =
   | "role-ownership"
   | "approval-gate"
   | "tester-before-reviewer"
+  | "missing-evaluator-verdict"
   | "evaluator-handback"
   | "replan-budget"
   | "terminal";
@@ -20,6 +21,7 @@ export interface LoopViolation {
 
 export interface LoopScoreExpectation {
   stages: LoopStage[];
+  /** Stages that require an approved human gate before they run. */
   approvalBeforeStages?: LoopStage[];
   maxReplans?: number;
   requireTerminal?: boolean;
@@ -68,6 +70,7 @@ export function scoreLoopTrace(
   }
 
   trace.forEach((event, index) => {
+    if (event.type === "approval_gate") return;
     const stage = eventStage(event);
     const role = eventRole(event);
     if (!stage || !role) return;
@@ -111,8 +114,26 @@ export function scoreLoopTrace(
     }
   }
 
+  if (expectation.stages.includes("test") && !trace.some((event) => event.type === "test_run" && event.stage === "test")) {
+    violations.push({
+      kind: "missing-evaluator-verdict",
+      stage: "test",
+      message: "Tester stage must include a test_run verdict",
+    });
+  }
+  if (
+    expectation.stages.includes("reviewer") &&
+    !trace.some((event) => event.type === "review_verdict" && event.stage === "reviewer")
+  ) {
+    violations.push({
+      kind: "missing-evaluator-verdict",
+      stage: "reviewer",
+      message: "Reviewer stage must include a review_verdict",
+    });
+  }
+
   trace.forEach((event, index) => {
-    if (event.type === "test_run" && event.verdict === "fail" && hasDoneWithoutEngineerRework(trace, index)) {
+    if (event.type === "test_run" && event.verdict === "fail" && hasTerminalWithoutEngineerRework(trace, index)) {
       violations.push({
         kind: "evaluator-handback",
         stage: "test",
@@ -123,7 +144,7 @@ export function scoreLoopTrace(
     if (
       event.type === "review_verdict" &&
       event.verdict === "request-changes" &&
-      hasDoneWithoutEngineerRework(trace, index)
+      hasTerminalWithoutEngineerRework(trace, index)
     ) {
       violations.push({
         kind: "evaluator-handback",
@@ -176,14 +197,15 @@ function eventStage(event: LoopTraceEvent): LoopStage | undefined {
     case "plan_created":
     case "tool_attempt":
     case "test_run":
-    case "approval_gate":
     case "review_verdict":
     case "replan":
     case "done":
     case "stuck":
       return event.stage;
+    case "approval_gate":
+      return undefined;
     case "handoff":
-      return event.toStage;
+      return undefined;
     default: {
       const _exhaustive: never = event;
       return _exhaustive;
@@ -229,15 +251,15 @@ function hasApprovedGateBetween(trace: LoopTraceEvent[], afterIndex: number, bef
   return false;
 }
 
-function hasDoneWithoutEngineerRework(trace: LoopTraceEvent[], fromIndex: number): boolean {
+function hasTerminalWithoutEngineerRework(trace: LoopTraceEvent[], fromIndex: number): boolean {
   for (let i = fromIndex + 1; i < trace.length; i += 1) {
     const event = trace[i]!;
     if (event.type === "replan" && event.role === "engineer") return false;
     if (event.type === "plan_created" && event.role === "engineer") return false;
     if (event.type === "handoff" && event.toRole === "engineer") return false;
     if (event.type === "tool_attempt" && event.role === "engineer") return false;
-    if (event.type === "done") return true;
-    if (event.type === "stuck") return false;
+    if (event.type === "test_run" && event.role === "engineer") return false;
+    if (event.type === "done" || event.type === "stuck") return true;
   }
   return false;
 }

@@ -84,6 +84,10 @@ gate passes, and the emitted config is schema-valid. Integration bindings
 (GitLab/Jira) are deferred — they're bound just-in-time when a task actually
 needs them, not during setup.
 
+Loop quality is evaluated offline from emitted guidance and synthetic loop
+traces. `ai-sdlc` does not run a custom SDLC orchestrator; Cursor, Claude Code,
+Copilot, and Codex continue to execute through their native dispatch surfaces.
+
 If `customize` reports a blocking gap (e.g. it couldn't mine a test command),
 answer it in `.sdlc/overlay/.customize.yaml` (or pass `--answers-file`) and
 re-run. Use `aisdlc customize --repo . --mode deterministic` only for projects

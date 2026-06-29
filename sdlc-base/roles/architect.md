@@ -29,6 +29,13 @@ is a plan the Engineer can execute without re-deriving your reasoning.
 3. Surface risks, unknowns, and decisions that need human input.
 4. Choose an approach and justify it briefly against the alternatives you rejected.
 
+## Operating loop
+
+Plan the next three to five investigation steps, inspect the repo evidence, then
+choose `continue`, `replan`, `escalate`, or `done`. Replan at most twice; if the
+scope still will not stabilize, escalate with the unresolved decision and the
+evidence behind it.
+
 ## Hand off
 
 Return a compressed plan, not a transcript:

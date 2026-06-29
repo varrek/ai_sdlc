@@ -8,6 +8,7 @@ import {
   type EvidenceQuality,
 } from "../customize/emitters.js";
 import { readSetupState, type SetupPhase } from "../customize/setup-state.js";
+import { stagesForTrack } from "../core/loop.js";
 import {
   baseFingerprint,
   compiledFingerprint,
@@ -15,9 +16,20 @@ import {
   overlayFingerprint,
 } from "./phase-fingerprints.js";
 import { inspectRepo } from "./customize.js";
-import { readAcceptedLearnings, summarizeAcceptedLearnings } from "../core/accepted-learnings.js";
-import { hasDeterministicEngineerGrounding, hasDeterministicTesterGrounding } from "../core/role-grounding.js";
+import {
+  filterAcceptedLearningsByKinds,
+  LOOP_DERIVED_LEARNING_KINDS,
+  readAcceptedLearnings,
+  summarizeAcceptedLearnings,
+  type AcceptedLearningEntry,
+} from "../core/accepted-learnings.js";
+import {
+  hasDeterministicEngineerGrounding,
+  hasDeterministicTesterGrounding,
+  SETUP_GROUNDING_LEARNINGS_BY_ROLE,
+} from "../core/role-grounding.js";
 import type { OperatingMode } from "../schema/index.js";
+import { readLoopBehaviorEvalState, summarizeBehaviorEval } from "../eval/loop-behavior-eval-state.js";
 
 export interface StatusReport {
   /** True once `aisdlc customize` has produced an overlay. */
@@ -47,6 +59,22 @@ export interface StatusReport {
   acceptedLearnings: {
     count: number;
     claims: string[];
+  };
+  loopQuality: {
+    expectedStages: number;
+    groundedRoles: number;
+    totalRoles: number;
+    groundedGroundableRoles: number;
+    groundableRoles: number;
+    roleGroundingComplete: boolean;
+    approvalGateCoverage: "compiled" | "not-run";
+    handoffCoverage: "compiled" | "not-run";
+    behaviorEval: {
+      state: "not-run" | "passed" | "failed" | "partial";
+      passed: number;
+      total: number;
+    };
+    loopLearnings: number;
   };
 }
 
@@ -86,6 +114,36 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const engineerDeterministic = hasDeterministicEngineerGrounding(groundingInput);
   const testerDeterministic = hasDeterministicTesterGrounding(groundingInput);
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
+  const roleStates = {
+    architect: roleState(
+      archConfidence === "high" || hasRelevantLearning(acceptedLearnings, "architect"),
+      Boolean(inspection.overlay.roleAddenda.architect),
+    ),
+    engineer: roleState(engineerDeterministic, Boolean(inspection.overlay.roleAddenda.engineer)),
+    tester: roleState(
+      testerDeterministic || hasRelevantLearning(acceptedLearnings, "tester"),
+      Boolean(inspection.overlay.roleAddenda.tester),
+    ),
+    reviewer: roleState(
+      hasRelevantLearning(acceptedLearnings, "reviewer"),
+      Boolean(inspection.overlay.roleAddenda.reviewer),
+    ),
+    debugger: roleState(false, Boolean(inspection.overlay.roleAddenda.debugger)),
+  };
+  const totalRoles = Object.keys(roleStates).length;
+  const groundedRoles = Object.values(roleStates).filter((state) => state !== "generic").length;
+  const groundableRoleNames = ["architect", "engineer", "tester", "reviewer"] as const;
+  const groundableRoles = groundableRoleNames.length;
+  const groundedGroundableRoles = groundableRoleNames.filter((role) => roleStates[role] !== "generic").length;
+  const track = inspection.overlay.defaultTrack ?? "standard";
+  const expectedStages = stagesForTrack(track).length;
+  const loopLearnings = filterAcceptedLearningsByKinds(
+    acceptedLearnings,
+    LOOP_DERIVED_LEARNING_KINDS,
+  ).length;
+  const compiledCoverageState = phaseStatus.stalePhases.includes("compiled") ? "not-run" : "compiled";
+  const evalState = readLoopBehaviorEvalState(sdlcDir);
+  const behaviorEval = summarizeBehaviorEval(evalState);
   return {
     initialized: inspection.initialized,
     operatingMode: inspection.overlay.operatingMode,
@@ -100,11 +158,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
     architectureConfidence: archConfidence,
     architectureReasons: inspection.profile.architecture?.reasons ?? [],
     evidenceQuality: quality,
-    roleStates: {
-      architect: roleState(archConfidence === "high", Boolean(inspection.overlay.roleAddenda.architect)),
-      engineer: roleState(engineerDeterministic, Boolean(inspection.overlay.roleAddenda.engineer)),
-      tester: roleState(testerDeterministic, Boolean(inspection.overlay.roleAddenda.tester)),
-    },
+    roleStates,
     blockingGaps: inspection.gaps.length,
     coverage: evidenceCoverage(inspection.standardsIndex),
     packages: inspection.profile.packages?.length ?? 0,
@@ -112,6 +166,18 @@ export function buildStatus(options: StatusOptions): StatusReport {
     acceptedLearnings: {
       count: acceptedLearnings.length,
       claims: summarizeAcceptedLearnings(acceptedLearnings),
+    },
+    loopQuality: {
+      expectedStages,
+      groundedRoles,
+      totalRoles,
+      groundedGroundableRoles,
+      groundableRoles,
+      roleGroundingComplete: groundedGroundableRoles === groundableRoles,
+      approvalGateCoverage: compiledCoverageState,
+      handoffCoverage: compiledCoverageState,
+      behaviorEval,
+      loopLearnings,
     },
   };
 }
@@ -129,7 +195,7 @@ function setupPhaseStatus(options: {
   }
   const stale: SetupPhase[] = [];
   if (options.baseDir && existsSync(options.baseDir)) {
-    const overlayFp = overlayFingerprint(options.overlayPath);
+    const overlayFp = overlayFingerprint(options.overlayPath, options.sdlcDir);
     const baseFp = baseFingerprint(options.baseDir, options.sdlcDir);
     const compiledFp = compiledFingerprint(overlayFp, baseFp);
     const smokeFp = emittedFingerprint(options.outDir, baseFp);
@@ -153,6 +219,13 @@ function roleState(
   if (hasDeterministicGrounding) return "deterministic";
   if (hasLlmAddendum) return "llm-authored";
   return "generic";
+}
+
+function hasRelevantLearning(
+  entries: AcceptedLearningEntry[],
+  role: keyof typeof SETUP_GROUNDING_LEARNINGS_BY_ROLE,
+): boolean {
+  return filterAcceptedLearningsByKinds(entries, SETUP_GROUNDING_LEARNINGS_BY_ROLE[role] ?? []).length > 0;
 }
 
 function pct(covered: number, total: number): string {
@@ -206,7 +279,14 @@ export function formatStatus(report: StatusReport): string {
     lines.push(`Low-value evidence sources: ${report.evidenceQuality.lowValueSources.join(", ")}`);
   }
   lines.push(
-    `Role grounding: architect=${report.roleStates.architect}, engineer=${report.roleStates.engineer}, tester=${report.roleStates.tester}`,
+    `Role grounding: architect=${report.roleStates.architect}, engineer=${report.roleStates.engineer}, tester=${report.roleStates.tester}, reviewer=${report.roleStates.reviewer}, debugger=${report.roleStates.debugger}`,
+  );
+  const behaviorEvalDisplay =
+    report.loopQuality.behaviorEval.state === "not-run"
+      ? "not-run"
+      : `${report.loopQuality.behaviorEval.state} (${report.loopQuality.behaviorEval.passed}/${report.loopQuality.behaviorEval.total})`;
+  lines.push(
+    `Loop quality: stages=${report.loopQuality.expectedStages}, grounded roles=${report.loopQuality.groundedGroundableRoles}/${report.loopQuality.groundableRoles} groundable (${report.loopQuality.groundedRoles}/${report.loopQuality.totalRoles} total), handoffs=${report.loopQuality.handoffCoverage}, approval gates=${report.loopQuality.approvalGateCoverage}, behavior eval=${behaviorEvalDisplay}, loop learnings=${report.loopQuality.loopLearnings}`,
   );
   if (report.acceptedLearnings.count > 0) {
     lines.push(`Accepted learnings (${report.acceptedLearnings.count}):`);

@@ -1,5 +1,9 @@
 import { assertRoleAddendumWithinContract } from "./role-addenda.js";
-import type { AcceptedLearningEntry, AcceptedLearningKind } from "./accepted-learnings.js";
+import {
+  filterAcceptedLearningsByKinds,
+  type AcceptedLearningEntry,
+  type AcceptedLearningKind,
+} from "./accepted-learnings.js";
 import type { ProjectContext } from "./project-context.js";
 import type { Overlay, Role } from "../schema/index.js";
 
@@ -8,9 +12,17 @@ const MAX_ROLE_GROUNDING_CHARS = 1200;
 const ACCEPTED_LEARNINGS_HEADING = "## Accepted project learnings";
 const MAX_ACCEPTED_LEARNINGS_CHARS = 800;
 
-const LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
+export const LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
+  architect: ["architecture-demotion", "standard-added", "bench-residual", "gate-approval"],
+  engineer: ["test-command", "standard-added", "review-finding", "test-correction", "bench-residual", "gate-approval"],
+  reviewer: ["review-finding", "bench-residual", "standard-added", "gate-approval"],
+  tester: ["test-command", "test-correction", "bench-residual", "gate-approval"],
+};
+
+export const SETUP_GROUNDING_LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
   architect: ["architecture-demotion", "standard-added"],
-  engineer: ["test-command", "standard-added"],
+  engineer: [],
+  reviewer: ["standard-added"],
   tester: ["test-command"],
 };
 
@@ -40,11 +52,11 @@ export function appendRoleGrounding(role: Role, input: RoleGroundingInput): Role
   if (role.frontmatter.name === "architect") {
     return appendArchitectGrounding(role, input.projectContext);
   }
-  if (role.frontmatter.name === "tester") {
-    return appendTesterGrounding(role, input);
-  }
   if (role.frontmatter.name === "engineer") {
     return appendEngineerGrounding(role, input);
+  }
+  if (role.frontmatter.name === "tester") {
+    return appendTesterGrounding(role, input);
   }
   return role;
 }
@@ -61,14 +73,6 @@ export function appendArchitectGrounding(role: Role, projectContext: ProjectCont
   if (projectContext.map.length > 8) {
     lines.push(`- ${projectContext.map.length - 8} additional entries are available in the codebase map.`);
   }
-  return appendGroundingSection(role, lines.join("\n"));
-}
-
-function appendTesterGrounding(role: Role, input: RoleGroundingInput): Role {
-  if (role.frontmatter.name !== "tester" || !hasDeterministicTesterGrounding(input)) {
-    return role;
-  }
-  const lines = buildTesterGroundingLines(input);
   return appendGroundingSection(role, lines.join("\n"));
 }
 
@@ -89,6 +93,14 @@ function appendEngineerGrounding(role: Role, input: RoleGroundingInput): Role {
   if (rootCommand) lines.push(`Run relevant validation with \`${rootCommand}\`.`);
   const packageCommands = (input.projectContext?.packages ?? []).filter((pkg) => pkg.testCommand?.trim()).slice(0, 4);
   for (const pkg of packageCommands) lines.push(`For \`${pkg.path}\`, use \`${pkg.testCommand}\`.`);
+  return appendGroundingSection(role, lines.join("\n"));
+}
+
+function appendTesterGrounding(role: Role, input: RoleGroundingInput): Role {
+  if (role.frontmatter.name !== "tester" || !hasDeterministicTesterGrounding(input)) {
+    return role;
+  }
+  const lines = buildTesterGroundingLines(input);
   return appendGroundingSection(role, lines.join("\n"));
 }
 
@@ -125,7 +137,7 @@ export function appendAcceptedLearnings(role: Role, entries: AcceptedLearningEnt
   const kinds = LEARNINGS_BY_ROLE[role.frontmatter.name];
   if (!kinds || entries.length === 0) return role;
 
-  const relevant = entries.filter((entry) => kinds.includes(entry.kind));
+  const relevant = filterAcceptedLearningsByKinds(entries, kinds);
   if (relevant.length === 0) return role;
 
   const lines = [

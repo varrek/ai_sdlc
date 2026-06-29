@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "./args.js";
 import { DEFAULT_CACHE_DIR, DEFAULT_CATALOG, DEFAULT_REPORT_DIR, parseFailOnClasses, runBench } from "./bench.js";
@@ -14,6 +14,8 @@ import { runSmokeCli } from "./smoke.js";
 import { runUpgrade } from "./upgrade.js";
 import { buildStandardsIndex, evidenceCoverage } from "../customize/emitters.js";
 import { HostId, OperatingMode, type OperatingMode as OperatingModeValue } from "../schema/index.js";
+import { appendLoopEvent, readLoopEvents } from "../core/memory.js";
+import type { LoopTraceEvent } from "../eval/loop-trace.js";
 
 const HELP = `aisdlc — internal AI SDLC framework compiler
 
@@ -30,6 +32,7 @@ Commands:
   bench       Run a reproducible external-repo setup evaluation.
   explain     Show a mined standard (by number) or stable claim key and its evidence.
   garden-docs Report stale or noisy agent-facing documentation.
+  record-event Record a loop trace event to .sdlc/loop_history/events.jsonl (for hooks/skills).
 
 Bench flags:
   --seed <n> --count <n> --catalog <file> --cache-dir <dir> --report-dir <dir>
@@ -44,6 +47,34 @@ Garden-docs flags:
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
   process.exit(1);
+}
+
+function isLoopTraceEvent(value: unknown): value is LoopTraceEvent {
+  if (!value || typeof value !== "object") return false;
+  const type = (value as { type?: unknown }).type;
+  switch (type) {
+    case "plan_created":
+    case "handoff":
+    case "tool_attempt":
+    case "test_run":
+    case "approval_gate":
+    case "review_verdict":
+    case "replan":
+    case "done":
+    case "stuck":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function approvalEventKey(event: LoopTraceEvent): string | undefined {
+  if (event.type !== "approval_gate" || event.verdict !== "approved") return undefined;
+  if (event.taskId === "unknown") return undefined;
+  const evidence = [...(event.evidence ?? [])].sort().join("\0");
+  const checkpoint = event.checkpoint ?? event.stage;
+  if (!checkpoint) return undefined;
+  return [event.taskId, event.role ?? "", checkpoint, evidence].join("\0");
 }
 
 /** Where `customize` writes the project overlay. */
@@ -373,6 +404,39 @@ function cmdUpgrade(rest: string[]): void {
   process.stdout.write(`Upgraded base to ${result.lock!.baseVersion}.\n`);
 }
 
+function cmdRecordEvent(rest: string[]): void {
+  const { options } = parseArgs(rest);
+  const eventJson = options.get("event");
+  const sdlcDir = options.get("sdlc-dir") ?? join(process.cwd(), ".sdlc");
+
+  if (!eventJson) {
+    fail("record-event: --event <json> is required");
+  }
+
+  let event: LoopTraceEvent;
+  try {
+    const parsed = JSON.parse(eventJson!);
+    if (!isLoopTraceEvent(parsed)) {
+      fail("record-event: event must include a valid loop trace type");
+    }
+    event = parsed;
+  } catch (err) {
+    fail(`record-event: invalid JSON in --event: ${err}`);
+  }
+
+  const approvalKey = approvalEventKey(event);
+  if (approvalKey) {
+    const alreadyRecorded = readLoopEvents(sdlcDir).some((recorded) => approvalEventKey(recorded) === approvalKey);
+    if (alreadyRecorded) {
+      process.stdout.write(`Skipped duplicate ${event.type} event in ${sdlcDir}\n`);
+      return;
+    }
+  }
+
+  const path = appendLoopEvent(sdlcDir, event);
+  process.stdout.write(`Recorded ${event.type} event to ${path}\n`);
+}
+
 function main(): void {
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
@@ -399,6 +463,9 @@ function main(): void {
       return;
     case "explain":
       cmdExplain(rest);
+      return;
+    case "record-event":
+      cmdRecordEvent(rest);
       return;
     case "garden-docs":
       cmdGardenDocs(rest);

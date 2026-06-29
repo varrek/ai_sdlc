@@ -111,6 +111,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -121,7 +129,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -131,6 +140,35 @@ the Engineer's own test run. See \`track-select\` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks. For accurate
+multi-gate traces, set \`SDLC_TASK_ID\` for the current task, \`SDLC_GATE_STAGE\` or
+\`SDLC_STAGE\` for the loop stage, and \`SDLC_CHECKPOINT\` for each distinct human
+decision (for example \`before-engineer\`, \`before-reviewer\`, or
+\`after-tester-handback\`). Repeated approvals at the same stage must use distinct
+checkpoint ids when they represent distinct decisions.
 
 ## Per-host notes
 
@@ -282,6 +320,13 @@ is a plan the Engineer can execute without re-deriving your reasoning.
 3. Surface risks, unknowns, and decisions that need human input.
 4. Choose an approach and justify it briefly against the alternatives you rejected.
 
+## Operating loop
+
+Plan the next three to five investigation steps, inspect the repo evidence, then
+choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice; if the
+scope still will not stabilize, escalate with the unresolved decision and the
+evidence behind it.
+
 ## Hand off
 
 Return a compressed plan, not a transcript:
@@ -323,6 +368,13 @@ Engineer to implement.
 3. Identify the root cause — distinguish it from symptoms and coincidences.
 4. Define the smallest fix that addresses the cause.
 
+## Operating loop
+
+Plan the next three to five diagnostic steps, inspect or run one non-mutating
+probe, observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the evidence gap or suspected
+external blocker.
+
 ## Hand off
 
 Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
@@ -356,6 +408,14 @@ modify files. You implement strictly to the Architect's approved plan.
 3. Run the project's test command and fix failures before handing off.
 4. Keep the diff scoped to the plan. If you discover work outside it, note it and
    stop — do not expand scope silently.
+
+## Operating loop
+
+Plan the next three to five implementation steps, make one scoped change, observe
+the test/build/review feedback, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the blocker and evidence.
+When Tester or Reviewer hands back findings, act only on the listed deltas; do
+not broaden the diff during a retry.
 
 ## Hand off
 
@@ -398,12 +458,27 @@ of how it was produced.
 4. Prefer specific, actionable findings over general impressions; cite file and
    line where you can.
 
-## Verdict
+## Operating loop
 
-Return exactly one:
+Plan the next three to five review checks, inspect one risk surface at a time,
+observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the unresolved risk and the evidence
+needed to decide it.
 
-- **Approve** — with a one-line rationale.
-- **Request changes** — with a concrete, ordered list of what must change and why.
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Approve** — the plan is satisfied, tests are adequate, and no blocking risk
+  remains.
+- **Request changes** — list ordered, actionable deltas the Engineer can apply
+  without reinterpreting the review.
+- **Escalate** — use when approval depends on a product, security, or operational
+  decision outside the diff.
+
+## Hand off
+
+Return exactly one evaluator-gate verdict with the evidence that supports it.
 
 Review is a non-negotiable gate. A change does not ship without your approval.
 ",
@@ -445,6 +520,23 @@ single-writer rule.
 3. Distinguish a genuine defect from a flaky or environment-specific failure.
 4. For any gap, specify the missing test case precisely: input and expected output.
 
+## Operating loop
+
+Plan the next three to five verification steps, run or inspect one evidence path,
+observe the real result, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the failing command, environment
+constraint, or missing evidence.
+
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Pass** — command evidence is green and no material coverage gaps remain.
+- **Fail** — include the exact command, reproduction, and the actionable deltas
+  the Engineer must address.
+- **Escalate** — use when the result is blocked by environment, flaky behavior, or
+  missing information after the retry budget.
+
 ## Hand off
 
 Return a verification report, not raw logs:
@@ -459,10 +551,61 @@ for root-cause analysis of a stubborn failure, to the Debugger.
   ".claude/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Claude Code PreToolUse Approved? gate. Blocks Write/Edit/MCP tool use until
 // the orchestration loop sets SDLC_APPROVED=1 (after human approval).
-if (process.env.SDLC_APPROVED !== "1") {
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+function findSdlcDir() {
+  let dir = process.cwd();
+  while (true) {
+    const candidate = join(dir, ".sdlc");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return join(process.cwd(), ".sdlc");
+    dir = parent;
+  }
+}
+
+function gateStage() {
+  const stage = process.env.SDLC_GATE_STAGE || process.env.SDLC_STAGE;
+  return ["architect", "engineer", "test", "reviewer", "wrap-up"].includes(stage) ? stage : undefined;
+}
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet. Halting before write/MCP.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+const sdlcDir = process.env.SDLC_DIR || findSdlcDir();
+const stage = gateStage();
+const checkpoint = process.env.SDLC_CHECKPOINT;
+const label = checkpoint || stage || scope;
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  stage,
+  checkpoint,
+  reason: \`Human approved via SDLC_APPROVED=1 (\${label})\`,
+  evidence: [scope, label].filter(Boolean),
+});
+
+try {
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  const message = err instanceof Error ? err.message : String(err);
+  console.warn("Warning: failed to record approval event:", message);
+}
+
 process.exit(0);
 ",
   ".claude/settings.json": "{
@@ -590,6 +733,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -600,7 +751,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -610,6 +762,35 @@ the Engineer's own test run. See \`track-select\` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks. For accurate
+multi-gate traces, set \`SDLC_TASK_ID\` for the current task, \`SDLC_GATE_STAGE\` or
+\`SDLC_STAGE\` for the loop stage, and \`SDLC_CHECKPOINT\` for each distinct human
+decision (for example \`before-engineer\`, \`before-reviewer\`, or
+\`after-tester-handback\`). Repeated approvals at the same stage must use distinct
+checkpoint ids when they represent distinct decisions.
 
 ## Per-host notes
 
@@ -754,6 +935,13 @@ is a plan the Engineer can execute without re-deriving your reasoning.
 3. Surface risks, unknowns, and decisions that need human input.
 4. Choose an approach and justify it briefly against the alternatives you rejected.
 
+## Operating loop
+
+Plan the next three to five investigation steps, inspect the repo evidence, then
+choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice; if the
+scope still will not stabilize, escalate with the unresolved decision and the
+evidence behind it.
+
 ## Hand off
 
 Return a compressed plan, not a transcript:
@@ -789,6 +977,13 @@ Engineer to implement.
 3. Identify the root cause — distinguish it from symptoms and coincidences.
 4. Define the smallest fix that addresses the cause.
 
+## Operating loop
+
+Plan the next three to five diagnostic steps, inspect or run one non-mutating
+probe, observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the evidence gap or suspected
+external blocker.
+
 ## Hand off
 
 Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
@@ -816,6 +1011,14 @@ modify files. You implement strictly to the Architect's approved plan.
 3. Run the project's test command and fix failures before handing off.
 4. Keep the diff scoped to the plan. If you discover work outside it, note it and
    stop — do not expand scope silently.
+
+## Operating loop
+
+Plan the next three to five implementation steps, make one scoped change, observe
+the test/build/review feedback, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the blocker and evidence.
+When Tester or Reviewer hands back findings, act only on the listed deltas; do
+not broaden the diff during a retry.
 
 ## Hand off
 
@@ -852,12 +1055,27 @@ of how it was produced.
 4. Prefer specific, actionable findings over general impressions; cite file and
    line where you can.
 
-## Verdict
+## Operating loop
 
-Return exactly one:
+Plan the next three to five review checks, inspect one risk surface at a time,
+observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the unresolved risk and the evidence
+needed to decide it.
 
-- **Approve** — with a one-line rationale.
-- **Request changes** — with a concrete, ordered list of what must change and why.
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Approve** — the plan is satisfied, tests are adequate, and no blocking risk
+  remains.
+- **Request changes** — list ordered, actionable deltas the Engineer can apply
+  without reinterpreting the review.
+- **Escalate** — use when approval depends on a product, security, or operational
+  decision outside the diff.
+
+## Hand off
+
+Return exactly one evaluator-gate verdict with the evidence that supports it.
 
 Review is a non-negotiable gate. A change does not ship without your approval.
 """
@@ -891,6 +1109,23 @@ single-writer rule.
    happy path.
 3. Distinguish a genuine defect from a flaky or environment-specific failure.
 4. For any gap, specify the missing test case precisely: input and expected output.
+
+## Operating loop
+
+Plan the next three to five verification steps, run or inspect one evidence path,
+observe the real result, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the failing command, environment
+constraint, or missing evidence.
+
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Pass** — command evidence is green and no material coverage gaps remain.
+- **Fail** — include the exact command, reproduction, and the actionable deltas
+  the Engineer must address.
+- **Escalate** — use when the result is blocked by environment, flaky behavior, or
+  missing information after the retry budget.
 
 ## Hand off
 
@@ -931,10 +1166,61 @@ statusMessage = "Checking MCP least-privilege"
 ",
   ".codex/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Codex PreToolUse Approved? gate. Blocks apply_patch/Bash/MCP until SDLC_APPROVED=1.
-if (process.env.SDLC_APPROVED !== "1") {
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+function findSdlcDir() {
+  let dir = process.cwd();
+  while (true) {
+    const candidate = join(dir, ".sdlc");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return join(process.cwd(), ".sdlc");
+    dir = parent;
+  }
+}
+
+function gateStage() {
+  const stage = process.env.SDLC_GATE_STAGE || process.env.SDLC_STAGE;
+  return ["architect", "engineer", "test", "reviewer", "wrap-up"].includes(stage) ? stage : undefined;
+}
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet. Halting before write/MCP.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+const sdlcDir = process.env.SDLC_DIR || findSdlcDir();
+const stage = gateStage();
+const checkpoint = process.env.SDLC_CHECKPOINT;
+const label = checkpoint || stage || scope;
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  stage,
+  checkpoint,
+  reason: \`Human approved via SDLC_APPROVED=1 (\${label})\`,
+  evidence: [scope, label].filter(Boolean),
+});
+
+try {
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  const message = err instanceof Error ? err.message : String(err);
+  console.warn("Warning: failed to record approval event:", message);
+}
+
 process.exit(0);
 ",
   ".codex/hooks/mcp-gate.mjs": "#!/usr/bin/env node
@@ -1100,6 +1386,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -1110,7 +1404,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -1120,6 +1415,35 @@ the Engineer's own test run. See \`track-select\` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks. For accurate
+multi-gate traces, set \`SDLC_TASK_ID\` for the current task, \`SDLC_GATE_STAGE\` or
+\`SDLC_STAGE\` for the loop stage, and \`SDLC_CHECKPOINT\` for each distinct human
+decision (for example \`before-engineer\`, \`before-reviewer\`, or
+\`after-tester-handback\`). Repeated approvals at the same stage must use distinct
+checkpoint ids when they represent distinct decisions.
 
 ## Per-host notes
 
@@ -1271,6 +1595,13 @@ is a plan the Engineer can execute without re-deriving your reasoning.
 3. Surface risks, unknowns, and decisions that need human input.
 4. Choose an approach and justify it briefly against the alternatives you rejected.
 
+## Operating loop
+
+Plan the next three to five investigation steps, inspect the repo evidence, then
+choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice; if the
+scope still will not stabilize, escalate with the unresolved decision and the
+evidence behind it.
+
 ## Hand off
 
 Return a compressed plan, not a transcript:
@@ -1312,6 +1643,13 @@ Engineer to implement.
 3. Identify the root cause — distinguish it from symptoms and coincidences.
 4. Define the smallest fix that addresses the cause.
 
+## Operating loop
+
+Plan the next three to five diagnostic steps, inspect or run one non-mutating
+probe, observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the evidence gap or suspected
+external blocker.
+
 ## Hand off
 
 Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
@@ -1345,6 +1683,14 @@ modify files. You implement strictly to the Architect's approved plan.
 3. Run the project's test command and fix failures before handing off.
 4. Keep the diff scoped to the plan. If you discover work outside it, note it and
    stop — do not expand scope silently.
+
+## Operating loop
+
+Plan the next three to five implementation steps, make one scoped change, observe
+the test/build/review feedback, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the blocker and evidence.
+When Tester or Reviewer hands back findings, act only on the listed deltas; do
+not broaden the diff during a retry.
 
 ## Hand off
 
@@ -1387,12 +1733,27 @@ of how it was produced.
 4. Prefer specific, actionable findings over general impressions; cite file and
    line where you can.
 
-## Verdict
+## Operating loop
 
-Return exactly one:
+Plan the next three to five review checks, inspect one risk surface at a time,
+observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the unresolved risk and the evidence
+needed to decide it.
 
-- **Approve** — with a one-line rationale.
-- **Request changes** — with a concrete, ordered list of what must change and why.
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Approve** — the plan is satisfied, tests are adequate, and no blocking risk
+  remains.
+- **Request changes** — list ordered, actionable deltas the Engineer can apply
+  without reinterpreting the review.
+- **Escalate** — use when approval depends on a product, security, or operational
+  decision outside the diff.
+
+## Hand off
+
+Return exactly one evaluator-gate verdict with the evidence that supports it.
 
 Review is a non-negotiable gate. A change does not ship without your approval.
 ",
@@ -1434,6 +1795,23 @@ single-writer rule.
 3. Distinguish a genuine defect from a flaky or environment-specific failure.
 4. For any gap, specify the missing test case precisely: input and expected output.
 
+## Operating loop
+
+Plan the next three to five verification steps, run or inspect one evidence path,
+observe the real result, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the failing command, environment
+constraint, or missing evidence.
+
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Pass** — command evidence is green and no material coverage gaps remain.
+- **Fail** — include the exact command, reproduction, and the actionable deltas
+  the Engineer must address.
+- **Escalate** — use when the result is blocked by environment, flaky behavior, or
+  missing information after the retry budget.
+
 ## Hand off
 
 Return a verification report, not raw logs:
@@ -1464,10 +1842,61 @@ for root-cause analysis of a stubborn failure, to the Debugger.
   ".cursor/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Cursor Approved? gate: block writes leaving the workspace until approval.
 // The orchestration loop sets SDLC_APPROVED=1 only after the human approves.
-if (process.env.SDLC_APPROVED !== "1") {
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+function findSdlcDir() {
+  let dir = process.cwd();
+  while (true) {
+    const candidate = join(dir, ".sdlc");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return join(process.cwd(), ".sdlc");
+    dir = parent;
+  }
+}
+
+function gateStage() {
+  const stage = process.env.SDLC_GATE_STAGE || process.env.SDLC_STAGE;
+  return ["architect", "engineer", "test", "reviewer", "wrap-up"].includes(stage) ? stage : undefined;
+}
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet. Halting before write-out.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+const sdlcDir = process.env.SDLC_DIR || findSdlcDir();
+const stage = gateStage();
+const checkpoint = process.env.SDLC_CHECKPOINT;
+const label = checkpoint || stage || scope;
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  stage,
+  checkpoint,
+  reason: \`Human approved via SDLC_APPROVED=1 (\${label})\`,
+  evidence: [scope, label].filter(Boolean),
+});
+
+try {
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  const message = err instanceof Error ? err.message : String(err);
+  console.warn("Warning: failed to record approval event:", message);
+}
+
 process.exit(0);
 ",
   ".cursor/hooks/mcp-gate.mjs": "#!/usr/bin/env node
@@ -1640,6 +2069,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -1650,7 +2087,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -1660,6 +2098,35 @@ the Engineer's own test run. See \`track-select\` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks. For accurate
+multi-gate traces, set \`SDLC_TASK_ID\` for the current task, \`SDLC_GATE_STAGE\` or
+\`SDLC_STAGE\` for the loop stage, and \`SDLC_CHECKPOINT\` for each distinct human
+decision (for example \`before-engineer\`, \`before-reviewer\`, or
+\`after-tester-handback\`). Repeated approvals at the same stage must use distinct
+checkpoint ids when they represent distinct decisions.
 
 ## Per-host notes
 
@@ -1820,6 +2287,13 @@ is a plan the Engineer can execute without re-deriving your reasoning.
 3. Surface risks, unknowns, and decisions that need human input.
 4. Choose an approach and justify it briefly against the alternatives you rejected.
 
+## Operating loop
+
+Plan the next three to five investigation steps, inspect the repo evidence, then
+choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice; if the
+scope still will not stabilize, escalate with the unresolved decision and the
+evidence behind it.
+
 ## Hand off
 
 Return a compressed plan, not a transcript:
@@ -1864,6 +2338,13 @@ Engineer to implement.
 2. Form a hypothesis and confirm it against the actual code paths involved.
 3. Identify the root cause — distinguish it from symptoms and coincidences.
 4. Define the smallest fix that addresses the cause.
+
+## Operating loop
+
+Plan the next three to five diagnostic steps, inspect or run one non-mutating
+probe, observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the evidence gap or suspected
+external blocker.
 
 ## Hand off
 
@@ -1910,6 +2391,14 @@ modify files. You implement strictly to the Architect's approved plan.
 3. Run the project's test command and fix failures before handing off.
 4. Keep the diff scoped to the plan. If you discover work outside it, note it and
    stop — do not expand scope silently.
+
+## Operating loop
+
+Plan the next three to five implementation steps, make one scoped change, observe
+the test/build/review feedback, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the blocker and evidence.
+When Tester or Reviewer hands back findings, act only on the listed deltas; do
+not broaden the diff during a retry.
 
 ## Hand off
 
@@ -1988,12 +2477,27 @@ of how it was produced.
 4. Prefer specific, actionable findings over general impressions; cite file and
    line where you can.
 
-## Verdict
+## Operating loop
 
-Return exactly one:
+Plan the next three to five review checks, inspect one risk surface at a time,
+observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the unresolved risk and the evidence
+needed to decide it.
 
-- **Approve** — with a one-line rationale.
-- **Request changes** — with a concrete, ordered list of what must change and why.
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Approve** — the plan is satisfied, tests are adequate, and no blocking risk
+  remains.
+- **Request changes** — list ordered, actionable deltas the Engineer can apply
+  without reinterpreting the review.
+- **Escalate** — use when approval depends on a product, security, or operational
+  decision outside the diff.
+
+## Hand off
+
+Return exactly one evaluator-gate verdict with the evidence that supports it.
 
 Review is a non-negotiable gate. A change does not ship without your approval.
 ",
@@ -2045,6 +2549,23 @@ single-writer rule.
 3. Distinguish a genuine defect from a flaky or environment-specific failure.
 4. For any gap, specify the missing test case precisely: input and expected output.
 
+## Operating loop
+
+Plan the next three to five verification steps, run or inspect one evidence path,
+observe the real result, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the failing command, environment
+constraint, or missing evidence.
+
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Pass** — command evidence is green and no material coverage gaps remain.
+- **Fail** — include the exact command, reproduction, and the actionable deltas
+  the Engineer must address.
+- **Escalate** — use when the result is blocked by environment, flaky behavior, or
+  missing information after the retry budget.
+
 ## Hand off
 
 Return a verification report, not raw logs:
@@ -2095,10 +2616,61 @@ changes that skip review or fail tests.
 ",
   ".github/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Copilot CLI/cloud Approved? gate (no IDE equivalent — see CI backstop).
-if (process.env.SDLC_APPROVED !== "1") {
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+function findSdlcDir() {
+  let dir = process.cwd();
+  while (true) {
+    const candidate = join(dir, ".sdlc");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return join(process.cwd(), ".sdlc");
+    dir = parent;
+  }
+}
+
+function gateStage() {
+  const stage = process.env.SDLC_GATE_STAGE || process.env.SDLC_STAGE;
+  return ["architect", "engineer", "test", "reviewer", "wrap-up"].includes(stage) ? stage : undefined;
+}
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+const sdlcDir = process.env.SDLC_DIR || findSdlcDir();
+const stage = gateStage();
+const checkpoint = process.env.SDLC_CHECKPOINT;
+const label = checkpoint || stage || scope;
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  stage,
+  checkpoint,
+  reason: \`Human approved via SDLC_APPROVED=1 (\${label})\`,
+  evidence: [scope, label].filter(Boolean),
+});
+
+try {
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  const message = err instanceof Error ? err.message : String(err);
+  console.warn("Warning: failed to record approval event:", message);
+}
+
 process.exit(0);
 ",
   ".github/skills/customize/SKILL.md": "---
@@ -2210,6 +2782,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -2220,7 +2800,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -2230,6 +2811,35 @@ the Engineer's own test run. See \`track-select\` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks. For accurate
+multi-gate traces, set \`SDLC_TASK_ID\` for the current task, \`SDLC_GATE_STAGE\` or
+\`SDLC_STAGE\` for the loop stage, and \`SDLC_CHECKPOINT\` for each distinct human
+decision (for example \`before-engineer\`, \`before-reviewer\`, or
+\`after-tester-handback\`). Repeated approvals at the same stage must use distinct
+checkpoint ids when they represent distinct decisions.
 
 ## Per-host notes
 
