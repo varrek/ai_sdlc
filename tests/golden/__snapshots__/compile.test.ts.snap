@@ -994,17 +994,17 @@ process.exit(0);
   ".codex/skills/customize/SKILL.md": "---
 name: customize
 description: Adapt the AI SDLC base to the current repository as a resumable
-  first-run chain — mine the stack, emit an evidence-backed overlay, compile,
-  and gate on a passing smoke run, short-circuiting phases whose inputs are
-  unchanged.
-disable-model-invocation: true
+  first-run chain — mine the stack, draft host-LLM personalization in default
+  Plugin Mode, compile, and gate on a passing smoke run, short-circuiting phases
+  whose inputs are unchanged.
 ---
 
 # /customize
 
-Drive the full first-run chain for *this* repository: **mine → compile → smoke**.
-Repo-mine first; interview only for what mining cannot answer; emit schema-valid,
-evidence-backed artifacts; then compile and gate on a passing smoke run.
+Drive the full first-run chain for *this* repository: **mine → personalize (Plugin
+Mode) → compile → smoke**. Repo-mine first; interview only for what mining cannot
+answer; emit schema-valid, evidence-backed artifacts; then compile and gate on a
+passing smoke run.
 
 The chain is **resumable**. Each command records a fingerprinted phase in
 \`.sdlc/setup-state.yaml\` and short-circuits when its inputs are unchanged, so
@@ -1014,14 +1014,17 @@ freshness makes the no-op cheap.
 
 ## Steps
 
-1. **Mine + emit the overlay.** Run \`aisdlc customize --repo .\` (add
-   \`--answers-file <path>\` only when you have interview answers to apply — the
-   common first run needs no flag). The miner detects languages, frameworks, the
-   **runnable test command** (CI > Makefile > \`package.json\`/\`pyproject\`), test
-   runner, linters, package managers, CI, CODEOWNERS, and docs — ignoring
-   vendored/env dirs (\`venv/\`, \`node_modules/\`, \`__pycache__/\`, build output).
-   Every detected standard records the repo path(s) that justify it. The mined
-   test command closes the "how do tests run" gap automatically.
+1. **Mine + emit the overlay.** Run \`aisdlc customize --repo .\`; Plugin Mode is
+   the default and records \`operatingMode: plugin\`. Use
+   \`aisdlc customize --repo . --mode deterministic\` only when this project must
+   opt out of host-LLM personalization. Add \`--answers-file <path>\` only when you
+   have interview answers to apply — the common first run needs no flag. The
+   miner detects languages, frameworks, the **runnable test command** (CI >
+   Makefile > \`package.json\`/\`pyproject\`), test runner, linters, package managers,
+   CI, CODEOWNERS, and docs — ignoring vendored/env dirs (\`venv/\`, \`node_modules/\`,
+   \`__pycache__/\`, build output). Every detected standard records the repo path(s)
+   that justify it. The mined test command closes the "how do tests run" gap
+   automatically.
 
    On an unchanged re-run the command prints \`customize fresh — skipped\`; on a
    re-run with changed inputs the standards index is diffed against the prior one
@@ -1035,12 +1038,20 @@ freshness makes the no-op cheap.
    step that needs them (e.g. wrap-up); see \`sdlc-loop\`. A fresh repo reaches
    setup-ready with zero integration hand-editing.
 
-3. **Compile.** Run
+3. **Draft host-LLM personalization in Plugin Mode.** If
+   \`.sdlc/overlay/.customize.yaml\` says \`operatingMode: plugin\`, invoke
+   \`tune-roles\` immediately after mining. The host model should draft
+   repo-grounded role guidance, write it to \`roleAddenda\`, and present the overlay
+   diff for review before compile/smoke. If host model access is unavailable,
+   report that Plugin Mode is blocked rather than pretending deterministic output
+   is personalized.
+
+4. **Compile.** Run
    \`aisdlc compile --base <base> --overlay .sdlc/overlay/.customize.yaml --out .\`
    to emit host-native config for every host in the manifest. Prints
    \`compiled config fresh — skipped\` when the overlay and base are unchanged.
 
-4. **Smoke gate (the chain's exit criterion).** Run
+5. **Smoke gate (the chain's exit criterion).** Run
    \`aisdlc smoke --repo . --overlay .sdlc/overlay/.customize.yaml\`. It validates
    the generated config and pushes a trivial Engineer→Reviewer change through MCP
    mocks, then reports the single readiness gate:
@@ -1055,8 +1066,10 @@ freshness makes the no-op cheap.
 - **"Ready" means setup-ready**: no blocking gaps **and** smoke passes **and** the
   emitted config is schema-valid. Deferred integrations never hold readiness back.
 - The emitted overlay validates against the base schemas before it is written.
-- Only configurable edges are touched; the non-negotiable gates come from the base
-  constitution and are never rewritten here.
+- Plugin Mode is the default. Deterministic mode is an explicit opt-out that keeps
+  the base constitution's default gates and skips host-LLM personalization.
+  Generated prose is not active until it is visible in the overlay and passes
+  compile/smoke validation.
 - The chain is idempotent: re-running with unchanged inputs is a no-op, and a base
   upgrade invalidates the compiled + smoke phases so they re-run.
 - Placeholder integration server IDs are forbidden — an integration is either bound
@@ -1153,11 +1166,9 @@ Promotion of learnings back into skills and similar-failure recall are deferred.
 ",
   ".codex/skills/tune-roles/SKILL.md": "---
 name: tune-roles
-description: Author short, repo-specific addenda to the base role prompts
-  (architect/engineer/tester/reviewer/debugger) from mined evidence, write them
-  to the overlay, then recompile and re-smoke. Use after /customize when the
-  generic role prompts should learn this repo's stack, test command, and risk
-  hot-spots.
+description: Author repo-specific role guidance from mined evidence, write it to
+  the overlay, then recompile and re-smoke. Default Plugin Mode /customize
+  invokes this automatically when the host model is available.
 ---
 
 # /tune-roles
@@ -1165,22 +1176,24 @@ description: Author short, repo-specific addenda to the base role prompts
 Personalize the role agents for *this* repository. You (the host agent) draft a
 short **addendum** per role from the mined evidence, write it into the overlay,
 then recompile and re-smoke. The compiler merges each addendum into its role body
-under a fenced heading — so the base prompt (and its gate language) always
-survives, and your additions are visible as a normal, reviewable overlay diff.
+under a fenced heading, so additions are visible as a normal, reviewable overlay
+diff.
 
-This is the one step where the *model* authors config. Everything downstream stays
-deterministic: your output is overlay text, not compiled output.
+This is the first step where the *model* authors config. Your output is overlay
+state, not hidden compiled output; users must be able to review what changed.
 
 ## Invariants (non-negotiable)
 
-- **Additive only.** Addenda *add* repo-specific guidance. They never restate,
-  soften, or override the base prompt, the four gates, or a role's posture. On any
-  conflict, the base prompt wins.
+- **Prose cannot hide policy changes.** \`roleAddenda\` prose adds repo-specific
+  guidance. Do not weaken gates, change postures, or expand capabilities in prose;
+  those changes require the structured Plugin Mode policy channel. Until that
+  channel exists, present them as review notes instead of encoding them in
+  \`roleAddenda\`.
 - **Bounded + enforced.** Each addendum is capped (~1500 chars) and checked by the
   addenda contract at compile time. An addendum that trips the contract fails the
   build — fix the text, don't work around it.
 - **Reviewable.** The result is an \`overlay.roleAddenda\` diff a human approves
-  before it ships. Never auto-apply without that review.
+  before it ships. Never hide generated guidance outside the overlay.
 
 ## Contract — what an addendum may and may not contain
 
@@ -1195,8 +1208,9 @@ middleware in \`src/auth/\` is security-sensitive").
 - Weaken the **single-writer** rule.
 - Grant file-write to a non-\`write\` role (architect/reviewer/tester/debugger).
 
-If you find yourself writing any of the second list, stop — that belongs to the
-base constitution, not an overlay addendum.
+If you find yourself writing any of the second list, stop. In Plugin Mode it may
+be relevant as a structured policy proposal, but it is not valid role-addendum
+prose.
 
 ## Flow
 
@@ -1219,8 +1233,9 @@ base constitution, not an overlay addendum.
 
 - Addenda for a role not present in the resolved model are ignored, so a track that
   drops a role (e.g. quick has no architect) simply won't emit that addendum.
-- This skill is opt-in and separate from the deterministic \`/customize\` chain; run
-  it when the generic prompts are leaving repo-specific value on the table.
+- In default Plugin Mode this skill is part of \`/customize\`; in deterministic mode
+  it remains an explicit follow-up when the team wants reviewable role addenda
+  without changing the operating mode.
 ",
   ".cursor/agents/architect.md": "---
 name: architect
