@@ -15,7 +15,7 @@ describe("semantic corpus regression", () => {
   );
 
   it("runs the full customize → compile → smoke → status chain for every fixture", () => {
-    expect(CORPUS_EXPECTATIONS).toHaveLength(9);
+    expect(CORPUS_EXPECTATIONS).toHaveLength(15);
     for (const expected of CORPUS_EXPECTATIONS) {
       const root = copyFixture(expected.fixture);
       const artifacts = runSetup(root);
