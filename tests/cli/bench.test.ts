@@ -254,6 +254,7 @@ function successfulSetup(): SetupChainResult {
     },
     status: {
       setupReady: true,
+      alignmentReady: true,
       gaps: [],
       coverage: { covered: 1, total: 1 },
       architectureConfidence: "high",
