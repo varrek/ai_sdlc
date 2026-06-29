@@ -127,6 +127,9 @@ Compilation produces native config for each enabled host (plus a host-neutral
 - **Cursor** — `.cursor/agents/`, `.cursor/skills/`, `.cursor/mcp.json`,
   `.cursor/permissions.json`, and hooks that enforce the Approved? gate and
   per-role MCP least-privilege (`.cursor/hooks/`, `.cursor/sdlc/role-policy.json`).
+  Optionally, set `options.cursor.pluginManifest: true` in `host-manifest.yaml`
+  to also emit `.cursor-plugin/plugin.json` with explicit paths to those artifacts
+  for Cursor plugin discovery (see `docs/plans/2026-06-29-005-feat-cursor-plugin-manifest-plan.md`).
 - **GitHub Copilot** — `.github/copilot-instructions.md` (gates + project
   standards), `.github/agents/` (custom-agent profiles with `target`, posture
   `tools`, MCP `server/*` scoping, and native handoffs), a sequential handoff

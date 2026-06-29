@@ -14,11 +14,26 @@ export type HostId = z.infer<typeof HostId>;
 export const CopilotGateMode = z.enum(["ci", "instructions"]);
 export type CopilotGateMode = z.infer<typeof CopilotGateMode>;
 
+/** Cursor plugin manifest `name` — kebab-case with optional interior periods. */
+export const CursorPluginName = z
+  .string()
+  .regex(/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/, "plugin name must be lowercase kebab-case");
+export type CursorPluginName = z.infer<typeof CursorPluginName>;
+
 export const HostOptions = z
   .object({
     copilot: z
       .object({
         gateMode: CopilotGateMode.default("ci"),
+      })
+      .strict()
+      .optional(),
+    cursor: z
+      .object({
+        /** Emit `.cursor-plugin/plugin.json` pointing at compiled Cursor artifacts. */
+        pluginManifest: z.boolean().default(false),
+        /** Override default plugin `name` (`ai-sdlc`). */
+        pluginName: CursorPluginName.optional(),
       })
       .strict()
       .optional(),

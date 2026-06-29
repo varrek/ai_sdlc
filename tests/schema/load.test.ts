@@ -25,6 +25,26 @@ describe("host manifest", () => {
     expect(manifest.options?.copilot?.gateMode).toBe("ci");
   });
 
+  it("accepts cursor plugin manifest options", () => {
+    const manifest = HostManifest.parse({
+      version: 1,
+      hosts: ["cursor"],
+      options: { cursor: { pluginManifest: true, pluginName: "team-sdlc" } },
+    });
+    expect(manifest.options?.cursor?.pluginManifest).toBe(true);
+    expect(manifest.options?.cursor?.pluginName).toBe("team-sdlc");
+  });
+
+  it("rejects invalid cursor plugin names", () => {
+    expect(
+      HostManifest.safeParse({
+        version: 1,
+        hosts: ["cursor"],
+        options: { cursor: { pluginManifest: true, pluginName: "Bad_Name" } },
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects an unknown host / bad version with a path-pointed error", () => {
     try {
       loadYaml(fixture("host-manifest-invalid.yaml"), HostManifest);

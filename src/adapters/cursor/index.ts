@@ -3,6 +3,7 @@ import { emitAgents } from "./agents.js";
 import { emitGates } from "./gates.js";
 import { emitInstructions } from "./instructions.js";
 import { emitMcp } from "./mcp.js";
+import { emitPluginManifest } from "./plugin-manifest.js";
 import { emitSkills } from "./skills.js";
 
 const CAPABILITIES: HostCapabilities = {
@@ -19,15 +20,18 @@ export class CursorAdapter implements Adapter {
   readonly capabilities = CAPABILITIES;
 
   emit(model: NeutralModel): EmitResult {
-    return {
-      files: [
-        ...emitInstructions(model),
-        ...emitSkills(model),
-        ...emitAgents(model),
-        ...emitGates(model),
-        ...emitMcp(model),
-      ],
-      gaps: [],
-    };
+    const files = [
+      ...emitInstructions(model),
+      ...emitSkills(model),
+      ...emitAgents(model),
+      ...emitGates(model),
+      ...emitMcp(model),
+    ];
+
+    if (model.manifest.options?.cursor?.pluginManifest) {
+      files.push(emitPluginManifest(model));
+    }
+
+    return { files, gaps: [] };
   }
 }
