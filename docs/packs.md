@@ -25,8 +25,9 @@ Shipped reference packs live under [`packs/`](../packs/README.md):
 - **frontend** — `frontend-reviewer`, `ui-smoke-check`, Playwright + Context7
 - **backend-api** — `api-reviewer`, `api-contract-review`, GitHub + database
 - **infra** — `infra-reviewer`, `deploy-readiness`, Linear
+- **mobile** — `mobile-reviewer`, `mobile-smoke-check` (no MCP contracts in v1)
 
-Pick packs that match the work. Combining all four is valid when names stay
+Pick packs that match the work. Combining all five is valid when names stay
 unique across base + packs.
 
 ### Binding MCP servers

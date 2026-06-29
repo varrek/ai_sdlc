@@ -10,6 +10,7 @@ instead of overriding base content.
 | [frontend](./frontend/) | UI review, browser smoke | `playwright`, `context7` |
 | [backend-api](./backend-api/) | API contract review | `github`, `database` |
 | [infra](./infra/) | Deploy readiness | `linear` |
+| [mobile](./mobile/) | Mobile review, simulator smoke | _(none — guidance only)_ |
 
 See [docs/packs.md](../docs/packs.md) for usage, authoring, and safety constraints.
 

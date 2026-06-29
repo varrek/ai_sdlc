@@ -76,8 +76,8 @@ Each pack is a directory with `pack.yaml` plus optional `AGENTS.md`, `roles/`,
 skill, integration, or pack names fail validation instead of overriding the base.
 
 Reference packs ship under [`packs/`](./packs/README.md) (security, frontend,
-backend-api, infra). See [`docs/packs.md`](./docs/packs.md) for usage, authoring,
-and safety constraints.
+backend-api, infra, mobile). See [`docs/packs.md`](./docs/packs.md) for usage,
+authoring, and safety constraints.
 
 A repo is **setup-ready** when: there are no blocking interview gaps, the smoke
 gate passes, and the emitted config is schema-valid. Integration bindings

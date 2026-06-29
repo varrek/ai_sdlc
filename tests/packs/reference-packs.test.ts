@@ -48,6 +48,7 @@ describe("reference packs", () => {
       "backend-api",
       "frontend",
       "infra",
+      "mobile",
       "security",
     ]);
   });
@@ -55,7 +56,7 @@ describe("reference packs", () => {
   it("loads all reference packs with the base without duplicate artifacts", () => {
     const loaded = loadBase(baseDir, packDirs);
 
-    expect(loaded.packs).toHaveLength(4);
+    expect(loaded.packs).toHaveLength(5);
     expect(loaded.roles.map((role) => role.frontmatter.name)).toEqual(
       expect.arrayContaining([
         "architect",
@@ -63,6 +64,7 @@ describe("reference packs", () => {
         "frontend-reviewer",
         "api-reviewer",
         "infra-reviewer",
+        "mobile-reviewer",
       ]),
     );
     expect(loaded.skills.map((skill) => skill.frontmatter.name)).toEqual(
@@ -72,6 +74,7 @@ describe("reference packs", () => {
         "ui-smoke-check",
         "api-contract-review",
         "deploy-readiness",
+        "mobile-smoke-check",
       ]),
     );
     expect(loaded.integrations.map((integration) => integration.name)).toEqual(
@@ -88,6 +91,7 @@ describe("reference packs", () => {
     );
     expect(loaded.constitution).toContain("## Pack guidance: security");
     expect(loaded.constitution).toContain("## Pack guidance: frontend");
+    expect(loaded.constitution).toContain("## Pack guidance: mobile");
   });
 
   it("rejects duplicate pack manifest names from two directories", () => {
