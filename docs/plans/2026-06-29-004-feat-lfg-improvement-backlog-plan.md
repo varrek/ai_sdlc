@@ -84,7 +84,7 @@ flowchart TB
 ### U1. Orchestration Preflight
 
 - **Goal:** Establish a clean execution model before launching implementation work.
-- **Requirements:** R1, R2, R3, R4
+- **Requirements:** R1, R2, R3, R4, R4a
 - **Dependencies:** None
 - **Files:** `docs/plans/2026-06-29-004-feat-lfg-improvement-backlog-plan.md`
 - **Approach:** Record the worktree/LFG contract in this plan and use it as the parent runbook for subsequent subagents. Confirm current branch state before creating worktrees and keep existing uncommitted changes out of implementation branches.

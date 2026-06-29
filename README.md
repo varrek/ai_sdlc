@@ -219,11 +219,13 @@ checkout is already an isolated worktree; if not, create a branch and worktree
 named for the feature; then run the normal LFG plan -> work -> review -> PR ->
 CI pipeline from that worktree.
 
-After switching, verify Git resolves the worktree as the repo root and reports
-the feature branch. If worktree creation or root verification fails, stop and
-resolve the isolation decision before editing files in the current checkout.
-This keeps plans, formatter churn, review fixes, and PR commits from mixing with
-unrelated local work.
+After `ce-worktree` creates or reuses isolation, verify Git resolves the
+worktree as the repo root and reports the feature branch. If the agent harness
+still points at the parent checkout, move the agent/session root to the
+worktree before editing files. If worktree creation, root movement, or root
+verification fails, stop and resolve the isolation decision before editing files
+in the current checkout. This keeps plans, formatter churn, review fixes, and PR
+commits from mixing with unrelated local work.
 
 ### Package Verification
 
