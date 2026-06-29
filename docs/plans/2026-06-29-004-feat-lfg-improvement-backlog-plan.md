@@ -29,6 +29,7 @@ The product strategy prioritizes hands-off setup rate, lower blocking gaps, evid
 - R2. Each implementation subagent must load and follow `lfg` end to end for its slice, including its own plan, work, review, tests, commit, PR, CI watch, and residual recording where applicable.
 - R3. The parent orchestration merges a slice to `main` only after that slice has produced a durable reviewed result.
 - R4. Existing uncommitted work in the original checkout must not be reverted or swept into slice commits.
+- R4a. A reusable `/lfg` invocation must perform worktree isolation before writing its plan so the plan itself lands on the feature branch.
 
 ### Improvement Coverage
 
@@ -46,7 +47,7 @@ The product strategy prioritizes hands-off setup rate, lower blocking gaps, evid
 
 ## Key Technical Decisions
 
-- **Worktree-per-slice execution:** The implementation surface spans tests, miner heuristics, roles, packs, adapters, and docs. A worktree boundary is the simplest way to keep each point reviewable and avoid current-checkout pollution.
+- **Worktree-per-slice execution:** The implementation surface spans tests, miner heuristics, roles, packs, adapters, and docs. A worktree boundary is the simplest way to keep each point reviewable and avoid current-checkout pollution. The reusable `/lfg` workflow should treat this as a startup preflight before `ce-plan`, not as an optional implementation-time cleanup.
 - **Wave-based ordering:** Corpus coverage and CI mining land before broad framework detection because they expand the safety net. Role grounding and packs land next because they improve generated agent usefulness without depending on external host changes.
 - **Deferred-plan treatment for large research items:** Behavior Eval v2, context memory, host packaging, and broad framework detection are substantial. Their first LFG slice should create a narrow implementation or a dedicated plan/spike rather than attempting a full platform in one branch.
 - **Merge only after slice validation:** Worktree branches are merged to `main` sequentially after each slice's LFG outcome is reviewed, pushed, and green enough to be durable.
@@ -185,6 +186,7 @@ flowchart TB
 
 - This plan does not require landing all ten improvements as code in one branch.
 - This plan does not permit implementation subagents to bypass `lfg`; every slice must run its own full LFG workflow.
+- This plan expects `/lfg` to create or reuse a feature-specific worktree before its plan step. If isolation fails, the run should stop for an explicit decision instead of continuing in the caller's current checkout.
 - This plan does not hide unsupported host capability gaps, especially Copilot's Approved? gate limitations.
 - This plan does not add broad language/tool detection without fixtures and semantic expectations.
 
