@@ -22,20 +22,6 @@ function evalStatePath(sdlcDir: string): string {
   return join(sdlcDir, BEHAVIOR_EVAL_FILE);
 }
 
-export function readLoopBehaviorEvalState(sdlcDir: string): LoopBehaviorEvalState | undefined {
-  const path = evalStatePath(sdlcDir);
-  if (!existsSync(path)) return undefined;
-  try {
-    const parsed = parseYaml(readFileSync(path, "utf8")) as Partial<LoopBehaviorEvalState> | null;
-    if (parsed && parsed.version === 1 && Array.isArray(parsed.results) && parsed.results.every(isEvalResult)) {
-      return parsed as LoopBehaviorEvalState;
-    }
-  } catch {
-    return undefined;
-  }
-  return undefined;
-}
-
 function isEvalResult(value: unknown): value is LoopBehaviorEvalResult {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<LoopBehaviorEvalResult>;
@@ -47,6 +33,26 @@ function isEvalResult(value: unknown): value is LoopBehaviorEvalResult {
     score !== undefined &&
     typeof score.passed === "boolean"
   );
+}
+
+export function readLoopBehaviorEvalState(sdlcDir: string): LoopBehaviorEvalState | undefined {
+  const path = evalStatePath(sdlcDir);
+  if (!existsSync(path)) return undefined;
+  try {
+    const parsed = parseYaml(readFileSync(path, "utf8")) as Partial<LoopBehaviorEvalState> | null;
+    if (
+      parsed &&
+      parsed.version === 1 &&
+      Array.isArray(parsed.results) &&
+      typeof parsed.updatedAt === "string" &&
+      parsed.results.every(isEvalResult)
+    ) {
+      return parsed as LoopBehaviorEvalState;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 export function writeLoopBehaviorEvalState(

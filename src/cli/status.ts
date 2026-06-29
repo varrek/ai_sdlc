@@ -281,8 +281,12 @@ export function formatStatus(report: StatusReport): string {
   lines.push(
     `Role grounding: architect=${report.roleStates.architect}, engineer=${report.roleStates.engineer}, tester=${report.roleStates.tester}, reviewer=${report.roleStates.reviewer}, debugger=${report.roleStates.debugger}`,
   );
+  const behaviorEvalDisplay =
+    report.loopQuality.behaviorEval.state === "not-run"
+      ? "not-run"
+      : `${report.loopQuality.behaviorEval.state} (${report.loopQuality.behaviorEval.passed}/${report.loopQuality.behaviorEval.total})`;
   lines.push(
-    `Loop quality: stages=${report.loopQuality.expectedStages}, grounded roles=${report.loopQuality.groundedGroundableRoles}/${report.loopQuality.groundableRoles} groundable (${report.loopQuality.groundedRoles}/${report.loopQuality.totalRoles} total), handoffs=${report.loopQuality.handoffCoverage}, approval gates=${report.loopQuality.approvalGateCoverage}, behavior eval=${report.loopQuality.behaviorEval.state}, loop learnings=${report.loopQuality.loopLearnings}`,
+    `Loop quality: stages=${report.loopQuality.expectedStages}, grounded roles=${report.loopQuality.groundedGroundableRoles}/${report.loopQuality.groundableRoles} groundable (${report.loopQuality.groundedRoles}/${report.loopQuality.totalRoles} total), handoffs=${report.loopQuality.handoffCoverage}, approval gates=${report.loopQuality.approvalGateCoverage}, behavior eval=${behaviorEvalDisplay}, loop learnings=${report.loopQuality.loopLearnings}`,
   );
   if (report.acceptedLearnings.count > 0) {
     lines.push(`Accepted learnings (${report.acceptedLearnings.count}):`);

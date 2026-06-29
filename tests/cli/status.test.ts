@@ -131,7 +131,7 @@ describe("status", () => {
     expect(report.loopQuality.behaviorEval.state).toBe("passed");
     expect(report.loopQuality.behaviorEval.passed).toBe(2);
     expect(report.loopQuality.behaviorEval.total).toBe(2);
-    expect(formatStatus(report)).toContain("behavior eval=passed");
+    expect(formatStatus(report)).toContain("behavior eval=passed (2/2)");
   });
 
   it("reports partial behavior eval when some scenarios fail", () => {
@@ -183,6 +183,6 @@ describe("status", () => {
     expect(report.loopQuality.behaviorEval.state).toBe("partial");
     expect(report.loopQuality.behaviorEval.passed).toBe(1);
     expect(report.loopQuality.behaviorEval.total).toBe(2);
-    expect(formatStatus(report)).toContain("behavior eval=partial");
+    expect(formatStatus(report)).toContain("behavior eval=partial (1/2)");
   });
 });
