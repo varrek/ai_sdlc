@@ -70,8 +70,9 @@ function isLoopTraceEvent(value: unknown): value is LoopTraceEvent {
 
 function approvalEventKey(event: LoopTraceEvent): string | undefined {
   if (event.type !== "approval_gate" || event.verdict !== "approved") return undefined;
+  if (event.taskId === "unknown") return undefined;
   const evidence = [...(event.evidence ?? [])].sort().join("\0");
-  const checkpoint = event.checkpoint ?? event.stage ?? evidence;
+  const checkpoint = event.checkpoint ?? event.stage;
   if (!checkpoint) return undefined;
   return [event.taskId, event.role ?? "", checkpoint, evidence].join("\0");
 }
