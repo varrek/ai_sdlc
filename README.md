@@ -3,7 +3,7 @@
 An open, cross-host AI SDLC framework. You author your software
 development process **once** as a host-neutral base, and the `aisdlc` compiler
 emits native configuration for each AI coding host — **Cursor**, **Claude Code**,
-and **GitHub Copilot** — so every host enforces the same gates, roles, and
+**GitHub Copilot**, and **OpenAI Codex** — so every host enforces the same gates, roles, and
 standards.
 
 - **Base** — the host-neutral source of truth: the Constitution (non-negotiable
@@ -106,7 +106,7 @@ Common flags:
 - `customize`: `--repo <dir>` (default: cwd), `--answers-file <file>`, `--force`
 - `compile`: `--base <dir>` (default: `sdlc-base`), `--packs <dir,dir>`,
   `--out <dir>` (required), `--overlay <file>`,
-  `--hosts cursor,claude-code,copilot`, `--force`
+  `--hosts cursor,claude-code,copilot,codex`, `--force`
 - `smoke`: `--repo <dir>`, `--config <dir>`, `--packs <dir,dir>`,
   `--overlay <file>`, `--compile`
 
@@ -123,6 +123,9 @@ Compilation produces native config for each enabled host (plus a host-neutral
 - **GitHub Copilot** — `.github/copilot-instructions.md` (gates + project
   standards), `.github/agents/`, a sequential handoff chain, and a CI backstop
   (`.github/workflows/sdlc-gate.yml`) that runs the mined test command.
+- **OpenAI Codex** — `AGENTS.md`, `.codex/agents/` (role subagents),
+  `.codex/skills/`, `.codex/config.toml` (MCP + `PreToolUse` Approved? gate),
+  and `.codex/hooks/` for least-privilege enforcement.
 
 Generated artifacts and per-project state live under `.sdlc/` and are
 git-ignored by default.

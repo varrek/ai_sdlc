@@ -21,6 +21,7 @@ describe("host manifest", () => {
   it("parses the shipped base manifest", () => {
     const manifest = loadYaml(base("host-manifest.yaml"), HostManifest);
     expect(manifest.hosts).toContain("cursor");
+    expect(manifest.hosts).toContain("codex");
     expect(manifest.options?.copilot?.gateMode).toBe("ci");
   });
 

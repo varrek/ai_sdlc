@@ -43,7 +43,7 @@ export function makeSkill(name: string, opts: { disableModelInvocation?: boolean
 
 export function makeModel(overrides: Partial<NeutralModel> = {}): NeutralModel {
   return {
-    manifest: HostManifest.parse({ version: 1, hosts: ["cursor", "claude-code", "copilot"] }),
+    manifest: HostManifest.parse({ version: 1, hosts: ["cursor", "claude-code", "copilot", "codex"] }),
     constitution: [
       "# AI SDLC Constitution (base)",
       "",

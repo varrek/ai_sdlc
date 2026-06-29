@@ -4,6 +4,7 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import { afterEach, describe, expect, it } from "vitest";
 import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
+import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
 import { AdapterRegistry } from "../../src/core/adapter-registry.js";
@@ -24,7 +25,8 @@ function registry(): AdapterRegistry {
   return new AdapterRegistry()
     .register(new CursorAdapter())
     .register(new ClaudeCodeAdapter())
-    .register(new CopilotAdapter());
+    .register(new CopilotAdapter())
+    .register(new CodexAdapter());
 }
 
 describe("skills emit", () => {
@@ -35,6 +37,7 @@ describe("skills emit", () => {
         ...new CursorAdapter().emit(model).files,
         ...new ClaudeCodeAdapter().emit(model).files,
         ...new CopilotAdapter().emit(model).files,
+        ...new CodexAdapter().emit(model).files,
       ].map((f) => [f.path, f.contents]),
     );
 
@@ -43,6 +46,7 @@ describe("skills emit", () => {
       ".cursor/skills/customize/SKILL.md",
       ".claude/skills/customize/SKILL.md",
       ".github/skills/customize/SKILL.md",
+      ".codex/skills/customize/SKILL.md",
     ];
     for (const path of expected) {
       expect(files.has(path), `missing ${path}`).toBe(true);
@@ -64,7 +68,7 @@ describe("skills emit", () => {
     const one = makeModel({ skills: [makeSkill("alpha")] });
     const result = compile(one, registry(), { outDir: out });
 
-    for (const host of [".agents", ".cursor", ".claude", ".github"]) {
+    for (const host of [".agents", ".cursor", ".claude", ".github", ".codex"]) {
       expect(existsSync(join(out, host, "skills/beta/SKILL.md"))).toBe(false);
     }
     expect(result.pruned).toContain(".claude/skills/beta/SKILL.md");

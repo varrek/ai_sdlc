@@ -1,7 +1,7 @@
 {
   "name": "ai-sdlc",
   "version": "0.1.0",
-  "description": "Cross-host AI SDLC framework: host-neutral base + /customize compiler for Cursor, Claude Code, and GitHub Copilot.",
+  "description": "Cross-host AI SDLC framework: host-neutral base + /customize compiler for Cursor, Claude Code, GitHub Copilot, and OpenAI Codex.",
   "type": "module",
   "engines": {
     "node": ">=20"

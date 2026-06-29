@@ -5,11 +5,11 @@
 Levels: **Native** (first-class), **Partial** (supported with limits),
 **Fallback** (degraded path — see `portability.gap.yml`), **None**.
 
-| Capability | cursor | claude-code | copilot |
-|---|---|---|---|
-| Project instructions (AGENTS.md) | Native | Native | Native |
-| Agent Skills (SKILL.md) | Native | Native | Native |
-| Role subagents + dispatch | Native | Native | Partial |
-| Per-role tool restriction | Fallback | Native | Partial |
-| Hooks / Approved? gate | Native | Native | Fallback |
-| MCP | Native | Native | Native |
+| Capability | cursor | claude-code | copilot | codex |
+|---|---|---|---|---|
+| Project instructions (AGENTS.md) | Native | Native | Native | Native |
+| Agent Skills (SKILL.md) | Native | Native | Native | Native |
+| Role subagents + dispatch | Native | Native | Partial | Native |
+| Per-role tool restriction | Fallback | Native | Partial | Partial |
+| Hooks / Approved? gate | Native | Native | Fallback | Native |
+| MCP | Native | Native | Native | Native |

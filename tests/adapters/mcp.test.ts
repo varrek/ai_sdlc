@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
+import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
 import { Overlay } from "../../src/schema/index.js";
@@ -25,10 +26,11 @@ const model = makeModel({
 });
 
 describe("mcp emit", () => {
-  it("produces matching server defs across the three host files", () => {
+  it("produces matching server defs across all four host files", () => {
     const cursor = byPath(new CursorAdapter().emit(model).files);
     const claude = byPath(new ClaudeCodeAdapter().emit(model).files);
     const copilot = byPath(new CopilotAdapter().emit(model).files);
+    const codex = byPath(new CodexAdapter().emit(model).files);
 
     const cursorServers = JSON.parse(cursor.get(".cursor/mcp.json")!).mcpServers;
     const claudeServers = JSON.parse(claude.get(".mcp.json")!).mcpServers;
@@ -38,6 +40,11 @@ describe("mcp emit", () => {
     expect(copilotServers).toEqual(claudeServers);
     expect(cursorServers["gitlab-mcp"].command).toBe("gitlab-mcp-server");
     expect(cursorServers["gitlab-mcp"].env).toEqual({ GITLAB_TOKEN: "GITLAB_TOKEN" });
+
+    const codexConfig = codex.get(".codex/config.toml")!;
+    expect(codexConfig).toContain("[mcp_servers.gitlab-mcp]");
+    expect(codexConfig).toContain('command = "gitlab-mcp-server"');
+    expect(codexConfig).toContain('GITLAB_TOKEN = "GITLAB_TOKEN"');
   });
 
   it("cursor permissions.json lists the bound server in the global allowlist", () => {

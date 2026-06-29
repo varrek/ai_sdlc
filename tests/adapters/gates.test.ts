@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
+import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
 import { HostManifest, Overlay } from "../../src/schema/index.js";
@@ -81,6 +82,17 @@ describe("gate emit", () => {
     expect(workflow).toContain("Run the project test command here");
   });
 
+  it("codex emits PreToolUse hooks in config.toml and role policy", () => {
+    const result = new CodexAdapter().emit(model);
+    const files = byPath(result.files);
+    const config = files.get(".codex/config.toml")!;
+    expect(config).toContain("[[hooks.PreToolUse]]");
+    expect(config).toContain("approved-gate.mjs");
+    expect(config).toContain("mcp-gate.mjs");
+    expect(files.has(".codex/sdlc/role-policy.json")).toBe(true);
+    expect(result.gaps).toHaveLength(0);
+  });
+
   it("copilot omits the CI workflow under gateMode: instructions", () => {
     const instructionsModel = makeModel({
       roles: [makeRole("engineer", "write", [])],
@@ -154,5 +166,59 @@ describe("cursor MCP gate runtime (fail-closed least-privilege)", () => {
   it("is inert when no policy file is present (nothing to enforce)", () => {
     const s = install(null);
     expect(run(s, { role: "ghost", server_name: "gitlab-prod" })).toBe(0);
+  });
+});
+
+describe("codex MCP gate runtime (fail-closed least-privilege)", () => {
+  let dir: string;
+  afterEach(() => dir && rmSync(dir, { recursive: true, force: true }));
+
+  function install(policy: Record<string, { posture: string; servers: string[] }> | null): string {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-codex-mcpgate-"));
+    const files = byPath(new CodexAdapter().emit(model).files);
+    const scriptRel = ".codex/hooks/mcp-gate.mjs";
+    mkdirSync(join(dir, ".codex", "hooks"), { recursive: true });
+    writeFileSync(join(dir, scriptRel), files.get(scriptRel)!);
+    if (policy) {
+      mkdirSync(join(dir, ".codex", "sdlc"), { recursive: true });
+      writeFileSync(join(dir, ".codex", "sdlc", "role-policy.json"), JSON.stringify(policy));
+    }
+    return join(dir, scriptRel);
+  }
+
+  function run(script: string, input: object): number {
+    try {
+      execFileSync("node", [script], { cwd: dir, input: JSON.stringify(input) });
+      return 0;
+    } catch (e) {
+      return (e as { status?: number }).status ?? 1;
+    }
+  }
+
+  const policy = { engineer: { posture: "write", servers: ["gitlab-prod"] } };
+
+  it("allows a known role calling a server it is permitted to reach", () => {
+    const s = install(policy);
+    expect(run(s, { agent_type: "engineer", tool_name: "mcp__gitlab-prod__do_thing" })).toBe(0);
+  });
+
+  it("denies a known role calling a server outside its allowlist", () => {
+    const s = install(policy);
+    expect(run(s, { agent_type: "engineer", tool_name: "mcp__jira-prod__do_thing" })).toBe(2);
+  });
+
+  it("denies (fail-closed) when the active role is missing", () => {
+    const s = install(policy);
+    expect(run(s, { tool_name: "mcp__gitlab-prod__do_thing" })).toBe(2);
+  });
+
+  it("denies (fail-closed) when the role is unknown to the policy", () => {
+    const s = install(policy);
+    expect(run(s, { agent_type: "ghost", tool_name: "mcp__gitlab-prod__do_thing" })).toBe(2);
+  });
+
+  it("is inert when no policy file is present (nothing to enforce)", () => {
+    const s = install(null);
+    expect(run(s, { agent_type: "ghost", tool_name: "mcp__gitlab-prod__do_thing" })).toBe(0);
   });
 });

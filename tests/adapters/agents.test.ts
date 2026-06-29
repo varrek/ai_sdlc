@@ -1,6 +1,7 @@
 import matter from "gray-matter";
 import { describe, expect, it } from "vitest";
 import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
+import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
 import { Overlay } from "../../src/schema/index.js";
@@ -56,5 +57,20 @@ describe("agent emit (least-privilege)", () => {
     const files = byPath(new CopilotAdapter().emit(loopModel()).files);
     expect(files.has(".github/agents/engineer.agent.md")).toBe(true);
     expect(files.has(".github/agents/reviewer.agent.md")).toBe(true);
+  });
+
+  it("codex reviewer is read-only with no MCP servers enabled", () => {
+    const files = byPath(new CodexAdapter().emit(loopModel()).files);
+    const reviewer = files.get(".codex/agents/reviewer.toml")!;
+    expect(reviewer).toContain('sandbox_mode = "read-only"');
+    expect(reviewer).not.toContain("[mcp_servers.");
+  });
+
+  it("codex engineer enables the bound GitLab MCP server", () => {
+    const files = byPath(new CodexAdapter().emit(loopModel()).files);
+    const engineer = files.get(".codex/agents/engineer.toml")!;
+    expect(engineer).toContain('sandbox_mode = "workspace-write"');
+    expect(engineer).toContain("[mcp_servers.gitlab-mcp]");
+    expect(engineer).toContain("enabled = true");
   });
 });

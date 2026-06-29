@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
+import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
 import { makeModel } from "../helpers/model.js";
@@ -57,5 +58,11 @@ describe("instructions emit", () => {
       ".github/copilot-instructions.md",
     )!;
     expect(excerpt).not.toContain("Project standards");
+  });
+
+  it("codex emits AGENTS.md as a passthrough of the constitution", () => {
+    const model = makeModel();
+    const files = byPath(new CodexAdapter().emit(model).files);
+    expect(files.get("AGENTS.md")).toBe(model.constitution);
   });
 });
