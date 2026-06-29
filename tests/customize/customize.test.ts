@@ -610,7 +610,9 @@ describe("test command mining", () => {
     writeFileSync(join(dir, "src.py"), "print('x')\n", "utf8");
     writeFileSync(
       join(dir, "Makefile"),
-      ["test:", "\tpython -m pip install -r requirements.txt", "\t./scripts/test.sh", ""].join("\n"),
+      ["test:", "\tpython -m pip install -r requirements.txt", "\t./scripts/test.sh", ""].join(
+        "\n",
+      ),
       "utf8",
     );
 

@@ -17,7 +17,11 @@ export interface LoopBehaviorEvalState {
 }
 
 const BEHAVIOR_EVAL_FILE = "loop-behavior-eval.yaml";
-const LOOP_TERMINAL_STATUSES = new Set<LoopScoreMetrics["terminalStatus"]>(["done", "stuck", "missing"]);
+const LOOP_TERMINAL_STATUSES = new Set<LoopScoreMetrics["terminalStatus"]>([
+  "done",
+  "stuck",
+  "missing",
+]);
 const LOOP_VIOLATION_KINDS = new Set<LoopViolationKind>([
   "missing-stage",
   "stage-order",
@@ -48,7 +52,11 @@ function isEvalResult(value: unknown): value is LoopBehaviorEvalResult {
 function isLoopScore(value: unknown): value is LoopScore {
   if (!value || typeof value !== "object") return false;
   const score = value as Partial<LoopScore>;
-  return typeof score.passed === "boolean" && isLoopScoreMetrics(score.metrics) && isLoopViolations(score.violations);
+  return (
+    typeof score.passed === "boolean" &&
+    isLoopScoreMetrics(score.metrics) &&
+    isLoopViolations(score.violations)
+  );
 }
 
 function isLoopScoreMetrics(value: unknown): value is LoopScoreMetrics {
@@ -69,7 +77,12 @@ function isLoopViolations(value: unknown): value is LoopScore["violations"] {
   if (!Array.isArray(value)) return false;
   return value.every((item) => {
     if (!item || typeof item !== "object") return false;
-    const violation = item as { kind?: unknown; message?: unknown; stage?: unknown; eventIndex?: unknown };
+    const violation = item as {
+      kind?: unknown;
+      message?: unknown;
+      stage?: unknown;
+      eventIndex?: unknown;
+    };
     return (
       typeof violation.kind === "string" &&
       LOOP_VIOLATION_KINDS.has(violation.kind as LoopViolationKind) &&
@@ -95,7 +108,9 @@ export function readLoopBehaviorEvalState(sdlcDir: string): LoopBehaviorEvalStat
       return parsed as LoopBehaviorEvalState;
     }
   } catch {
-    process.stderr.write(`Warning: ${path} is unreadable; treating behavior eval as not yet run.\n`);
+    process.stderr.write(
+      `Warning: ${path} is unreadable; treating behavior eval as not yet run.\n`,
+    );
     return undefined;
   }
   process.stderr.write(`Warning: ${path} is invalid; treating behavior eval as not yet run.\n`);
