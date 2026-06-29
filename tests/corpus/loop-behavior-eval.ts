@@ -60,10 +60,7 @@ export function evaluateLoopBehaviorScenario(
   return {
     scenarioId: scenario.id,
     task: scenario.task,
-    score: scoreLoopTrace(trace, {
-      stages,
-      approvalBeforeStages: ["reviewer", "wrap-up"],
-    }),
+    score: scoreLoopTrace(trace, { stages }),
   };
 }
 

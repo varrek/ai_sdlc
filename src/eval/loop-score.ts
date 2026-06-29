@@ -234,6 +234,7 @@ function hasDoneWithoutEngineerRework(trace: LoopTraceEvent[], fromIndex: number
   for (let i = fromIndex + 1; i < trace.length; i += 1) {
     const event = trace[i]!;
     if (event.type === "replan" && event.role === "engineer") return false;
+    if (event.type === "plan_created" && event.role === "engineer") return false;
     if (event.type === "handoff" && event.toRole === "engineer") return false;
     if (event.type === "tool_attempt" && event.role === "engineer") return false;
     if (event.type === "done") return true;

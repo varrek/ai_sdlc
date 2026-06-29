@@ -151,4 +151,28 @@ describe("loop trace scoring", () => {
       expect.objectContaining({ kind: "evaluator-handback", stage: "reviewer" }),
     );
   });
+
+  it("recognizes Engineer plan-created events as evaluator handback rework", () => {
+    const trace = standardTrace();
+    trace[4] = {
+      type: "test_run",
+      taskId: "synthetic-loop",
+      role: "tester",
+      stage: "test",
+      command: "npm test",
+      verdict: "fail",
+      failures: ["missing retry coverage"],
+    };
+    trace.splice(5, 0, {
+      type: "plan_created",
+      taskId: "synthetic-loop",
+      role: "engineer",
+      stage: "engineer",
+      summary: "Retry fix plan.",
+    });
+
+    const score = scoreLoopTrace(trace, { stages: [...standardStages] });
+
+    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
+  });
 });
