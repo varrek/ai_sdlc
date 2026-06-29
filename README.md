@@ -75,6 +75,10 @@ Each pack is a directory with `pack.yaml` plus optional `AGENTS.md`, `roles/`,
 `skills/`, and `integrations/`. Pack artifacts are additive: duplicate role,
 skill, integration, or pack names fail validation instead of overriding the base.
 
+Reference packs ship under [`packs/`](./packs/README.md) (security, frontend,
+backend-api, infra). See [`docs/packs.md`](./docs/packs.md) for usage, authoring,
+and safety constraints.
+
 A repo is **setup-ready** when: there are no blocking interview gaps, the smoke
 gate passes, and the emitted config is schema-valid. Integration bindings
 (GitLab/Jira) are deferred — they're bound just-in-time when a task actually
@@ -154,8 +158,9 @@ npm run test:watch  # watch mode
 
 ```
 sdlc-base/   Host-neutral base: constitution, roles, skills, integration contracts
+packs/       Curated reference extension packs (optional at compile time)
 src/         Compiler: CLI, core engine, customize miner, per-host adapters
 templates/   Shared templates used during emission
 tests/       Unit, adapter, golden, and end-to-end chain tests (+ sample repos)
-docs/        Plans and the generated capability matrix
+docs/        Plans, pack guide, and the generated capability matrix
 ```

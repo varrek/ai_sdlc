@@ -1,0 +1,27 @@
+name: sentry
+description: Read Sentry issues and events for security and stability triage during review.
+operations:
+  - id: get-issue
+    tool: sentry_get_issue
+    inputs:
+      - name: issueId
+        type: string
+        required: true
+    outputs:
+      - name: title
+        type: string
+      - name: level
+        type: string
+      - name: culprit
+        type: string
+  - id: list-events
+    tool: sentry_list_issue_events
+    inputs:
+      - name: issueId
+        type: string
+        required: true
+      - name: limit
+        type: number
+    outputs:
+      - name: events
+        type: array

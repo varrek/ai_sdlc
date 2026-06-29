@@ -1,0 +1,23 @@
+name: context7
+description: Fetch up-to-date third-party library documentation for implementation and review.
+operations:
+  - id: resolve-library
+    tool: context7_resolve_library
+    inputs:
+      - name: libraryName
+        type: string
+        required: true
+    outputs:
+      - name: libraryId
+        type: string
+  - id: get-docs
+    tool: context7_get_docs
+    inputs:
+      - name: libraryId
+        type: string
+        required: true
+      - name: topic
+        type: string
+    outputs:
+      - name: content
+        type: string
