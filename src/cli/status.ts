@@ -63,6 +63,8 @@ export interface StatusReport {
     expectedStages: number;
     groundedRoles: number;
     totalRoles: number;
+    groundedGroundableRoles: number;
+    groundableRoles: number;
     roleGroundingComplete: boolean;
     approvalGateCoverage: "compiled" | "not-run";
     handoffCoverage: "compiled" | "not-run";
@@ -169,6 +171,8 @@ export function buildStatus(options: StatusOptions): StatusReport {
       expectedStages,
       groundedRoles,
       totalRoles,
+      groundedGroundableRoles,
+      groundableRoles,
       roleGroundingComplete: groundedGroundableRoles === groundableRoles,
       approvalGateCoverage: compiledCoverageState,
       handoffCoverage: compiledCoverageState,
@@ -278,7 +282,7 @@ export function formatStatus(report: StatusReport): string {
     `Role grounding: architect=${report.roleStates.architect}, engineer=${report.roleStates.engineer}, tester=${report.roleStates.tester}, reviewer=${report.roleStates.reviewer}, debugger=${report.roleStates.debugger}`,
   );
   lines.push(
-    `Loop quality: stages=${report.loopQuality.expectedStages}, grounded roles=${report.loopQuality.groundedRoles}/${report.loopQuality.totalRoles}, handoffs=${report.loopQuality.handoffCoverage}, approval gates=${report.loopQuality.approvalGateCoverage}, behavior eval=${report.loopQuality.behaviorEval.state}, loop learnings=${report.loopQuality.loopLearnings}`,
+    `Loop quality: stages=${report.loopQuality.expectedStages}, grounded roles=${report.loopQuality.groundedGroundableRoles}/${report.loopQuality.groundableRoles} groundable (${report.loopQuality.groundedRoles}/${report.loopQuality.totalRoles} total), handoffs=${report.loopQuality.handoffCoverage}, approval gates=${report.loopQuality.approvalGateCoverage}, behavior eval=${report.loopQuality.behaviorEval.state}, loop learnings=${report.loopQuality.loopLearnings}`,
   );
   if (report.acceptedLearnings.count > 0) {
     lines.push(`Accepted learnings (${report.acceptedLearnings.count}):`);

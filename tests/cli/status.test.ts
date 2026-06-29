@@ -43,6 +43,7 @@ describe("status", () => {
     expect(report.loopQuality.expectedStages).toBe(4);
     expect(report.loopQuality.handoffCoverage).toBe("not-run");
     expect(formatStatus(report)).toContain("Loop quality:");
+    expect(formatStatus(report)).toContain("groundable");
     expect(formatStatus(report)).toContain("behavior eval=not-run");
   });
 
