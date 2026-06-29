@@ -6,9 +6,9 @@ import {
   acceptedLearningFromGateOutcome,
   acceptedLearningFromTestCorrection,
   readAcceptedLearnings,
+  upsertAcceptedLearning,
   upsertGateOutcomeLearning,
   upsertTestCorrectionLearning,
-  upsertAcceptedLearning,
   writeAcceptedLearnings,
 } from "../../src/core/accepted-learnings.js";
 
@@ -81,11 +81,7 @@ describe("accepted learnings ledger", () => {
         provenance: "miner",
       },
     ]);
-    appendFileSync(
-      join(dir, "memory", "accepted-learnings.jsonl"),
-      '{"key":"broken",\n',
-      "utf8",
-    );
+    appendFileSync(join(dir, "memory", "accepted-learnings.jsonl"), '{"key":"broken",\n', "utf8");
     writeAcceptedLearnings(dir, [
       ...readAcceptedLearnings(dir),
       {

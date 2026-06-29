@@ -4,12 +4,16 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { runCustomize } from "../../src/cli/customize.js";
 import { runCompileCli } from "../../src/cli/compile.js";
+import { runCustomize } from "../../src/cli/customize.js";
 import { explainStandard } from "../../src/cli/explain.js";
 import { runSmokeCli } from "../../src/cli/smoke.js";
 import { buildStatus } from "../../src/cli/status.js";
-import { buildStandardsIndex, evidenceCoverage, evidenceQuality } from "../../src/customize/emitters.js";
+import {
+  buildStandardsIndex,
+  evidenceCoverage,
+  evidenceQuality,
+} from "../../src/customize/emitters.js";
 import { mineRepo } from "../../src/customize/repo-miner.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -88,7 +92,9 @@ describe("U1 architecture mining", () => {
     cpSync(repo("vite-like"), work, { recursive: true });
     const overlayDir = join(work, ".sdlc", "overlay");
     runCustomize({ repoRoot: work, overlayDir });
-    const projectContext = JSON.parse(readFileSync(join(overlayDir, "project-context.json"), "utf8")) as {
+    const projectContext = JSON.parse(
+      readFileSync(join(overlayDir, "project-context.json"), "utf8"),
+    ) as {
       map: { path: string }[];
     };
     expect(projectContext.map.map((entry) => entry.path)).toEqual(["packages/vite"]);
@@ -99,7 +105,9 @@ describe("U1 architecture mining", () => {
     const p = mineRepo(repo("ambiguous-architecture"));
     expect(p.architecture?.confidence).toBe("low");
     const index = buildStandardsIndex(p);
-    expect(index.standards.some((s) => s.statement.startsWith("Project architecture: modules"))).toBe(false);
+    expect(
+      index.standards.some((s) => s.statement.startsWith("Project architecture: modules")),
+    ).toBe(false);
     expect(index.standards.some((s) => s.statement.includes("confidence is low"))).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { buildRolePolicy, stableJson } from "../shared/roles.js";
-import { joinTomlSections } from "./toml.js";
 import { renderMcpSections } from "./mcp.js";
+import { joinTomlSections } from "./toml.js";
 
 const MCP_GATE_SCRIPT = `#!/usr/bin/env node
 // Codex PreToolUse MCP gate: deny MCP calls a role is not permitted to make.
@@ -126,7 +126,11 @@ statusMessage = "Checking MCP least-privilege"`,
 
 /** Merge MCP tables, hook tables, and feature flags into `.codex/config.toml`. */
 export function renderCodexConfig(model: NeutralModel): string {
-  return joinTomlSections([HOOK_HEADER.trim(), ...renderMcpSections(model), ...renderHookSections()]);
+  return joinTomlSections([
+    HOOK_HEADER.trim(),
+    ...renderMcpSections(model),
+    ...renderHookSections(),
+  ]);
 }
 
 /**

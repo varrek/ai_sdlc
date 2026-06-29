@@ -204,7 +204,8 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
   },
   {
     fixture: "go-app",
-    description: "Go module with go test evidence and golangci-lint is setup-ready with miner provenance",
+    description:
+      "Go module with go test evidence and golangci-lint is setup-ready with miner provenance",
     setupReady: true,
     alignmentReady: true,
     architectureConfidence: "high",
@@ -300,8 +301,20 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
   },
 ];
 
-export function assertCorpusExpectation(artifacts: SetupArtifacts, expected: CorpusExpectation): void {
-  const { smoke, status, projectContext, standardsIndex, architect, tester, constitution, overlay } = artifacts;
+export function assertCorpusExpectation(
+  artifacts: SetupArtifacts,
+  expected: CorpusExpectation,
+): void {
+  const {
+    smoke,
+    status,
+    projectContext,
+    standardsIndex,
+    architect,
+    tester,
+    constitution,
+    overlay,
+  } = artifacts;
   const mapPaths = projectContext.map.map((entry) => entry.path);
 
   expect(smoke.setupReady, `${expected.fixture} smoke.setupReady`).toBe(expected.setupReady);
@@ -337,31 +350,40 @@ export function assertCorpusExpectation(artifacts: SetupArtifacts, expected: Cor
   }
   if (expected.mapMustNotInclude) {
     for (const forbidden of expected.mapMustNotInclude) {
-      expect(mapPaths.join("\n"), `${expected.fixture} map must not include ${forbidden}`).not.toContain(
-        forbidden,
-      );
+      expect(
+        mapPaths.join("\n"),
+        `${expected.fixture} map must not include ${forbidden}`,
+      ).not.toContain(forbidden);
     }
   }
   if (expected.workspacePackageCount !== undefined) {
-    expect(status.packages, `${expected.fixture} workspace packages`).toBe(expected.workspacePackageCount);
+    expect(status.packages, `${expected.fixture} workspace packages`).toBe(
+      expected.workspacePackageCount,
+    );
   }
   if (expected.packageExpectations) {
     for (const pkg of expected.packageExpectations) {
       const ctx = projectContext.packages.find((entry) => entry.path === pkg.path);
       expect(ctx, `${expected.fixture} package context ${pkg.path}`).toBeDefined();
       if (pkg.testCommand !== undefined) {
-        expect(ctx!.testCommand, `${expected.fixture} ${pkg.path} testCommand`).toBe(pkg.testCommand);
+        expect(ctx!.testCommand, `${expected.fixture} ${pkg.path} testCommand`).toBe(
+          pkg.testCommand,
+        );
       }
     }
   }
   const architectPrimary = architectPrimaryGuidance(architect);
   const hasGrounding = architect.includes("## Deterministic project grounding");
   if (expected.architectHasGrounding !== undefined) {
-    expect(hasGrounding, `${expected.fixture} architect grounding`).toBe(expected.architectHasGrounding);
+    expect(hasGrounding, `${expected.fixture} architect grounding`).toBe(
+      expected.architectHasGrounding,
+    );
   }
   const testerHasGroundingSection = tester.includes("## Deterministic project grounding");
   if (expected.testerHasGrounding !== undefined) {
-    expect(testerHasGroundingSection, `${expected.fixture} tester grounding`).toBe(expected.testerHasGrounding);
+    expect(testerHasGroundingSection, `${expected.fixture} tester grounding`).toBe(
+      expected.testerHasGrounding,
+    );
   }
   if (expected.testerMustInclude) {
     for (const text of expected.testerMustInclude) {

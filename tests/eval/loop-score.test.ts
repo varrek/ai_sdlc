@@ -61,18 +61,25 @@ describe("loop trace scoring", () => {
   });
 
   it("does not count handoffs as substantive stage execution", () => {
-    const trace = standardTrace().filter((event) => event.type === "handoff" || event.type === "done");
+    const trace = standardTrace().filter(
+      (event) => event.type === "handoff" || event.type === "done",
+    );
 
     const score = scoreLoopTrace(trace, { stages: [...standardStages] });
 
     expect(score.passed).toBe(false);
-    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "missing-stage", stage: "architect" }));
-    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "missing-stage", stage: "engineer" }));
+    expect(score.violations).toContainEqual(
+      expect.objectContaining({ kind: "missing-stage", stage: "architect" }),
+    );
+    expect(score.violations).toContainEqual(
+      expect.objectContaining({ kind: "missing-stage", stage: "engineer" }),
+    );
   });
 
   it("does not count staged approval gates as substantive stage execution", () => {
     const trace = standardTrace().filter(
-      (event) => event.type === "approval_gate" || event.type === "handoff" || event.type === "done",
+      (event) =>
+        event.type === "approval_gate" || event.type === "handoff" || event.type === "done",
     );
     trace.unshift({
       type: "approval_gate",
@@ -85,8 +92,12 @@ describe("loop trace scoring", () => {
 
     const score = scoreLoopTrace(trace, { stages: [...standardStages] });
 
-    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "missing-stage", stage: "engineer" }));
-    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "role-ownership" }));
+    expect(score.violations).toContainEqual(
+      expect.objectContaining({ kind: "missing-stage", stage: "engineer" }),
+    );
+    expect(score.violations).not.toContainEqual(
+      expect.objectContaining({ kind: "role-ownership" }),
+    );
   });
 
   it("does not apply role ownership checks to approval gates", () => {
@@ -102,7 +113,9 @@ describe("loop trace scoring", () => {
 
     const score = scoreLoopTrace(trace, { stages: [...standardStages] });
 
-    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "role-ownership", stage: "engineer" }));
+    expect(score.violations).not.toContainEqual(
+      expect.objectContaining({ kind: "role-ownership", stage: "engineer" }),
+    );
   });
 
   it("enforces the replan budget", () => {
@@ -205,12 +218,12 @@ describe("loop trace scoring", () => {
       findings: ["scope creep"],
     };
 
-    expect(scoreLoopTrace(failedTestTrace, { stages: [...standardStages] }).violations).toContainEqual(
-      expect.objectContaining({ kind: "evaluator-handback", stage: "test" }),
-    );
-    expect(scoreLoopTrace(reviewRequestTrace, { stages: [...standardStages] }).violations).toContainEqual(
-      expect.objectContaining({ kind: "evaluator-handback", stage: "reviewer" }),
-    );
+    expect(
+      scoreLoopTrace(failedTestTrace, { stages: [...standardStages] }).violations,
+    ).toContainEqual(expect.objectContaining({ kind: "evaluator-handback", stage: "test" }));
+    expect(
+      scoreLoopTrace(reviewRequestTrace, { stages: [...standardStages] }).violations,
+    ).toContainEqual(expect.objectContaining({ kind: "evaluator-handback", stage: "reviewer" }));
   });
 
   it("recognizes handoff to Engineer as evaluator handback rework", () => {
@@ -235,7 +248,9 @@ describe("loop trace scoring", () => {
 
     const score = scoreLoopTrace(trace, { stages: [...standardStages] });
 
-    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
+    expect(score.violations).not.toContainEqual(
+      expect.objectContaining({ kind: "evaluator-handback" }),
+    );
   });
 
   it("requires Engineer rework before stuck after evaluator failure", () => {
@@ -259,7 +274,9 @@ describe("loop trace scoring", () => {
 
     const score = scoreLoopTrace(trace, { stages: [...standardStages] });
 
-    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
+    expect(score.violations).toContainEqual(
+      expect.objectContaining({ kind: "evaluator-handback" }),
+    );
   });
 
   it("recognizes Engineer plan-created events as evaluator handback rework", () => {
@@ -283,7 +300,9 @@ describe("loop trace scoring", () => {
 
     const score = scoreLoopTrace(trace, { stages: [...standardStages] });
 
-    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
+    expect(score.violations).not.toContainEqual(
+      expect.objectContaining({ kind: "evaluator-handback" }),
+    );
   });
 
   it("recognizes Engineer test runs as evaluator handback rework", () => {
@@ -308,6 +327,8 @@ describe("loop trace scoring", () => {
 
     const score = scoreLoopTrace(trace, { stages: [...standardStages] });
 
-    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
+    expect(score.violations).not.toContainEqual(
+      expect.objectContaining({ kind: "evaluator-handback" }),
+    );
   });
 });

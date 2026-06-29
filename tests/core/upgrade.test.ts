@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,10 +32,7 @@ describe("aisdlc upgrade", () => {
   it("advances project.lock and leaves a non-conflicting overlay byte-identical", () => {
     const work = tmp();
     const sdlcDir = join(work, ".sdlc");
-    const overlayPath = writeOverlay(
-      work,
-      "version: 1\nroleModels:\n  architect: team-tuned\n",
-    );
+    const overlayPath = writeOverlay(work, "version: 1\nroleModels:\n  architect: team-tuned\n");
     const overlayBefore = readFileSync(overlayPath);
 
     // old -> old: base did not change the overlaid edge, so no conflict.
@@ -56,10 +53,7 @@ describe("aisdlc upgrade", () => {
   it("blocks and reports when a base push collides with an overlaid edge", () => {
     const work = tmp();
     const sdlcDir = join(work, ".sdlc");
-    const overlayPath = writeOverlay(
-      work,
-      "version: 1\nroleModels:\n  architect: team-tuned\n",
-    );
+    const overlayPath = writeOverlay(work, "version: 1\nroleModels:\n  architect: team-tuned\n");
 
     // old (no model) -> new-conflict (base now sets architect.model): collision.
     const result = runUpgrade({

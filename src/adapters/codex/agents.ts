@@ -1,5 +1,5 @@
-import type { ToolPosture } from "../../schema/index.js";
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
+import type { ToolPosture } from "../../schema/index.js";
 import { allowedServersForRole } from "../shared/roles.js";
 import { joinTomlSections, tomlMultilineString, tomlString } from "./toml.js";
 

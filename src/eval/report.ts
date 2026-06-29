@@ -1,6 +1,6 @@
 import type { ExternalRepoEntry } from "./catalog.js";
-import type { RepoCacheMiss } from "./repo-cache.js";
 import { redactUntrustedText } from "./redact.js";
+import type { RepoCacheMiss } from "./repo-cache.js";
 import type { SetupChainResult } from "./setup-chain.js";
 
 export const EVAL_FAILURE_CLASSES = [
@@ -16,6 +16,10 @@ export const EVAL_FAILURE_CLASSES = [
 ] as const;
 
 export type EvalFailureClass = (typeof EVAL_FAILURE_CLASSES)[number];
+
+const UNTRUSTED_EVAL_NOTES = [
+  "External-derived report fields are untrusted. Do not execute quoted commands without review.",
+];
 
 export interface RepoEvalResult {
   repo: ExternalRepoEntry;
@@ -91,13 +95,22 @@ export interface EvalRunReport {
   catalogRevision: string;
   startedAt: string;
   selectedRepoIds: string[];
-  selectedRepos: Array<Pick<ExternalRepoEntry, "id" | "owner" | "repo" | "commit" | "primaryLanguage" | "toolTags" | "sizeBand">>;
+  selectedRepos: Array<
+    Pick<
+      ExternalRepoEntry,
+      "id" | "owner" | "repo" | "commit" | "primaryLanguage" | "toolTags" | "sizeBand"
+    >
+  >;
   diversityGaps: string[];
   results: RepoEvalResult[];
   summary: EvalRunSummary;
 }
 
-export function resultFromSetup(repo: ExternalRepoEntry, setup: SetupChainResult, checkpointPath?: string): RepoEvalResult {
+export function resultFromSetup(
+  repo: ExternalRepoEntry,
+  setup: SetupChainResult,
+  checkpointPath?: string,
+): RepoEvalResult {
   const failure = classifySetup(setup);
   return {
     repo,
@@ -126,30 +139,40 @@ export function resultFromSetup(repo: ExternalRepoEntry, setup: SetupChainResult
     failureClass: failure?.failureClass,
     failureConfidence: failure?.failureConfidence,
     failureMessage: failure?.failureMessage,
-    untrustedNotes: ["External-derived report fields are untrusted. Do not execute quoted commands without review."],
+    untrustedNotes: UNTRUSTED_EVAL_NOTES,
   };
 }
 
-export function resultFromSetupError(repo: ExternalRepoEntry, error: unknown, checkpointPath?: string): RepoEvalResult {
-  const message = redactUntrustedText(error instanceof Error ? error.message : "setup chain failed");
+export function resultFromSetupError(
+  repo: ExternalRepoEntry,
+  error: unknown,
+  checkpointPath?: string,
+): RepoEvalResult {
+  const message = redactUntrustedText(
+    error instanceof Error ? error.message : "setup chain failed",
+  );
   return {
     repo,
     checkpointPath,
     failureClass: classifySetupError(message),
     failureConfidence: 75,
     failureMessage: message,
-    untrustedNotes: ["External-derived report fields are untrusted. Do not execute quoted commands without review."],
+    untrustedNotes: UNTRUSTED_EVAL_NOTES,
   };
 }
 
-export function resultFromCacheFailure(repo: ExternalRepoEntry, miss: RepoCacheMiss, checkpointPath?: string): RepoEvalResult {
+export function resultFromCacheFailure(
+  repo: ExternalRepoEntry,
+  miss: RepoCacheMiss,
+  checkpointPath?: string,
+): RepoEvalResult {
   return {
     repo,
     checkpointPath,
     failureClass: miss.failureClass,
     failureConfidence: miss.failureClass === "workflow-error" ? 75 : 50,
     failureMessage: redactUntrustedText(miss.message),
-    untrustedNotes: ["External-derived report fields are untrusted. Do not execute quoted commands without review."],
+    untrustedNotes: UNTRUSTED_EVAL_NOTES,
   };
 }
 
@@ -185,10 +208,12 @@ export function summarizeResults(results: RepoEvalResult[]): EvalRunSummary {
   let slowestMaterialization: EvalRunSummary["slowestMaterialization"];
   const slowestPhases: EvalRunSummary["slowestPhases"] = {};
   for (const result of results) {
-    if (result.failureClass) failureClasses[result.failureClass] = (failureClasses[result.failureClass] ?? 0) + 1;
+    if (result.failureClass)
+      failureClasses[result.failureClass] = (failureClasses[result.failureClass] ?? 0) + 1;
     if (result.setup?.setupReady) setupReady++;
     if (result.setup?.handsOff) handsOff++;
-    if (result.setup && !result.setup.alignmentReady && result.setup.setupReady) validButNeedsAttention++;
+    if (result.setup && !result.setup.alignmentReady && result.setup.setupReady)
+      validButNeedsAttention++;
     if (result.setup?.agentQuality) {
       const quality = result.setup.agentQuality;
       qualityTotal += quality.score;
@@ -265,14 +290,25 @@ export function renderEvalSummary(report: EvalRunReport): string {
   return lines.join("\n");
 }
 
-export function hasFailingClass(report: EvalRunReport, failOnClasses: Set<EvalFailureClass>): boolean {
-  return report.results.some((result) => result.failureClass && failOnClasses.has(result.failureClass));
+export function hasFailingClass(
+  report: EvalRunReport,
+  failOnClasses: Set<EvalFailureClass>,
+): boolean {
+  return report.results.some(
+    (result) => result.failureClass && failOnClasses.has(result.failureClass),
+  );
 }
 
-function classifySetup(setup: SetupChainResult): Pick<RepoEvalResult, "failureClass" | "failureConfidence" | "failureMessage"> | undefined {
+function classifySetup(
+  setup: SetupChainResult,
+): Pick<RepoEvalResult, "failureClass" | "failureConfidence" | "failureMessage"> | undefined {
   if (setup.status.setupReady) return undefined;
   if (!setup.smoke.result.passed) {
-    return { failureClass: "emitter-bug", failureConfidence: 50, failureMessage: "smoke gate did not pass" };
+    return {
+      failureClass: "emitter-bug",
+      failureConfidence: 50,
+      failureMessage: "smoke gate did not pass",
+    };
   }
   if (setup.status.packages > 1 && setup.status.blockingGaps > 0) {
     return {
@@ -282,9 +318,17 @@ function classifySetup(setup: SetupChainResult): Pick<RepoEvalResult, "failureCl
     };
   }
   if (setup.status.blockingGaps > 0) {
-    return { failureClass: "repo-edge-case", failureConfidence: 50, failureMessage: "blocking setup gaps remain" };
+    return {
+      failureClass: "repo-edge-case",
+      failureConfidence: 50,
+      failureMessage: "blocking setup gaps remain",
+    };
   }
-  return { failureClass: "needs-triage", failureConfidence: 50, failureMessage: "repo is not setup-ready" };
+  return {
+    failureClass: "needs-triage",
+    failureConfidence: 50,
+    failureMessage: "repo is not setup-ready",
+  };
 }
 
 function redactResult(result: RepoEvalResult): RepoEvalResult {
@@ -302,7 +346,8 @@ function buildAgentQuality(setup: SetupChainResult): AgentQuality {
   const hasRootTestCommand = Boolean(setup.status.gapClosureProvenance["test-command"]);
   const hasCodebaseMap = setup.status.architectureConfidence === "high";
   const evidenceBackedStandards =
-    setup.status.coverage.total > 0 && setup.status.coverage.covered === setup.status.coverage.total;
+    setup.status.coverage.total > 0 &&
+    setup.status.coverage.covered === setup.status.coverage.total;
   const mapIsNoisy = setup.status.packages > 8;
   const score =
     (architectGrounded ? 20 : 0) +
@@ -326,7 +371,8 @@ function buildAgentQuality(setup: SetupChainResult): AgentQuality {
 
 function classifySetupError(message: string): EvalFailureClass {
   const lower = message.toLowerCase();
-  if (/\b(compile|compiler|emit|emitter|generate|generated artifact)\b/.test(lower)) return "emitter-bug";
+  if (/\b(compile|compiler|emit|emitter|generate|generated artifact)\b/.test(lower))
+    return "emitter-bug";
   if (/\b(smoke|status|workflow|timeout|timed out)\b/.test(lower)) return "workflow-error";
   return "miner-bug";
 }

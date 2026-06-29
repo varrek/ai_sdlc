@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { upsertGateOutcomeLearning } from "./accepted-learnings.js";
 import type { LoopTraceEvent } from "../eval/loop-trace.js";
+import { upsertGateOutcomeLearning } from "./accepted-learnings.js";
 
 /**
  * Minimal compounding memory (v1). We capture two things and defer the rest

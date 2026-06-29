@@ -17,7 +17,9 @@ describe("external repo catalog", () => {
     const first = selectExternalRepos(catalog, 42, 5);
     const second = selectExternalRepos(catalog, 42, 5);
 
-    expect(second.selected.map((entry) => entry.id)).toEqual(first.selected.map((entry) => entry.id));
+    expect(second.selected.map((entry) => entry.id)).toEqual(
+      first.selected.map((entry) => entry.id),
+    );
     expect(first.selected).toHaveLength(5);
     expect(new Set(first.selected.map((entry) => entry.primaryLanguage)).size).toBe(5);
   });
@@ -26,7 +28,12 @@ describe("external repo catalog", () => {
     expect(() =>
       parseExternalRepoCatalog({
         catalogRevision: "test",
-        repos: [{ ...repo("a", "one", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "TypeScript"), id: "wrong" }],
+        repos: [
+          {
+            ...repo("a", "one", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "TypeScript"),
+            id: "wrong",
+          },
+        ],
       }),
     ).toThrow(/must be/);
   });
@@ -36,7 +43,10 @@ describe("external repo catalog", () => {
       parseExternalRepoCatalog({
         catalogRevision: "root",
         repos: [
-          { ...repo("a", "one", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "TypeScript"), catalogRevision: "entry" },
+          {
+            ...repo("a", "one", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "TypeScript"),
+            catalogRevision: "entry",
+          },
         ],
       }),
     ).toThrow(/must match catalog revision/);
@@ -54,7 +64,9 @@ describe("external repo catalog", () => {
     const selection = selectExternalRepos(narrow, 1, 2);
 
     expect(selection.selected).toHaveLength(2);
-    expect(selection.diversityGaps).toContain("catalog does not contain enough distinct primary languages for requested count");
+    expect(selection.diversityGaps).toContain(
+      "catalog does not contain enough distinct primary languages for requested count",
+    );
   });
 });
 

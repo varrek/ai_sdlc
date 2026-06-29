@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "../../src/cli/garden-docs.js";
+import {
+  parseGardenDocsFailOn,
+  parseGardenDocsFormat,
+  runGardenDocs,
+} from "../../src/cli/garden-docs.js";
 
 const tmpDirs: string[] = [];
 
@@ -12,7 +16,11 @@ afterEach(() => {
 describe("garden-docs command", () => {
   it("prints text output and exits zero for warnings by default", () => {
     const root = tmpRepo();
-    writeFileSync(join(root, "AGENTS.md"), `${Array.from({ length: 130 }, () => "line").join("\n")}\n`, "utf8");
+    writeFileSync(
+      join(root, "AGENTS.md"),
+      `${Array.from({ length: 130 }, () => "line").join("\n")}\n`,
+      "utf8",
+    );
 
     const result = runGardenDocs({ repoRoot: root });
     expect(result.exitCode).toBe(0);
@@ -22,9 +30,18 @@ describe("garden-docs command", () => {
 
   it("supports json output, report writes, and fail-on warning", () => {
     const root = tmpRepo();
-    writeFileSync(join(root, "AGENTS.md"), `${Array.from({ length: 130 }, () => "line").join("\n")}\n`, "utf8");
+    writeFileSync(
+      join(root, "AGENTS.md"),
+      `${Array.from({ length: 130 }, () => "line").join("\n")}\n`,
+      "utf8",
+    );
 
-    const result = runGardenDocs({ repoRoot: root, format: "json", writeReport: true, failOn: "warning" });
+    const result = runGardenDocs({
+      repoRoot: root,
+      format: "json",
+      writeReport: true,
+      failOn: "warning",
+    });
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.output).summary.total).toBe(1);
     expect(existsSync(join(root, ".sdlc", "doc-gardening-report.json"))).toBe(true);
@@ -33,7 +50,11 @@ describe("garden-docs command", () => {
 
   it("does not fail on warnings when fail-on is error", () => {
     const root = tmpRepo();
-    writeFileSync(join(root, "AGENTS.md"), `${Array.from({ length: 130 }, () => "line").join("\n")}\n`, "utf8");
+    writeFileSync(
+      join(root, "AGENTS.md"),
+      `${Array.from({ length: 130 }, () => "line").join("\n")}\n`,
+      "utf8",
+    );
 
     const result = runGardenDocs({ repoRoot: root, failOn: "error" });
     expect(result.report.summary.warnings).toBe(1);
@@ -47,12 +68,18 @@ describe("garden-docs command", () => {
     writeFileSync(join(root, "CLAUDE.md"), "# Claude\n", "utf8");
     writeFileSync(
       join(overlayDir, "project-context.json"),
-      JSON.stringify({ packages: [], map: [{ path: "src", role: "Source", sources: ["src"] }], exclusions: [] }),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src", role: "Source", sources: ["src"] }],
+        exclusions: [],
+      }),
       "utf8",
     );
 
     const result = runGardenDocs({ repoRoot: root, overlayDir });
-    expect(result.report.findings.find((finding) => finding.id === "missing-codebase-map")?.path).toBe("CLAUDE.md");
+    expect(
+      result.report.findings.find((finding) => finding.id === "missing-codebase-map")?.path,
+    ).toBe("CLAUDE.md");
   });
 
   it("rejects invalid option values", () => {

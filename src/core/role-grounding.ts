@@ -1,11 +1,11 @@
-import { assertRoleAddendumWithinContract } from "./role-addenda.js";
+import type { Overlay, Role } from "../schema/index.js";
 import {
-  filterAcceptedLearningsByKinds,
   type AcceptedLearningEntry,
   type AcceptedLearningKind,
+  filterAcceptedLearningsByKinds,
 } from "./accepted-learnings.js";
 import type { ProjectContext } from "./project-context.js";
-import type { Overlay, Role } from "../schema/index.js";
+import { assertRoleAddendumWithinContract } from "./role-addenda.js";
 
 export const ROLE_GROUNDING_HEADING = "## Deterministic project grounding";
 const MAX_ROLE_GROUNDING_CHARS = 1200;
@@ -14,7 +14,14 @@ const MAX_ACCEPTED_LEARNINGS_CHARS = 800;
 
 export const LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
   architect: ["architecture-demotion", "standard-added", "bench-residual", "gate-approval"],
-  engineer: ["test-command", "standard-added", "review-finding", "test-correction", "bench-residual", "gate-approval"],
+  engineer: [
+    "test-command",
+    "standard-added",
+    "review-finding",
+    "test-correction",
+    "bench-residual",
+    "gate-approval",
+  ],
   reviewer: ["review-finding", "bench-residual", "standard-added", "gate-approval"],
   tester: ["test-command", "test-correction", "bench-residual", "gate-approval"],
 };
@@ -62,7 +69,10 @@ export function appendRoleGrounding(role: Role, input: RoleGroundingInput): Role
 }
 
 /** @deprecated Use appendRoleGrounding — kept for direct unit tests of Architect behavior. */
-export function appendArchitectGrounding(role: Role, projectContext: ProjectContext | undefined): Role {
+export function appendArchitectGrounding(
+  role: Role,
+  projectContext: ProjectContext | undefined,
+): Role {
   if (role.frontmatter.name !== "architect" || !projectContext || projectContext.map.length === 0) {
     return role;
   }
@@ -71,7 +81,9 @@ export function appendArchitectGrounding(role: Role, projectContext: ProjectCont
     ...projectContext.map.slice(0, 8).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
   ];
   if (projectContext.map.length > 8) {
-    lines.push(`- ${projectContext.map.length - 8} additional entries are available in the codebase map.`);
+    lines.push(
+      `- ${projectContext.map.length - 8} additional entries are available in the codebase map.`,
+    );
   }
   return appendGroundingSection(role, lines.join("\n"));
 }
@@ -87,11 +99,14 @@ function appendEngineerGrounding(role: Role, input: RoleGroundingInput): Role {
       "Likely edit areas:",
       ...map.slice(0, 6).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
     );
-    if (map.length > 6) lines.push(`- ${map.length - 6} additional entries are available in the codebase map.`);
+    if (map.length > 6)
+      lines.push(`- ${map.length - 6} additional entries are available in the codebase map.`);
   }
   const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
   if (rootCommand) lines.push(`Run relevant validation with \`${rootCommand}\`.`);
-  const packageCommands = (input.projectContext?.packages ?? []).filter((pkg) => pkg.testCommand?.trim()).slice(0, 4);
+  const packageCommands = (input.projectContext?.packages ?? [])
+    .filter((pkg) => pkg.testCommand?.trim())
+    .slice(0, 4);
   for (const pkg of packageCommands) lines.push(`For \`${pkg.path}\`, use \`${pkg.testCommand}\`.`);
   return appendGroundingSection(role, lines.join("\n"));
 }
@@ -105,9 +120,7 @@ function appendTesterGrounding(role: Role, input: RoleGroundingInput): Role {
 }
 
 function buildTesterGroundingLines(input: RoleGroundingInput): string[] {
-  const lines = [
-    "Use these mined, evidence-backed test commands when verifying changes:",
-  ];
+  const lines = ["Use these mined, evidence-backed test commands when verifying changes:"];
   const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
   if (rootCommand) {
     const provenance = input.overlay.gapClosureProvenance?.["test-command"];

@@ -55,7 +55,11 @@ export function parseExternalRepoCatalog(value: unknown): ExternalRepoCatalog {
   return catalog;
 }
 
-export function selectExternalRepos(catalog: ExternalRepoCatalog, seed: number, count = 5): RepoSelection {
+export function selectExternalRepos(
+  catalog: ExternalRepoCatalog,
+  seed: number,
+  count = 5,
+): RepoSelection {
   if (!Number.isInteger(seed)) throw new Error("seed must be an integer");
   if (!Number.isInteger(count) || count < 1) throw new Error("count must be a positive integer");
 
@@ -83,11 +87,18 @@ export function selectExternalRepos(catalog: ExternalRepoCatalog, seed: number, 
   }
 
   const diversityGaps: string[] = [];
-  if (new Set(catalog.repos.map((repo) => repo.primaryLanguage)).size < Math.min(count, catalog.repos.length)) {
-    diversityGaps.push("catalog does not contain enough distinct primary languages for requested count");
+  if (
+    new Set(catalog.repos.map((repo) => repo.primaryLanguage)).size <
+    Math.min(count, catalog.repos.length)
+  ) {
+    diversityGaps.push(
+      "catalog does not contain enough distinct primary languages for requested count",
+    );
   }
   if (selected.length < count) {
-    diversityGaps.push(`catalog contains only ${selected.length} selectable repos for requested count ${count}`);
+    diversityGaps.push(
+      `catalog contains only ${selected.length} selectable repos for requested count ${count}`,
+    );
   }
 
   return { selected, diversityGaps };

@@ -21,19 +21,19 @@ describe("deterministic behavior-eval scaffold", () => {
 
     const results = evaluateBehaviorScenarios(artifactsByFixture);
     const failures = results.filter((result) => !result.pass);
-    expect(failures, failures.map((f) => `${f.scenarioId}: ${f.missing.join("; ")}`).join("\n")).toEqual(
-      [],
-    );
+    expect(
+      failures,
+      failures.map((f) => `${f.scenarioId}: ${f.missing.join("; ")}`).join("\n"),
+    ).toEqual([]);
   });
 
-  it.each(BEHAVIOR_SCENARIOS.map((scenario) => [scenario.id, scenario] as const))(
-    "%s carries module and test-command signals",
-    (scenarioId, scenario) => {
-      const root = copyFixture(scenario.fixture);
-      const artifacts = runSetup(root);
-      const result = evaluateBehaviorScenario(artifacts, scenario);
-      expect(result.pass, result.missing.join("; ")).toBe(true);
-      expect(result.scenarioId).toBe(scenarioId);
-    },
-  );
+  it.each(
+    BEHAVIOR_SCENARIOS.map((scenario) => [scenario.id, scenario] as const),
+  )("%s carries module and test-command signals", (scenarioId, scenario) => {
+    const root = copyFixture(scenario.fixture);
+    const artifacts = runSetup(root);
+    const result = evaluateBehaviorScenario(artifacts, scenario);
+    expect(result.pass, result.missing.join("; ")).toBe(true);
+    expect(result.scenarioId).toBe(scenarioId);
+  });
 });

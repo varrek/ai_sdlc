@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -25,7 +25,10 @@ describe("gate emit", () => {
     };
     expect(hooks.hooks.beforeMCPExecution).toBeDefined();
     expect(files.has(".cursor/sdlc/role-policy.json")).toBe(true);
-    const policy = JSON.parse(files.get(".cursor/sdlc/role-policy.json")!) as Record<string, unknown>;
+    const policy = JSON.parse(files.get(".cursor/sdlc/role-policy.json")!) as Record<
+      string,
+      unknown
+    >;
     expect(policy.engineer).toBeDefined();
   });
 

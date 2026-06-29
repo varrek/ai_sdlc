@@ -9,7 +9,9 @@ function renderServerTable(serverId: string, def: ServerDef): string {
     lines.push(`command = ${tomlString(def.command)}`);
   }
   if (Array.isArray(def.args) && def.args.length > 0) {
-    lines.push(`args = ${tomlStringArray(def.args.filter((arg): arg is string => typeof arg === "string"))}`);
+    lines.push(
+      `args = ${tomlStringArray(def.args.filter((arg): arg is string => typeof arg === "string"))}`,
+    );
   }
   if (typeof def.url === "string") {
     lines.push(`url = ${tomlString(def.url)}`);

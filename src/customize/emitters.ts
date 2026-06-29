@@ -5,7 +5,12 @@ import {
   type PackageContext,
   type ProjectContext,
 } from "../core/project-context.js";
-import { Overlay, type CeremonyTrack, type IntegrationBinding, type OperatingMode } from "../schema/index.js";
+import {
+  type CeremonyTrack,
+  type IntegrationBinding,
+  type OperatingMode,
+  Overlay,
+} from "../schema/index.js";
 import type { PackageProfile, RepoProfile } from "./repo-miner.js";
 
 export interface StandardEntry {
@@ -96,8 +101,14 @@ export function buildStandardsIndex(profile: RepoProfile): StandardsIndex {
     const { sourceRoot, modules, entrypoints, overflowModules } = profile.architecture;
     const where = sourceRoot === "." ? "the repo root" : `\`${sourceRoot}/\``;
     const moduleList = modules.map((m) => `\`${m}\``).join(", ");
-    const entry = entrypoints.length > 0 ? ` Entrypoints: ${entrypoints.map((e) => `\`${e}\``).join(", ")}.` : "";
-    const overflow = overflowModules > 0 ? ` ${overflowModules} additional modules are available in the codebase map.` : "";
+    const entry =
+      entrypoints.length > 0
+        ? ` Entrypoints: ${entrypoints.map((e) => `\`${e}\``).join(", ")}.`
+        : "";
+    const overflow =
+      overflowModules > 0
+        ? ` ${overflowModules} additional modules are available in the codebase map.`
+        : "";
     const archSources = Object.entries(profile.evidence)
       .filter(([k]) => k.startsWith("architecture:"))
       .flatMap(([, v]) => v);
@@ -244,7 +255,9 @@ function packagePrimaryLanguage(pkg: PackageProfile): string {
     pkg.linters.includes("eslint") ||
     /(^|\/)(package\.json|tsconfig\.json|\.eslintrc)/.test(evidenceText);
   if (jsTooling) {
-    return pkg.languages.includes("typescript") || /tsconfig\.json/.test(evidenceText) ? "Typescript" : "Javascript";
+    return pkg.languages.includes("typescript") || /tsconfig\.json/.test(evidenceText)
+      ? "Typescript"
+      : "Javascript";
   }
   return pkg.languages[0] ? capitalize(pkg.languages[0]) : "Package";
 }
@@ -333,7 +346,11 @@ export interface EvidenceQuality {
 /** Fraction of standards that cite at least one source — the strategy evidence metric. */
 export function evidenceCoverage(index: StandardsIndex): EvidenceCoverage {
   const uncited = index.standards.filter((s) => s.sources.length === 0).map((s) => s.statement);
-  return { total: index.standards.length, covered: index.standards.length - uncited.length, uncited };
+  return {
+    total: index.standards.length,
+    covered: index.standards.length - uncited.length,
+    uncited,
+  };
 }
 
 export function evidenceQuality(profile: RepoProfile, index: StandardsIndex): EvidenceQuality {
@@ -384,13 +401,24 @@ export interface StandardsDrift {
  * and report what changed, so a re-run is a reviewable delta rather than a
  * silent full rewrite.
  */
-export function diffStandardsIndex(
-  next: StandardsIndex,
-  prev?: StandardsIndex,
-): StandardsDrift {
+export function diffStandardsIndex(next: StandardsIndex, prev?: StandardsIndex): StandardsDrift {
   const prevSet = new Set((prev?.standards ?? []).map((s) => s.statement));
   const nextSet = new Set(next.standards.map((s) => s.statement));
   const added = [...nextSet].filter((s) => !prevSet.has(s)).sort();
   const removed = [...prevSet].filter((s) => !nextSet.has(s)).sort();
-  return { added, removed, changed: added.length > 0 || removed.length > 0 };
+  const prevByStatement = new Map(
+    (prev?.standards ?? []).map((standard) => [standard.statement, standard]),
+  );
+  const changedMetadata = next.standards.some((standard) => {
+    const prior = prevByStatement.get(standard.statement);
+    return prior !== undefined && standardMetadataKey(standard) !== standardMetadataKey(prior);
+  });
+  return { added, removed, changed: added.length > 0 || removed.length > 0 || changedMetadata };
+}
+
+function standardMetadataKey(standard: StandardEntry): string {
+  return JSON.stringify({
+    scope: standard.scope ?? "",
+    sources: [...new Set(standard.sources)].sort(),
+  });
 }

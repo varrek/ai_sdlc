@@ -31,7 +31,10 @@ describe("compiled loop shape", () => {
   it("a role addendum reaches the emitted host agent files, fenced under its heading", () => {
     const m = mergeOverlay(
       loadBase(baseDir),
-      Overlay.parse({ version: 1, roleAddenda: { engineer: "REPO-MARKER: use Vitest, ESM only." } }),
+      Overlay.parse({
+        version: 1,
+        roleAddenda: { engineer: "REPO-MARKER: use Vitest, ESM only." },
+      }),
     );
     const cursor = byPath(new CursorAdapter().emit(m).files);
     const claude = byPath(new ClaudeCodeAdapter().emit(m).files);
@@ -85,7 +88,8 @@ describe("compiled loop shape", () => {
     expect(matter(cursor.get(".cursor/agents/reviewer.md")!).data.posture).toBe("read-only");
     const claudeReviewer = String(matter(claude.get(".claude/agents/reviewer.md")!).data.tools);
     expect(claudeReviewer).not.toMatch(/Write|Edit/);
-    const copilotReviewer = matter(copilot.get(".github/agents/reviewer.agent.md")!).data.tools as string[];
+    const copilotReviewer = matter(copilot.get(".github/agents/reviewer.agent.md")!).data
+      .tools as string[];
     expect(copilotReviewer).not.toContain("Write");
     expect(copilotReviewer).not.toContain("Edit");
   });
@@ -129,7 +133,10 @@ describe("compiled loop shape", () => {
   });
 
   it("full track wires the wrap-up stage into the handoff chain (performed by engineer)", () => {
-    const full = mergeOverlay(loadBase(baseDir), Overlay.parse({ version: 1, defaultTrack: "full" }));
+    const full = mergeOverlay(
+      loadBase(baseDir),
+      Overlay.parse({ version: 1, defaultTrack: "full" }),
+    );
     const copilot = byPath(new CopilotAdapter().emit(full).files);
     const handoffs = JSON.parse(copilot.get(".github/agents/handoffs.json")!) as {
       track: string;
@@ -159,12 +166,17 @@ describe("compiled loop shape", () => {
     expect(skillNames("quick")).not.toContain("wrap-up");
     // General-capability skills survive on every track.
     for (const track of ["quick", "standard", "full"] as const) {
-      expect(skillNames(track)).toEqual(expect.arrayContaining(["customize", "sdlc-loop", "track-select"]));
+      expect(skillNames(track)).toEqual(
+        expect.arrayContaining(["customize", "sdlc-loop", "track-select"]),
+      );
     }
   });
 
   it("a full-track repo emits the wrap-up SKILL.md across hosts", () => {
-    const full = mergeOverlay(loadBase(baseDir), Overlay.parse({ version: 1, defaultTrack: "full" }));
+    const full = mergeOverlay(
+      loadBase(baseDir),
+      Overlay.parse({ version: 1, defaultTrack: "full" }),
+    );
     const files = byPath(new CopilotAdapter().emit(full).files);
     expect(files.has(".github/skills/wrap-up/SKILL.md")).toBe(true);
     // The track directive is build-time only — it must not leak into emitted frontmatter.

@@ -20,10 +20,7 @@ const overlay = Overlay.parse({
 
 function loopModel() {
   return makeModel({
-    roles: [
-      makeRole("engineer", "write", ["gitlab"]),
-      makeRole("reviewer", "read-only", []),
-    ],
+    roles: [makeRole("engineer", "write", ["gitlab"]), makeRole("reviewer", "read-only", [])],
     integrations: [makeContract("gitlab")],
     overlay,
   });

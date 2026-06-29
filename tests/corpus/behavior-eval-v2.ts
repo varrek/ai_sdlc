@@ -53,8 +53,7 @@ export const READ_ONLY_LOCALIZATION_SCENARIOS: ReadOnlyLocalizationScenario[] = 
   {
     id: "python-rags-localize-change",
     fixture: "python-rags",
-    task:
-      "I need to change application logic. Where is the primary product source, and which test command should I run before shipping?",
+    task: "I need to change application logic. Where is the primary product source, and which test command should I run before shipping?",
     expectedModule: "src",
     expectedTestCommand: "pytest",
     moduleCandidates: ["src", "tests"],
@@ -137,11 +136,7 @@ export function extractMockLocalizationDecision(
 ): MockAgentDecision {
   const surfaces = guidanceSurfaces(bundle);
   const moduleScores = scoreCandidates(surfaces, scenario.moduleCandidates, "module");
-  const testCommandScores = scoreCandidates(
-    surfaces,
-    scenario.testCommandCandidates,
-    "command",
-  );
+  const testCommandScores = scoreCandidates(surfaces, scenario.testCommandCandidates, "command");
   return {
     selectedModule: pickBest(moduleScores, scenario.moduleCandidates),
     selectedTestCommand: pickBest(testCommandScores, scenario.testCommandCandidates),

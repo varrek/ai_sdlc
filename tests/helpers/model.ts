@@ -1,3 +1,4 @@
+import type { NeutralModel } from "../../src/core/types.js";
 import {
   HostManifest,
   IntegrationContract,
@@ -6,13 +7,8 @@ import {
   Skill,
   type ToolPosture,
 } from "../../src/schema/index.js";
-import type { NeutralModel } from "../../src/core/types.js";
 
-export function makeRole(
-  name: string,
-  posture: ToolPosture,
-  integrations: string[] = [],
-): Role {
+export function makeRole(name: string, posture: ToolPosture, integrations: string[] = []): Role {
   return Role.parse({
     frontmatter: { name, description: `Role ${name}.`, posture, integrations },
     body: `You are the ${name}.`,
@@ -27,7 +23,10 @@ export function makeContract(name: string): IntegrationContract {
   });
 }
 
-export function makeSkill(name: string, opts: { disableModelInvocation?: boolean; paths?: string | string[] } = {}): Skill {
+export function makeSkill(
+  name: string,
+  opts: { disableModelInvocation?: boolean; paths?: string | string[] } = {},
+): Skill {
   return Skill.parse({
     frontmatter: {
       name,
@@ -43,7 +42,10 @@ export function makeSkill(name: string, opts: { disableModelInvocation?: boolean
 
 export function makeModel(overrides: Partial<NeutralModel> = {}): NeutralModel {
   return {
-    manifest: HostManifest.parse({ version: 1, hosts: ["cursor", "claude-code", "copilot", "codex"] }),
+    manifest: HostManifest.parse({
+      version: 1,
+      hosts: ["cursor", "claude-code", "copilot", "codex"],
+    }),
     constitution: [
       "# AI SDLC Constitution (base)",
       "",

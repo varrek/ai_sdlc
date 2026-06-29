@@ -1,15 +1,15 @@
-import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   HostManifest,
   IntegrationContract,
-  Overlay,
-  Role,
-  Skill,
-  SchemaValidationError,
   loadMarkdown,
   loadYaml,
+  Overlay,
+  Role,
+  SchemaValidationError,
+  Skill,
 } from "../../src/schema/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -61,7 +61,9 @@ describe("host manifest", () => {
       HostManifest.safeParse({
         version: 1,
         hosts: ["cursor"],
-        options: { cursor: { pluginManifest: true, pluginVersion: "v1", pluginRepository: "not-a-url" } },
+        options: {
+          cursor: { pluginManifest: true, pluginVersion: "v1", pluginRepository: "not-a-url" },
+        },
       }).success,
     ).toBe(false);
   });
@@ -145,7 +147,9 @@ describe("overlay", () => {
   });
 
   it("accepts explicit deterministic mode and rejects unknown operating modes", () => {
-    expect(Overlay.parse({ version: 1, operatingMode: "deterministic" }).operatingMode).toBe("deterministic");
+    expect(Overlay.parse({ version: 1, operatingMode: "deterministic" }).operatingMode).toBe(
+      "deterministic",
+    );
     expect(Overlay.parse({ version: 1, operatingMode: "plugin" }).operatingMode).toBe("plugin");
     expect(Overlay.safeParse({ version: 1, operatingMode: "legacy" }).success).toBe(false);
   });

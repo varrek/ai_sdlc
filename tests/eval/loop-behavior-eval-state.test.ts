@@ -1,12 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import {
+  type LoopBehaviorEvalResult,
   readLoopBehaviorEvalState,
   summarizeBehaviorEval,
   writeLoopBehaviorEvalState,
-  type LoopBehaviorEvalResult,
 } from "../../src/eval/loop-behavior-eval-state.js";
 import type { LoopScore } from "../../src/eval/loop-score.js";
 
@@ -65,9 +65,46 @@ describe("loop behavior eval state", () => {
   it("validates result structure before accepting", () => {
     const dir = makeTempDir();
     const invalidResults = [{ scenarioId: "test", passed: true }];
-    writeLoopBehaviorEvalState(dir, invalidResults as LoopBehaviorEvalResult[]);
+    expect(() =>
+      writeLoopBehaviorEvalState(dir, invalidResults as LoopBehaviorEvalResult[]),
+    ).toThrow(/persisted result schema/);
+    expect(existsSync(join(dir, "loop-behavior-eval.yaml"))).toBe(false);
     const state = readLoopBehaviorEvalState(dir);
     expect(state).toBeUndefined();
+  });
+
+  it("rejects scores with malformed metrics before writing", () => {
+    const dir = makeTempDir();
+    const invalidResults = [
+      {
+        scenarioId: "test",
+        passed: true,
+        score: { passed: true, metrics: {}, violations: [] },
+        evaluatedAt: "2026-06-29T12:00:00Z",
+      },
+    ];
+
+    expect(() =>
+      writeLoopBehaviorEvalState(dir, invalidResults as LoopBehaviorEvalResult[]),
+    ).toThrow(/persisted result schema/);
+    expect(existsSync(join(dir, "loop-behavior-eval.yaml"))).toBe(false);
+  });
+
+  it("warns before treating invalid persisted state as not run", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, "loop-behavior-eval.yaml"), "version: 1\nresults: nope\n", "utf8");
+    const writes: string[] = [];
+    const originalWrite = process.stderr.write;
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      writes.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      expect(readLoopBehaviorEvalState(dir)).toBeUndefined();
+    } finally {
+      process.stderr.write = originalWrite;
+    }
+    expect(writes.join("")).toContain("is invalid");
   });
 
   it("summarizes not-run when state is undefined", () => {

@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { Overlay } from "../../src/schema/index.js";
-import { LeastPrivilegeError, runWrapUp } from "../../src/wrapup/wrap-up.js";
+import { IntegrationContract, Overlay } from "../../src/schema/index.js";
 import { MockMcpClient } from "../../src/wrapup/mcp-client.js";
+import { LeastPrivilegeError, runWrapUp } from "../../src/wrapup/wrap-up.js";
 import { makeModel, makeRole } from "../helpers/model.js";
-import { IntegrationContract } from "../../src/schema/index.js";
 
 const gitlabContract = IntegrationContract.parse({
   name: "gitlab",

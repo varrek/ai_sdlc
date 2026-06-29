@@ -1,5 +1,5 @@
-import type { McpServerSpec } from "../../schema/index.js";
 import type { NeutralModel } from "../../core/types.js";
+import type { McpServerSpec } from "../../schema/index.js";
 
 export type ServerDef = Record<string, unknown>;
 

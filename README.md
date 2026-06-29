@@ -197,11 +197,31 @@ changes the workflow with structured, reviewable rationale:
 ## Development
 
 ```bash
+npm run check       # format + import-order check (CI mode)
+npm run check:fix   # apply safe format/import-order fixes
 npm run build       # compile TypeScript to dist/
 npm run typecheck   # type-check without emitting
 npm test            # run the vitest suite
 npm run test:watch  # watch mode
+npm run verify:pack # verify the npm package tarball surface after build
 ```
+
+Root CI runs the offline validation path on pull requests and pushes to `main`:
+format/import-order check, typecheck, build, tests, and package tarball
+verification. Network-dependent external repository evals remain opt-in through
+`aisdlc bench`.
+
+### Package Verification
+
+`ai-sdlc` is still documented as clone-first, but the package boundary is
+verified so future npm publishing work has a safe base. The package allowlist
+ships the compiled CLI plus runtime assets needed by generated setups:
+`dist/`, `sdlc-base/`, `packs/`, and `templates/`. It also includes the
+package-facing docs and security policy referenced by the README.
+
+Run `npm run build` before `npm run verify:pack`; the verifier fails if the
+compiled `aisdlc` bin target or representative runtime assets are missing from
+the tarball preview.
 
 ## Project layout
 

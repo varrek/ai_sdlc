@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  type OverlaySnapshot,
   runGenericSetupChain,
   runSetupChain,
-  type OverlaySnapshot,
   type SetupArtifacts,
 } from "../../src/eval/setup-chain.js";
 

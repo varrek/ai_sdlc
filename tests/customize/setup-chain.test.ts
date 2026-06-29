@@ -2,8 +2,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse as parseYaml } from "yaml";
 import { afterEach, describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 import { runCompileCli } from "../../src/cli/compile.js";
 import { runCustomize } from "../../src/cli/customize.js";
 import { runSmokeCli } from "../../src/cli/smoke.js";
@@ -44,7 +44,13 @@ describe("setup chain idempotency", () => {
     expect(c1.freshnessSkipped).toBe(false);
     const comp1 = runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir });
     expect(comp1.freshnessSkipped).toBe(false);
-    const s1 = runSmokeCli({ baseDir, overlayPath, configDir: root, sdlcDir, repoRoot: repo("python-rags") });
+    const s1 = runSmokeCli({
+      baseDir,
+      overlayPath,
+      configDir: root,
+      sdlcDir,
+      repoRoot: repo("python-rags"),
+    });
     expect(s1.result.passed).toBe(true);
     expect(s1.setupReady).toBe(true);
 
@@ -53,9 +59,12 @@ describe("setup chain idempotency", () => {
 
     // Second pass: every command short-circuits.
     expect(runCustomize({ repoRoot: repo("python-rags"), overlayDir }).freshnessSkipped).toBe(true);
-    expect(runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir }).freshnessSkipped).toBe(true);
+    expect(runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir }).freshnessSkipped).toBe(
+      true,
+    );
     expect(
-      runSmokeCli({ baseDir, overlayPath, configDir: root, sdlcDir, repoRoot: repo("python-rags") }).smokeFresh,
+      runSmokeCli({ baseDir, overlayPath, configDir: root, sdlcDir, repoRoot: repo("python-rags") })
+        .smokeFresh,
     ).toBe(true);
   });
 
@@ -73,7 +82,13 @@ describe("setup chain idempotency", () => {
     });
     const recompiled = runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir });
     expect(recompiled.freshnessSkipped).toBe(false);
-    const s = runSmokeCli({ baseDir, overlayPath, configDir: root, sdlcDir, repoRoot: repo("python-rags") });
+    const s = runSmokeCli({
+      baseDir,
+      overlayPath,
+      configDir: root,
+      sdlcDir,
+      repoRoot: repo("python-rags"),
+    });
     expect(s.smokeFresh).toBe(false); // emitted config changed → prior smoke pass invalidated
   });
 
@@ -83,7 +98,9 @@ describe("setup chain idempotency", () => {
     expect(existsSync(join(sdlcDir, "project.lock"))).toBe(false);
     const first = runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir });
     expect(first.freshnessSkipped).toBe(false);
-    expect(runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir }).freshnessSkipped).toBe(true);
+    expect(runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir }).freshnessSkipped).toBe(
+      true,
+    );
   });
 
   it("a base upgrade (project.lock change) makes smoke-passed stale even if the overlay is unchanged", () => {
@@ -95,7 +112,13 @@ describe("setup chain idempotency", () => {
     // Pin a base version: the base hash now derives from the lock, shifting the
     // smoke-passed fingerprint even though the emitted config bytes are unchanged.
     writeFileSync(join(sdlcDir, "project.lock"), "version: 1\nbaseVersion: v2.0.0\n", "utf8");
-    const s = runSmokeCli({ baseDir, overlayPath, configDir: root, sdlcDir, repoRoot: repo("python-rags") });
+    const s = runSmokeCli({
+      baseDir,
+      overlayPath,
+      configDir: root,
+      sdlcDir,
+      repoRoot: repo("python-rags"),
+    });
     expect(s.smokeFresh).toBe(false);
   });
 });

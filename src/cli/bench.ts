@@ -1,28 +1,34 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
-  readExternalRepoCatalog,
-  selectExternalRepos,
   type ExternalRepoCatalog,
   type ExternalRepoEntry,
+  readExternalRepoCatalog,
+  selectExternalRepos,
 } from "../eval/catalog.js";
 import {
-  EVAL_FAILURE_CLASSES,
+  assertContainedPath,
+  cacheEntryHash,
+  type GitRunner,
+  hashJson,
+  materializeRepo,
+} from "../eval/repo-cache.js";
+import {
   buildEvalRunReport,
-  hasFailingClass,
-  renderEvalSummary,
-  resultFromCacheFailure,
-  resultFromSetupError,
-  resultFromSetup,
+  EVAL_FAILURE_CLASSES,
   type EvalFailureClass,
   type EvalRunReport,
+  hasFailingClass,
   type RepoEvalResult,
+  renderEvalSummary,
+  resultFromCacheFailure,
+  resultFromSetup,
+  resultFromSetupError,
 } from "../eval/report.js";
-import { assertContainedPath, cacheEntryHash, hashJson, materializeRepo, type GitRunner } from "../eval/repo-cache.js";
-import { runSetupChain } from "../eval/setup-chain.js";
 import type { SetupChainResult } from "../eval/setup-chain.js";
-import { baseFingerprint } from "./phase-fingerprints.js";
+import { runSetupChain } from "../eval/setup-chain.js";
 import type { OperatingMode } from "../schema/index.js";
+import { baseFingerprint } from "./phase-fingerprints.js";
 
 export interface BenchOptions {
   seed: number;
@@ -62,7 +68,9 @@ export function runBench(options: BenchOptions): BenchResult {
       output: [
         "aisdlc bench dry-run",
         `Selected: ${selection.selected.map((repo) => repo.id).join(", ")}`,
-        selection.diversityGaps.length ? `Diversity gaps: ${selection.diversityGaps.join("; ")}` : undefined,
+        selection.diversityGaps.length
+          ? `Diversity gaps: ${selection.diversityGaps.join("; ")}`
+          : undefined,
       ]
         .filter((line): line is string => Boolean(line))
         .join("\n"),
@@ -129,7 +137,10 @@ export function runBench(options: BenchOptions): BenchResult {
         };
       }
     } else {
-      result = { ...resultFromCacheFailure(repo, materialized, checkpointPath), materialization: { ms: materializationMs } };
+      result = {
+        ...resultFromCacheFailure(repo, materialized, checkpointPath),
+        materialization: { ms: materializationMs },
+      };
     }
     writeCheckpoint(checkpointPath, result, repo, baseFp);
     results.push(result);
@@ -199,7 +210,11 @@ interface StoredCheckpoint {
   result: RepoEvalResult;
 }
 
-function readCheckpoint(path: string, repo: ExternalRepoEntry, baseFingerprint: string): RepoEvalResult | undefined {
+function readCheckpoint(
+  path: string,
+  repo: ExternalRepoEntry,
+  baseFingerprint: string,
+): RepoEvalResult | undefined {
   try {
     const checkpoint = JSON.parse(readFileSync(path, "utf8")) as Partial<StoredCheckpoint>;
     if (checkpoint.baseFingerprint !== baseFingerprint) return undefined;
@@ -212,7 +227,12 @@ function readCheckpoint(path: string, repo: ExternalRepoEntry, baseFingerprint: 
   }
 }
 
-function writeCheckpoint(path: string, result: RepoEvalResult, repo: ExternalRepoEntry, baseFingerprint: string): void {
+function writeCheckpoint(
+  path: string,
+  result: RepoEvalResult,
+  repo: ExternalRepoEntry,
+  baseFingerprint: string,
+): void {
   const checkpoint: StoredCheckpoint = {
     baseFingerprint,
     catalogEntryHash: cacheEntryHash(repo),

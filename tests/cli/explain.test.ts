@@ -79,6 +79,19 @@ describe("explain claim keys", () => {
     expect(res.message).toContain("No CI-mined or manifest-derived test command was resolved.");
   });
 
+  it("reports an explicit empty test-command answer as an open gap", () => {
+    const work = tmp("aisdlc-explain-empty-answer-");
+    cpSync(repo("python-rags"), work, { recursive: true });
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir, answers: { "test-command": "" } });
+
+    const res = explainClaim({ repoRoot: work, overlayDir, key: "test-command" });
+
+    expect(res.ok).toBe(true);
+    expect(res.message).toContain("gap open");
+    expect(res.message).toContain("No CI-mined or manifest-derived test command was resolved.");
+  });
+
   it("fails cleanly when the repo is not yet set up", () => {
     const overlayDir = join(tmp("aisdlc-explain-uninit-"), "overlay");
 

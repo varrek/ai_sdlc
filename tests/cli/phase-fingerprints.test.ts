@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { acceptedLearningsPath } from "../../src/core/accepted-learnings.js";
 import { overlayFingerprint } from "../../src/cli/phase-fingerprints.js";
+import { acceptedLearningsPath } from "../../src/core/accepted-learnings.js";
 
 const tmpDirs: string[] = [];
 afterEach(() => {

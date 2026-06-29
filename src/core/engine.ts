@@ -114,7 +114,8 @@ function readEmittedManifest(outDir: string): string[] {
   if (!existsSync(abs)) return [];
   try {
     const parsed = JSON.parse(readFileSync(abs, "utf8")) as { files?: unknown };
-    if (Array.isArray(parsed.files)) return parsed.files.filter((p): p is string => typeof p === "string");
+    if (Array.isArray(parsed.files))
+      return parsed.files.filter((p): p is string => typeof p === "string");
   } catch {
     return [];
   }
@@ -127,4 +128,4 @@ function writeEmittedManifest(outDir: string, paths: string[]): void {
   writeFileSync(abs, `${JSON.stringify({ version: 1, files: paths }, null, 2)}\n`, "utf8");
 }
 
-export { GAP_REPORT_PATH, EMITTED_MANIFEST_PATH };
+export { EMITTED_MANIFEST_PATH, GAP_REPORT_PATH };

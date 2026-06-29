@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import YAML from "yaml";
 import { runCompileCli } from "../cli/compile.js";
-import { runCustomize, type CustomizeResult } from "../cli/customize.js";
+import { type CustomizeResult, runCustomize } from "../cli/customize.js";
 import { runSmokeCli, type SmokeCliResult } from "../cli/smoke.js";
 import { buildStatus, type StatusReport } from "../cli/status.js";
 import type { ProjectContext } from "../core/project-context.js";
@@ -122,12 +122,21 @@ export function runSetupChain(root: string, options: SetupChainOptions): SetupCh
   };
 }
 
-export function runGenericSetupChain(root: string, options: Pick<SetupChainOptions, "baseDir" | "hosts">): SetupArtifacts {
+export function runGenericSetupChain(
+  root: string,
+  options: Pick<SetupChainOptions, "baseDir" | "hosts">,
+): SetupArtifacts {
   const sdlcDir = join(root, ".sdlc");
   runCompileCli({ baseDir: options.baseDir, outDir: root, sdlcDir, hosts: options.hosts });
   const smoke = runSmokeCli({ baseDir: options.baseDir, configDir: root, sdlcDir, repoRoot: root });
   const overlayDir = join(sdlcDir, "overlay");
-  const status = buildStatus({ repoRoot: root, overlayDir, sdlcDir, baseDir: options.baseDir, outDir: root });
+  const status = buildStatus({
+    repoRoot: root,
+    overlayDir,
+    sdlcDir,
+    baseDir: options.baseDir,
+    outDir: root,
+  });
   return {
     smoke,
     status,
@@ -181,7 +190,9 @@ function emptySetupArtifacts(smoke: SmokeCliResult, status: StatusReport): Setup
 
 function readProjectContext(overlayDir: string): ProjectContext {
   const path = join(overlayDir, "project-context.json");
-  return existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as ProjectContext) : EMPTY_PROJECT_CONTEXT;
+  return existsSync(path)
+    ? (JSON.parse(readFileSync(path, "utf8")) as ProjectContext)
+    : EMPTY_PROJECT_CONTEXT;
 }
 
 function readOptionalUtf8(path: string): string {

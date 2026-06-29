@@ -1,21 +1,30 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse as parseYaml, stringify } from "yaml";
 import { afterEach, describe, expect, it } from "vitest";
+import { parse as parseYaml, stringify } from "yaml";
 import { runCompileCli } from "../../src/cli/compile.js";
 import { loadAnswersFile, runCustomize } from "../../src/cli/customize.js";
 import { buildStatus } from "../../src/cli/status.js";
+import { parseProjectContext } from "../../src/core/project-context.js";
 import {
   buildCodebaseMap,
   buildProjectContext,
   buildStandardsIndex,
+  diffStandardsIndex,
   suggestTrack,
 } from "../../src/customize/emitters.js";
 import { computeGaps, DEFERRED_INTEGRATIONS } from "../../src/customize/gap-interview.js";
 import { mineRepo } from "../../src/customize/repo-miner.js";
-import { parseProjectContext } from "../../src/core/project-context.js";
 import { Overlay } from "../../src/schema/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -119,7 +128,15 @@ describe("repo miner", () => {
     mkdirSync(join(dir, ".github", "workflows"), { recursive: true });
     writeFileSync(
       join(dir, ".github", "workflows", "ci.yml"),
-      ["name: ci", "on: [push]", "jobs:", "  t:", "    steps:", "      - run: go test ./...", ""].join("\n"),
+      [
+        "name: ci",
+        "on: [push]",
+        "jobs:",
+        "  t:",
+        "    steps:",
+        "      - run: go test ./...",
+        "",
+      ].join("\n"),
       "utf8",
     );
     const p = mineRepo(dir);
@@ -144,7 +161,7 @@ describe("repo miner", () => {
   it("does not infer cargo test from Cargo.toml alone without test evidence", () => {
     const dir = mkdtempSync(join(tmpdir(), "aisdlc-rust-bare-"));
     tmpDirs.push(dir);
-    writeFileSync(join(dir, "Cargo.toml"), "[package]\nname = \"x\"\nversion = \"0.1.0\"\n", "utf8");
+    writeFileSync(join(dir, "Cargo.toml"), '[package]\nname = "x"\nversion = "0.1.0"\n', "utf8");
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "lib.rs"), "pub fn x() {}\n", "utf8");
     mkdirSync(join(dir, "tests"), { recursive: true });
@@ -204,7 +221,11 @@ describe("repo miner", () => {
       "utf8",
     );
     mkdirSync(join(dir, "src", "App"), { recursive: true });
-    writeFileSync(join(dir, "src", "App", "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />\n", "utf8");
+    writeFileSync(
+      join(dir, "src", "App", "App.csproj"),
+      '<Project Sdk="Microsoft.NET.Sdk" />\n',
+      "utf8",
+    );
     writeFileSync(join(dir, "src", "App", "Program.cs"), "class Program {}\n", "utf8");
 
     const p = mineRepo(dir);
@@ -356,7 +377,9 @@ describe("workspace mining (monorepo)", () => {
     const index = buildStandardsIndex(p);
     const scoped = index.standards.filter((s) => s.scope);
     expect(scoped.length).toBeGreaterThan(0);
-    expect(scoped.every((s) => s.scope === "packages/api" || s.scope === "packages/web")).toBe(true);
+    expect(scoped.every((s) => s.scope === "packages/api" || s.scope === "packages/web")).toBe(
+      true,
+    );
 
     // The codebase map has one row per package, each citing evidence.
     const map = buildCodebaseMap(p);
@@ -383,16 +406,26 @@ describe("workspace mining (monorepo)", () => {
     mkdirSync(join(dir, "pkg"), { recursive: true });
     writeFileSync(join(dir, "pkg", "cmd.go"), "package pkg\n", "utf8");
     mkdirSync(join(dir, "web"), { recursive: true });
-    writeFileSync(join(dir, "web", "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }), "utf8");
+    writeFileSync(
+      join(dir, "web", "package.json"),
+      JSON.stringify({ scripts: { test: "vitest run" } }),
+      "utf8",
+    );
     writeFileSync(join(dir, "web", "index.ts"), "export const x = 1;\n", "utf8");
     mkdirSync(join(dir, "tools"), { recursive: true });
-    writeFileSync(join(dir, "tools", "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }), "utf8");
+    writeFileSync(
+      join(dir, "tools", "package.json"),
+      JSON.stringify({ scripts: { test: "vitest run" } }),
+      "utf8",
+    );
     writeFileSync(join(dir, "tools", "index.ts"), "export const x = 1;\n", "utf8");
 
     const map = buildCodebaseMap(mineRepo(dir));
 
     expect(map.map((entry) => entry.path)).toEqual(["internal", "pkg", "tools", "web"]);
-    expect(map.find((entry) => entry.path === "web")?.role).toBe("Typescript, tests via `vitest run`");
+    expect(map.find((entry) => entry.path === "web")?.role).toBe(
+      "Typescript, tests via `vitest run`",
+    );
   });
 
   it("excludes playground/demo/__tests__ dirs matched by a declared workspace glob", () => {
@@ -407,10 +440,18 @@ describe("workspace mining (monorepo)", () => {
     );
     for (const real of ["api", "web"]) {
       mkdirSync(join(dir, "packages", real), { recursive: true });
-      writeFileSync(join(dir, "packages", real, "package.json"), JSON.stringify({ name: real }), "utf8");
+      writeFileSync(
+        join(dir, "packages", real, "package.json"),
+        JSON.stringify({ name: real }),
+        "utf8",
+      );
     }
     mkdirSync(join(dir, "packages", "web", "__tests__", "fixture"), { recursive: true });
-    writeFileSync(join(dir, "packages", "web", "__tests__", "fixture", "package.json"), "{}", "utf8");
+    writeFileSync(
+      join(dir, "packages", "web", "__tests__", "fixture", "package.json"),
+      "{}",
+      "utf8",
+    );
     mkdirSync(join(dir, "playground", "demo"), { recursive: true });
     writeFileSync(join(dir, "playground", "demo", "package.json"), "{}", "utf8");
 
@@ -421,10 +462,14 @@ describe("workspace mining (monorepo)", () => {
   it("does not treat examples/* as workspace packages without a declared workspace", () => {
     const dir = mkdtempSync(join(tmpdir(), "aisdlc-ex-"));
     tmpDirs.push(dir);
-    writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = \"lib\"\n", "utf8");
+    writeFileSync(join(dir, "pyproject.toml"), '[project]\nname = "lib"\n', "utf8");
     for (const name of ["a", "b"]) {
       mkdirSync(join(dir, "examples", name), { recursive: true });
-      writeFileSync(join(dir, "examples", name, "pyproject.toml"), `[project]\nname = "${name}"\n`, "utf8");
+      writeFileSync(
+        join(dir, "examples", name, "pyproject.toml"),
+        `[project]\nname = "${name}"\n`,
+        "utf8",
+      );
     }
     expect(mineRepo(dir).packages).toBeUndefined();
   });
@@ -451,7 +496,9 @@ describe("workspace customize → compile handoff", () => {
     });
     expect(existsSync(join(outDir, "packages", "api", "CLAUDE.md"))).toBe(true);
     expect(existsSync(join(outDir, "packages", "web", "AGENTS.md"))).toBe(true);
-    expect(existsSync(join(outDir, ".github", "instructions", "packages-api.instructions.md"))).toBe(true);
+    expect(
+      existsSync(join(outDir, ".github", "instructions", "packages-api.instructions.md")),
+    ).toBe(true);
 
     const apiClaude = readFileSync(join(outDir, "packages", "api", "CLAUDE.md"), "utf8");
     expect(apiClaude).toContain("pytest");
@@ -499,7 +546,11 @@ describe("test command mining", () => {
   it("does not fabricate pytest for a tests/ dir with no pytest signal (custom runner)", () => {
     const dir = mkdtempSync(join(tmpdir(), "aisdlc-custom-runner-"));
     tmpDirs.push(dir);
-    writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = \"x\"\ndependencies = []\n", "utf8");
+    writeFileSync(
+      join(dir, "pyproject.toml"),
+      '[project]\nname = "x"\ndependencies = []\n',
+      "utf8",
+    );
     mkdirSync(join(dir, "tests"), { recursive: true });
     writeFileSync(join(dir, "tests", "runtests.py"), "print('custom runner')\n", "utf8");
     writeFileSync(join(dir, "tests", "test_app.py"), "def test_x():\n    assert True\n", "utf8");
@@ -530,10 +581,45 @@ describe("test command mining", () => {
       ].join("\n"),
       "utf8",
     );
-    writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = \"x\"\n", "utf8");
+    writeFileSync(join(dir, "pyproject.toml"), '[project]\nname = "x"\n', "utf8");
     const p = mineRepo(dir);
     expect(p.testCommand).toBe("tox -e py3");
     expect(p.evidence["test-command"]).toEqual([".github/workflows/ci.yml"]);
+  });
+
+  it("skips setup lines in a Makefile test recipe", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-make-test-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "pyproject.toml"), "[tool.pytest.ini_options]\n", "utf8");
+    writeFileSync(
+      join(dir, "Makefile"),
+      ["test:", "\tpython -m pip install --upgrade tox", "\tCI=true pytest", ""].join("\n"),
+      "utf8",
+    );
+
+    const p = mineRepo(dir);
+
+    expect(p.testCommand).toBe("pytest");
+    expect(p.evidence["test-command"]).toEqual(["Makefile"]);
+  });
+
+  it("falls back to a custom Makefile test wrapper when no known runner segment exists", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-make-wrapper-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "pyproject.toml"), '[project]\nname = "x"\n', "utf8");
+    writeFileSync(join(dir, "src.py"), "print('x')\n", "utf8");
+    writeFileSync(
+      join(dir, "Makefile"),
+      ["test:", "\tpython -m pip install -r requirements.txt", "\t./scripts/test.sh", ""].join(
+        "\n",
+      ),
+      "utf8",
+    );
+
+    const p = mineRepo(dir);
+
+    expect(p.testCommand).toBe("./scripts/test.sh");
+    expect(p.evidence["test-command"]).toEqual(["Makefile"]);
   });
 });
 
@@ -586,6 +672,29 @@ describe("test command mining — language & workflow heuristics", () => {
         ".github/workflows/ci.yml": wf("pytest"),
       }),
     );
+    expect(p.testCommand).toBe("pytest");
+    expect(p.evidence["test-command"]).toEqual([".github/workflows/ci.yml"]);
+  });
+
+  it("prefers a test/ci-named job over an earlier incidental job in the same workflow", () => {
+    const p = mineRepo(
+      scaffold({
+        "pyproject.toml": "[tool.pytest.ini_options]\n",
+        ".github/workflows/ci.yml": [
+          "name: x",
+          "on: [push]",
+          "jobs:",
+          "  aaa-nightly:",
+          "    steps:",
+          "      - run: pytest tests/perf/huge.py",
+          "  test:",
+          "    steps:",
+          "      - run: pytest",
+          "",
+        ].join("\n"),
+      }),
+    );
+
     expect(p.testCommand).toBe("pytest");
     expect(p.evidence["test-command"]).toEqual([".github/workflows/ci.yml"]);
   });
@@ -687,7 +796,7 @@ describe("test command mining — GitLab CI", () => {
   it("leaves testCommand undefined when GitLab jobs have no test invocation", () => {
     const p = mineRepo(
       scaffold({
-        "pyproject.toml": "[project]\nname = \"x\"\n",
+        "pyproject.toml": '[project]\nname = "x"\n',
         ".gitlab-ci.yml": [
           "lint:",
           "  script:",
@@ -705,7 +814,9 @@ describe("test command mining — GitLab CI", () => {
 
   it("keeps GitHub Actions precedence when both GitHub and GitLab CI are present", () => {
     const wf = (cmd: string): string =>
-      ["name: x", "on: [push]", "jobs:", "  t:", "    steps:", `      - run: ${cmd}`, ""].join("\n");
+      ["name: x", "on: [push]", "jobs:", "  t:", "    steps:", `      - run: ${cmd}`, ""].join(
+        "\n",
+      );
     const p = mineRepo(
       scaffold({
         "pyproject.toml": "[tool.pytest.ini_options]\n",
@@ -725,7 +836,9 @@ describe("test command mining — GitLab CI", () => {
     const overlayDir = tmpOverlay();
     const result = runCustomize({ repoRoot: dir, overlayDir });
     expect(result.ready).toBe(true);
-    const overlay = Overlay.parse(parseYaml(readFileSync(join(overlayDir, ".customize.yaml"), "utf8")));
+    const overlay = Overlay.parse(
+      parseYaml(readFileSync(join(overlayDir, ".customize.yaml"), "utf8")),
+    );
     expect(overlay.interviewAnswers["test-command"]).toBe("pytest");
     const report = buildStatus({ repoRoot: dir, overlayDir });
     expect(report.gapClosureProvenance["test-command"]).toBe("ci");
@@ -744,6 +857,46 @@ describe("gap interview", () => {
     const p = mineRepo(repo("thin-poc"));
     const gaps = computeGaps(p).map((g) => g.id);
     expect(gaps).toEqual(["test-command"]);
+  });
+
+  it("does not close the test-command gap with an empty manual answer", () => {
+    const p = mineRepo(repo("thin-poc"));
+    const mined = mineRepo(repo("python-rags"));
+
+    expect(computeGaps(p, { "test-command": "" }).map((g) => g.id)).toEqual(["test-command"]);
+    expect(computeGaps(p, { "test-command": "   " }).map((g) => g.id)).toEqual(["test-command"]);
+    expect(computeGaps(p, { "test-command": "npm test" })).toEqual([]);
+    expect(computeGaps(mined, { "test-command": "" }).map((g) => g.id)).toEqual(["test-command"]);
+  });
+});
+
+describe("standards drift", () => {
+  it("reports source and scope changes even when statements stay stable", () => {
+    const statement = "Run tests with `npm test`.";
+
+    expect(
+      diffStandardsIndex(
+        { version: 1, standards: [{ statement, sources: ["package.json"] }] },
+        { version: 1, standards: [{ statement, sources: ["package.json"] }] },
+      ),
+    ).toEqual({ added: [], removed: [], changed: false });
+
+    expect(
+      diffStandardsIndex(
+        { version: 1, standards: [{ statement, sources: ["ci.yml"] }] },
+        { version: 1, standards: [{ statement, sources: ["package.json"] }] },
+      ),
+    ).toEqual({ added: [], removed: [], changed: true });
+
+    expect(
+      diffStandardsIndex(
+        {
+          version: 1,
+          standards: [{ statement, sources: ["package.json"], scope: "packages/api" }],
+        },
+        { version: 1, standards: [{ statement, sources: ["package.json"] }] },
+      ),
+    ).toEqual({ added: [], removed: [], changed: true });
   });
 });
 
@@ -768,6 +921,22 @@ describe("runCustomize", () => {
     expect(result.gaps.map((g) => g.id)).toEqual(["test-command"]);
   });
 
+  it("keeps setup not ready when an explicit test-command answer is empty", () => {
+    const overlayDir = tmpOverlay();
+    const result = runCustomize({
+      repoRoot: repo("python-rags"),
+      overlayDir,
+      answers: { "test-command": "" },
+    });
+
+    expect(result.ready).toBe(false);
+    expect(result.gaps.map((g) => g.id)).toEqual(["test-command"]);
+    const overlay = Overlay.parse(
+      parseYaml(readFileSync(join(overlayDir, ".customize.yaml"), "utf8")),
+    );
+    expect(overlay.interviewAnswers["test-command"]).toBe("");
+  });
+
   it("skips the overlay write on an unchanged re-run and records both phases", () => {
     const overlayDir = tmpOverlay();
     const first = runCustomize({ repoRoot: repo("python-rags"), overlayDir });
@@ -782,6 +951,21 @@ describe("runCustomize", () => {
     const second = runCustomize({ repoRoot: repo("python-rags"), overlayDir });
     expect(second.freshnessSkipped).toBe(true);
     expect(readFileSync(overlayPath, "utf8")).toBe(firstWrite); // untouched
+  });
+
+  it("rewrites standards when only evidence metadata drifts", () => {
+    const overlayDir = tmpOverlay();
+    runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+    const standardsPath = join(overlayDir, "standards-index.yaml");
+    const edited = parseYaml(readFileSync(standardsPath, "utf8")) as StandardsIndex;
+    edited.standards[0]!.sources = ["stale-source.txt"];
+    writeFileSync(standardsPath, stringify(edited), "utf8");
+
+    const second = runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+    const rewritten = parseYaml(readFileSync(standardsPath, "utf8")) as StandardsIndex;
+
+    expect(second.freshnessSkipped).toBe(false);
+    expect(rewritten.standards[0]!.sources).not.toEqual(["stale-source.txt"]);
   });
 
   it("re-records overlay-written (mined stays fresh) when --answers-file adds a binding (AE4)", () => {
@@ -799,7 +983,9 @@ describe("runCustomize", () => {
     const after = parseYaml(readFileSync(statePath, "utf8")).phases;
     expect(after.mined.fingerprint).toBe(minedBefore); // mining unchanged
     expect(after["overlay-written"].fingerprint).toBeTruthy();
-    const overlay = Overlay.parse(parseYaml(readFileSync(join(overlayDir, ".customize.yaml"), "utf8")));
+    const overlay = Overlay.parse(
+      parseYaml(readFileSync(join(overlayDir, ".customize.yaml"), "utf8")),
+    );
     expect(overlay.integrations.gitlab?.serverId).toBe("gitlab-mcp");
   });
 
@@ -832,7 +1018,10 @@ describe("runCustomize", () => {
     tmpDirs.push(dir);
     const good = join(dir, "answers.yaml");
     writeFileSync(good, "gitlab-server: gitlab-mcp\njira-server: jira-mcp\n", "utf8");
-    expect(loadAnswersFile(good)).toEqual({ "gitlab-server": "gitlab-mcp", "jira-server": "jira-mcp" });
+    expect(loadAnswersFile(good)).toEqual({
+      "gitlab-server": "gitlab-mcp",
+      "jira-server": "jira-mcp",
+    });
 
     const bad = join(dir, "bad.yaml");
     writeFileSync(bad, "gitlab-server:\n  nested: true\n", "utf8");

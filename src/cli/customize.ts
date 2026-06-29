@@ -1,24 +1,33 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseYaml } from "yaml";
+import { syncAcceptedLearningsFromCustomize } from "../core/accepted-learnings-sync.js";
+import { loadOverlay, PROJECT_CONTEXT_FILE } from "../core/loader.js";
+import { renderCodebaseMap, serializeProjectContext } from "../core/project-context.js";
 import {
   buildOverlay,
   buildProjectContext,
   buildStandardsIndex,
   diffStandardsIndex,
   rootInstructionAdvisory,
+  type StandardsDrift,
+  type StandardsIndex,
   serializeOverlay,
   serializeStandardsIndex,
   suggestTrack,
-  type StandardsDrift,
-  type StandardsIndex,
 } from "../customize/emitters.js";
-import { computeGaps, DEFERRED_INTEGRATIONS, type GapQuestion } from "../customize/gap-interview.js";
+import {
+  computeGaps,
+  DEFERRED_INTEGRATIONS,
+  type GapQuestion,
+} from "../customize/gap-interview.js";
 import { mineRepo, type RepoProfile } from "../customize/repo-miner.js";
-import { fingerprint, isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
-import { syncAcceptedLearningsFromCustomize } from "../core/accepted-learnings-sync.js";
-import { loadOverlay, PROJECT_CONTEXT_FILE } from "../core/loader.js";
-import { renderCodebaseMap, serializeProjectContext } from "../core/project-context.js";
+import {
+  fingerprint,
+  isPhaseFresh,
+  readSetupState,
+  writeSetupPhases,
+} from "../customize/setup-state.js";
 import type { CeremonyTrack, OperatingMode, Overlay } from "../schema/index.js";
 
 export interface CustomizeOptions {
@@ -86,19 +95,26 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   // Always mine (it is cheap and load-bearing for freshness); freshness only
   // skips the overlay/standards *writes*, never the scan itself.
   const profile = mineRepo(options.repoRoot);
-  // Persist the mined runnable test command so the "tests must pass" gate has a
-  // command to run, and so it closes the test-command gap deterministically.
-  if (profile.testCommand && !answers["test-command"]) {
-    answers["test-command"] = profile.testCommand;
-  }
-  const gapClosureProvenance = resolveGapClosureProvenance(profile, answers, priorOverlay, options.answers ?? {});
+  seedMinedTestCommand(profile, answers);
+  const gapClosureProvenance = resolveGapClosureProvenance(
+    profile,
+    answers,
+    priorOverlay,
+    options.answers ?? {},
+  );
   const gaps = computeGaps(profile, answers);
 
   const firstRun = !existsSync(standardsPath);
   const standardsIndex = buildStandardsIndex(profile);
   const drift = diffStandardsIndex(standardsIndex, readPriorStandards(standardsPath));
 
-  const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance, options.operatingMode);
+  const overlay = buildOverlay(
+    profile,
+    answers,
+    priorOverlay,
+    gapClosureProvenance,
+    options.operatingMode,
+  );
   const overlaySerialized = serializeOverlay(overlay);
   const projectContext = buildProjectContext(profile, standardsIndex);
 
@@ -112,7 +128,8 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   const fresh =
     !options.force &&
     isPhaseFresh(state, "mined", minedFp) &&
-    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath));
+    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath)) &&
+    !drift.changed;
 
   if (!fresh) {
     write(overlayPath, overlaySerialized);
@@ -171,14 +188,16 @@ export function inspectRepo(options: {
   const overlayDir = options.overlayDir ?? join(options.repoRoot, ".sdlc", "overlay");
   const sdlcDir = options.sdlcDir ?? dirname(overlayDir);
   const overlayPath = join(overlayDir, OVERLAY_FILE);
+  const standardsPath = join(overlayDir, STANDARDS_FILE);
 
   const priorOverlay = existsSync(overlayPath) ? loadOverlay(overlayPath) : undefined;
   const answers = mergeAnswers(priorOverlay, {});
   const profile = mineRepo(options.repoRoot);
-  if (profile.testCommand && !answers["test-command"]) answers["test-command"] = profile.testCommand;
+  seedMinedTestCommand(profile, answers);
   const gapClosureProvenance = resolveGapClosureProvenance(profile, answers, priorOverlay, {});
   const gaps = computeGaps(profile, answers);
   const standardsIndex = buildStandardsIndex(profile);
+  const drift = diffStandardsIndex(standardsIndex, readPriorStandards(standardsPath));
 
   const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance);
   const minedFp = fingerprint([stableProfileJson(profile)]);
@@ -186,7 +205,8 @@ export function inspectRepo(options: {
   const state = readSetupState(sdlcDir);
   const upToDate =
     isPhaseFresh(state, "mined", minedFp) &&
-    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath));
+    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath)) &&
+    !drift.changed;
 
   return {
     profile,
@@ -197,6 +217,14 @@ export function inspectRepo(options: {
     upToDate,
     initialized: existsSync(overlayPath),
   };
+}
+
+function seedMinedTestCommand(profile: RepoProfile, answers: Record<string, string>): void {
+  // Persist the mined runnable test command so the "tests must pass" gate has a
+  // command to run, and so it closes the test-command gap deterministically.
+  if (profile.testCommand && !("test-command" in answers)) {
+    answers["test-command"] = profile.testCommand;
+  }
 }
 
 function resolveGapClosureProvenance(
@@ -218,7 +246,9 @@ function resolveGapClosureProvenance(
   }
   if (profile.testCommand && profile.testCommand === answer) {
     const sources = profile.evidence["test-command"] ?? [];
-    provenance["test-command"] = sources.some((source) => source.startsWith(".github/") || source.endsWith(".gitlab-ci.yml"))
+    provenance["test-command"] = sources.some(
+      (source) => source.startsWith(".github/") || source.endsWith(".gitlab-ci.yml"),
+    )
       ? "ci"
       : "miner";
     return provenance;

@@ -1,9 +1,14 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
-import { compile, type CompileResult } from "../core/engine.js";
-import { loadBase, loadOverlay, loadProjectContext, projectContextPathFor } from "../core/loader.js";
 import { readAcceptedLearnings } from "../core/accepted-learnings.js";
+import { type CompileResult, compile } from "../core/engine.js";
+import {
+  loadBase,
+  loadOverlay,
+  loadProjectContext,
+  projectContextPathFor,
+} from "../core/loader.js";
 import { mergeOverlay } from "../core/merge.js";
 import { isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
 import type { HostId } from "../schema/index.js";

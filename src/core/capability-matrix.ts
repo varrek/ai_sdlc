@@ -1,5 +1,5 @@
-import type { Adapter, CapabilityLevel, HostCapabilities } from "./types.js";
 import type { HostId } from "../schema/index.js";
+import type { Adapter, CapabilityLevel, HostCapabilities } from "./types.js";
 
 const ROWS: { key: keyof HostCapabilities; label: string }[] = [
   { key: "instructions", label: "Project instructions (AGENTS.md)" },

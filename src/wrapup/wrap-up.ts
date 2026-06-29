@@ -1,6 +1,6 @@
-import type { IntegrationBinding } from "../schema/index.js";
 import type { NeutralModel } from "../core/types.js";
-import { validateResponse, type ContractGap } from "./contract-validate.js";
+import type { IntegrationBinding } from "../schema/index.js";
+import { type ContractGap, validateResponse } from "./contract-validate.js";
 import type { McpClient } from "./mcp-client.js";
 
 /** Raised when a role attempts an MCP call its profile does not permit. */

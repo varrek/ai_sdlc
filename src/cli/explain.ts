@@ -1,5 +1,5 @@
-import type { Overlay } from "../schema/index.js";
 import type { RepoProfile } from "../customize/repo-miner.js";
+import type { Overlay } from "../schema/index.js";
 import { inspectRepo } from "./customize.js";
 
 export interface ExplainResult {
@@ -43,12 +43,17 @@ function collectTestCommandPositiveEvidence(profile: RepoProfile): string[] {
   return [...paths].sort();
 }
 
-function collectTestCommandNegativeEvidence(profile: RepoProfile, resolvedCommand: string | undefined): string[] {
+function collectTestCommandNegativeEvidence(
+  profile: RepoProfile,
+  resolvedCommand: string | undefined,
+): string[] {
   const negatives: string[] = [];
   if (!resolvedCommand) {
     negatives.push("No CI-mined or manifest-derived test command was resolved.");
     if (profile.conventions?.testLayout === "separate") {
-      negatives.push("A dedicated tests/ layout is present but bare test directories do not infer a runner.");
+      negatives.push(
+        "A dedicated tests/ layout is present but bare test directories do not infer a runner.",
+      );
     }
     if (profile.testRunner && !profile.testCommand) {
       negatives.push(
@@ -56,13 +61,18 @@ function collectTestCommandNegativeEvidence(profile: RepoProfile, resolvedComman
       );
     }
   } else if (profile.conventions?.testLayout === "separate") {
-    negatives.push("Bare tests/ directories alone would not infer a runner without explicit pytest/CI/config signals.");
+    negatives.push(
+      "Bare tests/ directories alone would not infer a runner without explicit pytest/CI/config signals.",
+    );
   }
   return negatives;
 }
 
 function explainTestCommand(profile: RepoProfile, overlay: Overlay): ExplainResult {
-  const resolvedCommand = overlay.interviewAnswers["test-command"]?.trim() || profile.testCommand;
+  const resolvedCommand =
+    "test-command" in overlay.interviewAnswers
+      ? overlay.interviewAnswers["test-command"]?.trim()
+      : profile.testCommand;
   const provenance = overlay.gapClosureProvenance?.["test-command"];
   const positive = collectTestCommandPositiveEvidence(profile);
   const negative = collectTestCommandNegativeEvidence(profile, resolvedCommand);
@@ -106,7 +116,9 @@ function collectArchitectureNegativeEvidence(profile: RepoProfile): string[] {
   const arch = profile.architecture;
   if (!arch) return [];
 
-  const negatives = arch.demotedRoots.map((root) => `${root} (demoted: low-value/tutorial/docs/demo surface)`);
+  const negatives = arch.demotedRoots.map(
+    (root) => `${root} (demoted: low-value/tutorial/docs/demo surface)`,
+  );
   if (arch.confidence === "low") {
     for (const reason of arch.reasons) {
       negatives.push(`Low-confidence signal: ${reason}`);
@@ -132,7 +144,9 @@ function explainArchitecture(profile: RepoProfile): ExplainResult {
   const where = arch.sourceRoot === "." ? "repo root" : `\`${arch.sourceRoot}/\``;
   const moduleList = arch.modules.map((m) => `\`${m}\``).join(", ");
   const entryList =
-    arch.entrypoints.length > 0 ? arch.entrypoints.map((e) => `\`${e}\``).join(", ") : "(none cited)";
+    arch.entrypoints.length > 0
+      ? arch.entrypoints.map((e) => `\`${e}\``).join(", ")
+      : "(none cited)";
 
   const positive = collectArchitecturePositiveEvidence(profile);
   const negative = collectArchitectureNegativeEvidence(profile);
@@ -144,7 +158,11 @@ function explainArchitecture(profile: RepoProfile): ExplainResult {
     `Modules: ${moduleList}`,
     `Entrypoints: ${entryList}`,
     formatEvidenceSection("Positive evidence", positive, "(no architecture evidence paths cited)"),
-    formatEvidenceSection("Negative evidence", negative, "(none — no rejected roots or uncertainty signals)"),
+    formatEvidenceSection(
+      "Negative evidence",
+      negative,
+      "(none — no rejected roots or uncertainty signals)",
+    ),
   ].join("\n");
 
   return { ok: true, message };

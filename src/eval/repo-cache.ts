@@ -1,12 +1,24 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import type { ExternalRepoEntry } from "./catalog.js";
-import type { EvalFailureClass } from "./report.js";
 import { redactUntrustedText } from "./redact.js";
+import type { EvalFailureClass } from "./report.js";
 
-export type RepoCacheFailureClass = Extract<EvalFailureClass, "network" | "upstream-drift" | "workflow-error" | "scale-timeout">;
+export type RepoCacheFailureClass = Extract<
+  EvalFailureClass,
+  "network" | "upstream-drift" | "workflow-error" | "scale-timeout"
+>;
 
 export interface GitRunner {
   run(args: string[], options?: { cwd?: string; timeoutMs?: number }): void;
@@ -66,7 +78,11 @@ export function materializeRepo(options: RepoCacheOptions): RepoCacheResult {
   const cacheDir = resolve(options.cacheDir);
   const root = join(cacheDir, cacheKey(options.entry, options.catalogEntryHash));
   if (!isWithin(cacheDir, root)) {
-    return { ok: false, failureClass: "workflow-error", message: "cache path escaped cache directory" };
+    return {
+      ok: false,
+      failureClass: "workflow-error",
+      message: "cache path escaped cache directory",
+    };
   }
 
   mkdirSync(cacheDir, { recursive: true });
@@ -78,16 +94,27 @@ export function materializeRepo(options: RepoCacheOptions): RepoCacheResult {
   };
 
   if (!options.force && cacheMatches(root, expected)) {
-    const symlinkFailure = firstOutboundSymlink(root, options.symlinkScanLimit ?? DEFAULT_SYMLINK_SCAN_LIMIT);
+    const symlinkFailure = firstOutboundSymlink(
+      root,
+      options.symlinkScanLimit ?? DEFAULT_SYMLINK_SCAN_LIMIT,
+    );
     if (symlinkFailure) {
       rmSync(root, { recursive: true, force: true });
-      return { ok: false, failureClass: classifySymlinkFailure(symlinkFailure), message: symlinkFailure };
+      return {
+        ok: false,
+        failureClass: classifySymlinkFailure(symlinkFailure),
+        message: symlinkFailure,
+      };
     }
     return { ok: true, root, reused: true };
   }
 
   if (options.skipClone) {
-    return { ok: false, failureClass: "workflow-error", message: `cache miss for ${options.entry.id} with --skip-clone` };
+    return {
+      ok: false,
+      failureClass: "workflow-error",
+      message: `cache miss for ${options.entry.id} with --skip-clone`,
+    };
   }
 
   rmSync(root, { recursive: true, force: true });
@@ -95,23 +122,37 @@ export function materializeRepo(options: RepoCacheOptions): RepoCacheResult {
   const git = options.git ?? defaultGitRunner;
   const url = `https://github.com/${options.entry.owner}/${options.entry.repo}.git`;
   try {
-    git.run(["clone", "--no-checkout", "--filter=blob:none", url, root], { timeoutMs: options.timeoutMs });
-    git.run(["-C", root, "fetch", "--depth", "1", "origin", options.entry.commit], { timeoutMs: options.timeoutMs });
-    git.run([
-      "-C",
+    git.run(["clone", "--no-checkout", "--filter=blob:none", url, root], {
+      timeoutMs: options.timeoutMs,
+    });
+    git.run(["-C", root, "fetch", "--depth", "1", "origin", options.entry.commit], {
+      timeoutMs: options.timeoutMs,
+    });
+    git.run(
+      [
+        "-C",
+        root,
+        "-c",
+        "credential.helper=",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "checkout",
+        "--detach",
+        options.entry.commit,
+      ],
+      { timeoutMs: options.timeoutMs },
+    );
+    const symlinkFailure = firstOutboundSymlink(
       root,
-      "-c",
-      "credential.helper=",
-      "-c",
-      "core.hooksPath=/dev/null",
-      "checkout",
-      "--detach",
-      options.entry.commit,
-    ], { timeoutMs: options.timeoutMs });
-    const symlinkFailure = firstOutboundSymlink(root, options.symlinkScanLimit ?? DEFAULT_SYMLINK_SCAN_LIMIT);
+      options.symlinkScanLimit ?? DEFAULT_SYMLINK_SCAN_LIMIT,
+    );
     if (symlinkFailure) {
       rmSync(root, { recursive: true, force: true });
-      return { ok: false, failureClass: classifySymlinkFailure(symlinkFailure), message: symlinkFailure };
+      return {
+        ok: false,
+        failureClass: classifySymlinkFailure(symlinkFailure),
+        message: symlinkFailure,
+      };
     }
     writeFileSync(join(root, metadataFile), `${JSON.stringify(expected, null, 2)}\n`, "utf8");
     return { ok: true, root, reused: false };
@@ -163,19 +204,40 @@ function cacheMatches(root: string, expected: CacheMetadata): boolean {
 }
 
 function firstOutboundSymlink(root: string, maxEntries: number): string | undefined {
-  const resolvedRoot = realpathSync(root);
+  let resolvedRoot: string;
+  try {
+    resolvedRoot = realpathSync(root);
+  } catch (error) {
+    return symlinkScanFailure(root, error);
+  }
   const stack = [resolvedRoot];
   let visited = 0;
   while (stack.length > 0) {
     const dir = stack.pop()!;
-    for (const name of readdirSync(dir)) {
+    let names: string[];
+    try {
+      names = readdirSync(dir);
+    } catch (error) {
+      return symlinkScanFailure(dir, error);
+    }
+    for (const name of names) {
       if (name === ".git") continue;
       const path = join(dir, name);
-      const stat = lstatSync(path);
+      let stat: ReturnType<typeof lstatSync>;
+      try {
+        stat = lstatSync(path);
+      } catch (error) {
+        return symlinkScanFailure(path, error);
+      }
       visited++;
       if (visited > maxEntries) return `repo exceeded symlink scan entry limit (${maxEntries})`;
       if (stat.isSymbolicLink()) {
-        const target = realpathSync(path);
+        let target: string;
+        try {
+          target = realpathSync(path);
+        } catch (error) {
+          return symlinkScanFailure(path, error);
+        }
         if (!isWithin(resolvedRoot, target)) return `repo contains outbound symlink at ${path}`;
       } else if (stat.isDirectory()) {
         stack.push(path);
@@ -183,6 +245,11 @@ function firstOutboundSymlink(root: string, maxEntries: number): string | undefi
     }
   }
   return undefined;
+}
+
+function symlinkScanFailure(path: string, error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return redactUntrustedText(`repo symlink scan failed at ${path}: ${message}`);
 }
 
 function isWithin(root: string, candidate: string): boolean {
@@ -197,11 +264,11 @@ function safeSegment(value: string): string {
 function classifyGitFailure(error: unknown): RepoCacheFailureClass {
   const message = error instanceof Error ? error.message : "";
   if (/timed out|ETIMEDOUT|SIGTERM|timeout/i.test(message)) return "scale-timeout";
-  if (/not our ref|reference is not a tree|couldn't find remote ref/i.test(message)) return "upstream-drift";
+  if (/not our ref|reference is not a tree|couldn't find remote ref/i.test(message))
+    return "upstream-drift";
   return "network";
 }
 
 function classifySymlinkFailure(message: string): RepoCacheFailureClass {
   return message.includes("symlink scan entry limit") ? "scale-timeout" : "workflow-error";
 }
-

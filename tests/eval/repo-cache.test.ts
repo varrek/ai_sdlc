@@ -2,8 +2,13 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { repoId, type ExternalRepoEntry } from "../../src/eval/catalog.js";
-import { assertContainedPath, cacheEntryHash, materializeRepo, type GitRunner } from "../../src/eval/repo-cache.js";
+import { type ExternalRepoEntry, repoId } from "../../src/eval/catalog.js";
+import {
+  assertContainedPath,
+  cacheEntryHash,
+  type GitRunner,
+  materializeRepo,
+} from "../../src/eval/repo-cache.js";
 
 const tmpDirs: string[] = [];
 
@@ -62,6 +67,49 @@ describe("repo cache", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toContain("outbound symlink");
     expect(existsSync(cacheDir)).toBe(true);
+  });
+
+  it("returns a structured failure for dangling symlinks in cloned repos", () => {
+    const cacheDir = tmp("aisdlc-cache-dangling-symlink-");
+    const git: GitRunner = {
+      run(args) {
+        if (args[0] !== "clone") return;
+        const root = args.at(-1)!;
+        mkdirSync(root, { recursive: true });
+        symlinkSync(join(root, "missing-target"), join(root, "dangling"));
+      },
+    };
+
+    const result = materializeRepo(options(cacheDir, git));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failureClass).toBe("workflow-error");
+      expect(result.message).toContain("symlink scan failed");
+    }
+  });
+
+  it("returns a structured failure for dangling symlinks in reused cache entries", () => {
+    const cacheDir = tmp("aisdlc-cache-reused-dangling-symlink-");
+    const git: GitRunner = {
+      run(args) {
+        if (args[0] !== "clone") return;
+        mkdirSync(args.at(-1)!, { recursive: true });
+      },
+    };
+    const first = materializeRepo(options(cacheDir, git));
+    expect(first.ok).toBe(true);
+    if (!first.ok) throw new Error(first.message);
+    symlinkSync(join(first.root, "missing-target"), join(first.root, "dangling"));
+
+    const result = materializeRepo(options(cacheDir, git));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failureClass).toBe("workflow-error");
+      expect(result.message).toContain("symlink scan failed");
+    }
+    expect(existsSync(first.root)).toBe(false);
   });
 
   it("allows callers to lower the symlink scan limit for scale classification tests", () => {

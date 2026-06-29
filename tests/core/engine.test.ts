@@ -1,16 +1,15 @@
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
-import { buildRegistry } from "../../src/adapters/registry.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
+import { buildRegistry } from "../../src/adapters/registry.js";
 import { AdapterRegistry } from "../../src/core/adapter-registry.js";
 import { compile, EMITTED_MANIFEST_PATH, GAP_REPORT_PATH } from "../../src/core/engine.js";
 import { loadBase, loadOverlay } from "../../src/core/loader.js";
 import { mergeOverlay } from "../../src/core/merge.js";
-import { rmSync } from "node:fs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");

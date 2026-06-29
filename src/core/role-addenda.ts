@@ -40,7 +40,8 @@ const GATE_RULES: ForbiddenRule[] = [
     reason: "attempts to weaken the tests-must-pass gate",
   },
   {
-    pattern: /\b(skip|bypass|disable|ignore|override|circumvent|proceed past)\b[\s\S]{0,40}\bapproved\b/i,
+    pattern:
+      /\b(skip|bypass|disable|ignore|override|circumvent|proceed past)\b[\s\S]{0,40}\bapproved\b/i,
     reason: "attempts to weaken the Approved? gate",
   },
   {
@@ -48,7 +49,8 @@ const GATE_RULES: ForbiddenRule[] = [
     reason: "attempts to weaken a non-negotiable gate",
   },
   {
-    pattern: /\b(ignore|break|bypass|violate|disable|remove|drop|relax)\b[\s\S]{0,40}\bsingle[-\s]?writer\b/i,
+    pattern:
+      /\b(ignore|break|bypass|violate|disable|remove|drop|relax)\b[\s\S]{0,40}\bsingle[-\s]?writer\b/i,
     reason: "attempts to weaken the single-writer rule",
   },
 ];

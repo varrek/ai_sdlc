@@ -26,11 +26,7 @@ export class SchemaValidationError extends Error {
   }
 }
 
-function validate<S extends z.ZodTypeAny>(
-  filePath: string,
-  schema: S,
-  data: unknown,
-): z.infer<S> {
+function validate<S extends z.ZodTypeAny>(filePath: string, schema: S, data: unknown): z.infer<S> {
   const result = schema.safeParse(data);
   if (!result.success) {
     throw new SchemaValidationError(filePath, result.error.issues);

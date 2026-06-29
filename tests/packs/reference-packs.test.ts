@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadBase } from "../../src/core/loader.js";
-import { PackManifest, loadYaml } from "../../src/schema/index.js";
+import { loadYaml, PackManifest } from "../../src/schema/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
