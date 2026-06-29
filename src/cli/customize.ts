@@ -16,6 +16,7 @@ import {
 import { computeGaps, DEFERRED_INTEGRATIONS, type GapQuestion } from "../customize/gap-interview.js";
 import { mineRepo, type RepoProfile } from "../customize/repo-miner.js";
 import { fingerprint, isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
+import { syncAcceptedLearningsFromCustomize } from "../core/accepted-learnings-sync.js";
 import { loadOverlay, PROJECT_CONTEXT_FILE } from "../core/loader.js";
 import { renderCodebaseMap, serializeProjectContext } from "../core/project-context.js";
 import type { CeremonyTrack, OperatingMode, Overlay } from "../schema/index.js";
@@ -117,6 +118,7 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
     write(overlayPath, overlaySerialized);
     write(standardsPath, serializeStandardsIndex(standardsIndex));
     write(projectContextPath, serializeProjectContext(projectContext));
+    syncAcceptedLearningsFromCustomize(sdlcDir, profile, overlay, standardsIndex, drift);
     writeSetupPhases(sdlcDir, { mined: minedFp, "overlay-written": overlayFp });
   }
 

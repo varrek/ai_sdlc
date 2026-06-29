@@ -1,4 +1,5 @@
 import type { SetupArtifacts } from "./corpus-harness.js";
+import { architectPrimaryGuidance } from "./corpus-harness.js";
 
 /** Surfaces where generated guidance should carry actionable agent signals. */
 export type GuidanceSurface = "constitution" | "architect" | "standards" | "map" | "packages";
@@ -101,7 +102,7 @@ function surfaceText(artifacts: SetupArtifacts, surface: GuidanceSurface): strin
     case "constitution":
       return artifacts.constitution;
     case "architect":
-      return artifacts.architect;
+      return architectPrimaryGuidance(artifacts.architect);
     case "standards":
       return artifacts.standardsIndex;
     case "map":

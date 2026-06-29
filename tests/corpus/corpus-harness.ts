@@ -44,6 +44,13 @@ export function cleanupCorpusTempDirs(): void {
   while (tmpDirs.length) rmSync(tmpDirs.pop()!, { recursive: true, force: true });
 }
 
+/** Architect body excluding accepted learnings — demoted paths may appear only there. */
+export function architectPrimaryGuidance(architectBody: string): string {
+  const marker = "## Accepted project learnings";
+  const idx = architectBody.indexOf(marker);
+  return idx >= 0 ? architectBody.slice(0, idx) : architectBody;
+}
+
 export function runSetup(root: string): SetupArtifacts {
   const sdlcDir = join(root, ".sdlc");
   const overlayDir = join(sdlcDir, "overlay");
