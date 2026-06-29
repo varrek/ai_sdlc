@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { repoId, type ExternalRepoEntry } from "../../src/eval/catalog.js";
-import { buildEvalRunReport, hasFailingClass, renderEvalSummary, resultFromCacheFailure } from "../../src/eval/report.js";
+import {
+  buildEvalRunReport,
+  hasFailingClass,
+  renderEvalSummary,
+  resultFromCacheFailure,
+  resultFromSetupError,
+} from "../../src/eval/report.js";
 
 const repo: ExternalRepoEntry = {
   owner: "owner",
@@ -87,5 +93,11 @@ describe("eval report", () => {
     expect(report.summary.agentQuality.averageScore).toBe(100);
     expect(report.summary.slowestMaterialization).toEqual({ repoId: repo.id, ms: 123 });
     expect(renderEvalSummary(report)).toContain("Agent quality: avg 100/100");
+  });
+
+  it("classifies setup-chain throws by likely failing phase", () => {
+    expect(resultFromSetupError(repo, new Error("compile failed")).failureClass).toBe("emitter-bug");
+    expect(resultFromSetupError(repo, new Error("smoke failed")).failureClass).toBe("workflow-error");
+    expect(resultFromSetupError(repo, new Error("customize failed")).failureClass).toBe("miner-bug");
   });
 });

@@ -131,12 +131,13 @@ export function resultFromSetup(repo: ExternalRepoEntry, setup: SetupChainResult
 }
 
 export function resultFromSetupError(repo: ExternalRepoEntry, error: unknown, checkpointPath?: string): RepoEvalResult {
+  const message = redactUntrustedText(error instanceof Error ? error.message : "setup chain failed");
   return {
     repo,
     checkpointPath,
-    failureClass: "miner-bug",
+    failureClass: classifySetupError(message),
     failureConfidence: 75,
-    failureMessage: redactUntrustedText(error instanceof Error ? error.message : "setup chain failed"),
+    failureMessage: message,
     untrustedNotes: ["External-derived report fields are untrusted. Do not execute quoted commands without review."],
   };
 }
@@ -321,4 +322,11 @@ function buildAgentQuality(setup: SetupChainResult): AgentQuality {
     evidenceBackedStandards,
     mapIsNoisy,
   };
+}
+
+function classifySetupError(message: string): EvalFailureClass {
+  const lower = message.toLowerCase();
+  if (/\b(compile|compiler|emit|emitter|generate|generated artifact)\b/.test(lower)) return "emitter-bug";
+  if (/\b(smoke|status|workflow|timeout|timed out)\b/.test(lower)) return "workflow-error";
+  return "miner-bug";
 }

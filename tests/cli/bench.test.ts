@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runBench } from "../../src/cli/bench.js";
 import { repoId } from "../../src/eval/catalog.js";
+import type { SetupChainResult } from "../../src/eval/setup-chain.js";
 
 const tmpDirs: string[] = [];
 
@@ -93,7 +94,7 @@ describe("bench command", () => {
       mode: "deterministic",
       git,
       setupRunner() {
-        throw new Error("first run failed");
+        return successfulSetup();
       },
     });
 
@@ -109,13 +110,52 @@ describe("bench command", () => {
       git,
       setupRunner() {
         setupCalls++;
-        throw new Error("should not be called");
+        return successfulSetup();
       },
     });
 
     expect(setupCalls).toBe(0);
     expect(resumed.report?.results).toHaveLength(1);
-    expect(resumed.report?.summary.failureClasses["miner-bug"]).toBe(1);
+    expect(resumed.report?.summary.setupReady).toBe(1);
+  });
+
+  it("reruns failed checkpoints so transient errors are not frozen", () => {
+    const root = tmpVerifyRoot();
+    const catalogPath = writeCatalog(root);
+    const git = fakeGitRunner();
+
+    runBench({
+      seed: 42,
+      count: 1,
+      catalogPath,
+      cacheDir: join(root, "repos"),
+      reportDir: join(root, "reports"),
+      baseDir: "sdlc-base",
+      mode: "deterministic",
+      git,
+      setupRunner() {
+        throw new Error("first run failed");
+      },
+    });
+
+    let setupCalls = 0;
+    const rerun = runBench({
+      seed: 42,
+      count: 1,
+      catalogPath,
+      cacheDir: join(root, "repos"),
+      reportDir: join(root, "reports"),
+      baseDir: "sdlc-base",
+      mode: "deterministic",
+      git,
+      setupRunner() {
+        setupCalls++;
+        return successfulSetup();
+      },
+    });
+
+    expect(setupCalls).toBe(1);
+    expect(rerun.report?.summary.setupReady).toBe(1);
   });
 
   it("reruns corrupt checkpoints instead of crashing the report", () => {
@@ -200,4 +240,47 @@ function fakeGitRunner() {
       if (args[0] === "clone") mkdirSync(args.at(-1)!, { recursive: true });
     },
   };
+}
+
+function successfulSetup(): SetupChainResult {
+  return {
+    customize: {
+      root: "/tmp/repo",
+      baseDir: "sdlc-base",
+      outputDir: "/tmp/repo/.ai-sdlc",
+      freshnessSkipped: false,
+      profile: undefined,
+      overlay: { interviewAnswers: {} },
+    },
+    status: {
+      setupReady: true,
+      gaps: [],
+      coverage: { covered: 1, total: 1 },
+      architectureConfidence: "high",
+      blockingGaps: 0,
+      packages: 0,
+      gapClosureProvenance: { "test-command": "miner" },
+      roleStates: { architect: "deterministic", engineer: "deterministic", tester: "deterministic" },
+      phaseStatus: { known: true, stalePhases: [] },
+      acceptedLearnings: { count: 0, files: [] },
+    },
+    smoke: {
+      smokeFresh: false,
+      result: { passed: true, checks: [] },
+    },
+    artifacts: {},
+    freshness: {
+      customizeFresh: false,
+      compileFresh: false,
+      smokeFresh: false,
+      upToDate: true,
+    },
+    timings: {
+      customizeMs: 1,
+      compileMs: 1,
+      smokeMs: 1,
+      statusMs: 1,
+      totalMs: 4,
+    },
+  } as SetupChainResult;
 }

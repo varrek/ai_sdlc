@@ -205,6 +205,7 @@ function readCheckpoint(path: string, repo: ExternalRepoEntry, baseFingerprint: 
     if (checkpoint.baseFingerprint !== baseFingerprint) return undefined;
     if (checkpoint.catalogEntryHash !== cacheEntryHash(repo)) return undefined;
     if (checkpoint.result?.repo?.id !== repo.id) return undefined;
+    if (checkpoint.result.failureClass) return undefined;
     return checkpoint.result;
   } catch {
     return undefined;
