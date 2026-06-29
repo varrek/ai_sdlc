@@ -1,0 +1,39 @@
+name: github
+description: Read pull request context for API and contract review.
+operations:
+  - id: get-pr
+    tool: github_get_pull_request
+    inputs:
+      - name: owner
+        type: string
+        required: true
+      - name: repo
+        type: string
+        required: true
+      - name: number
+        type: number
+        required: true
+    outputs:
+      - name: title
+        type: string
+      - name: body
+        type: string
+      - name: state
+        type: string
+      - name: url
+        type: string
+  - id: list-pr-files
+    tool: github_list_pull_request_files
+    inputs:
+      - name: owner
+        type: string
+        required: true
+      - name: repo
+        type: string
+        required: true
+      - name: number
+        type: number
+        required: true
+    outputs:
+      - name: files
+        type: array

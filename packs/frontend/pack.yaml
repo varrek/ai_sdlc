@@ -1,0 +1,3 @@
+version: 1
+name: frontend
+description: UI review, browser smoke checks, and library documentation via MCP.

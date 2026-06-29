@@ -1,0 +1,29 @@
+name: playwright
+description: Run browser tests and capture traces for UI verification.
+operations:
+  - id: run-test
+    tool: playwright_run_test
+    inputs:
+      - name: project
+        type: string
+      - name: grep
+        type: string
+      - name: headed
+        type: boolean
+    outputs:
+      - name: status
+        type: string
+      - name: reportPath
+        type: string
+  - id: snapshot
+    tool: playwright_snapshot
+    inputs:
+      - name: url
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: true
+    outputs:
+      - name: snapshotPath
+        type: string

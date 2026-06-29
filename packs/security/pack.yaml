@@ -1,0 +1,3 @@
+version: 1
+name: security
+description: Security review guidance, threat modeling, and Sentry-backed error context.

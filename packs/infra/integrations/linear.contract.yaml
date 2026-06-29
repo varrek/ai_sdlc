@@ -1,0 +1,18 @@
+name: linear
+description: Read Linear issue context for infra and ops change review.
+operations:
+  - id: get-issue
+    tool: linear_get_issue
+    inputs:
+      - name: issueId
+        type: string
+        required: true
+    outputs:
+      - name: title
+        type: string
+      - name: state
+        type: string
+      - name: url
+        type: string
+      - name: description
+        type: string

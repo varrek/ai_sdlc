@@ -1,0 +1,32 @@
+name: database
+description: Read-only schema introspection and parameterized queries for API review.
+operations:
+  - id: list-schemas
+    tool: db_list_schemas
+    inputs: []
+    outputs:
+      - name: schemas
+        type: array
+  - id: describe-table
+    tool: db_describe_table
+    inputs:
+      - name: schema
+        type: string
+        required: true
+      - name: table
+        type: string
+        required: true
+    outputs:
+      - name: columns
+        type: array
+  - id: run-read-query
+    tool: db_run_read_query
+    inputs:
+      - name: sql
+        type: string
+        required: true
+      - name: params
+        type: array
+    outputs:
+      - name: rows
+        type: array

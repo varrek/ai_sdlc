@@ -1,0 +1,3 @@
+version: 1
+name: backend-api
+description: API design review with GitHub PR and read-only database introspection contracts.
