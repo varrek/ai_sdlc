@@ -70,6 +70,18 @@ export function buildStandardsIndex(profile: RepoProfile): StandardsIndex {
       sources: ev[`framework:${fw}`] ?? [],
     });
   }
+  for (const tool of profile.tools) {
+    standards.push({
+      statement: `Browser E2E with ${tool}; run E2E tests when user-visible behavior changes.`,
+      sources: ev[`tool:${tool}`] ?? [],
+    });
+  }
+  if (profile.e2eTestCommand) {
+    standards.push({
+      statement: `Run browser E2E tests with \`${profile.e2eTestCommand}\` when UI behavior changes.`,
+      sources: ev["e2e-test-command"] ?? [],
+    });
+  }
   if (profile.ciFiles.length > 0) {
     standards.push({ statement: "CI runs on every change.", sources: profile.ciFiles });
   }
