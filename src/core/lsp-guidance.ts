@@ -54,10 +54,9 @@ export function buildLspGuidance(context: ProjectContext | undefined): LspGuidan
   const unknown = new Set<string>();
   const packages = context?.packages ?? [];
 
+  for (const language of context?.languages ?? []) addLanguage(byLanguage, unknown, language, ".");
   if (packages.length > 0) {
     for (const pkg of packages) addPackageLanguages(byLanguage, unknown, pkg);
-  } else {
-    for (const language of context?.languages ?? []) addLanguage(byLanguage, unknown, language, ".");
   }
 
   const recommendations: LspRecommendation[] = [...byLanguage.entries()]

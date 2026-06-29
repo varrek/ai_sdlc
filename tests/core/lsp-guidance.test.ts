@@ -36,4 +36,18 @@ describe("LSP guidance", () => {
     expect(markdown).toContain("`packages/api`");
     expect(markdown).toContain("`elixir`");
   });
+
+  it("keeps root-level languages when package context is present", () => {
+    const guidance = buildLspGuidance({
+      languages: ["go"],
+      packages: [{ path: "packages/web", languages: ["typescript"], instructionBody: "" }],
+      map: [],
+      exclusions: [],
+    });
+
+    expect(guidance.recommendations.find((rec) => rec.language === "go")?.packagePaths).toEqual(["."]);
+    expect(guidance.recommendations.find((rec) => rec.language === "typescript")?.packagePaths).toEqual([
+      "packages/web",
+    ]);
+  });
 });

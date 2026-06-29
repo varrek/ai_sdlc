@@ -17,7 +17,6 @@ const ROOT_LINE_LIMIT = 120;
 const ROOT_CHAR_LIMIT = 12_000;
 const DOC_WALK_LIMIT = 1000;
 const DOC_DIR_WALK_LIMIT = 2000;
-let expectedCapabilityMatrix: string | undefined;
 
 interface MarkdownLink {
   target: string;
@@ -241,7 +240,7 @@ function walkMarkdown(repoRoot: string, root: string, limit: number): MarkdownWa
   while (stack.length > 0 && files.length < limit && visitedDirs < DOC_DIR_WALK_LIMIT) {
     const current = stack.pop()!;
     visitedDirs++;
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
+    for (const entry of readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       if (entry.name.startsWith(".")) continue;
       const path = join(current, entry.name);
       if (entry.isDirectory()) {
@@ -298,8 +297,7 @@ function toPosix(path: string): string {
 }
 
 function getExpectedCapabilityMatrix(): string {
-  expectedCapabilityMatrix ??= renderCapabilityMatrix(buildRegistry().all());
-  return expectedCapabilityMatrix;
+  return renderCapabilityMatrix(buildRegistry().all());
 }
 
 function redactFinding(finding: DocGardenFinding): DocGardenFinding {
