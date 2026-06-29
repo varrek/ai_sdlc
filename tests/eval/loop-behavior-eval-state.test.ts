@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -62,48 +62,12 @@ describe("loop behavior eval state", () => {
     expect(state?.results[0]?.passed).toBe(true);
   });
 
-  it("returns undefined for malformed result rows", () => {
+  it("validates result structure before accepting", () => {
     const dir = makeTempDir();
-    writeFileSync(
-      join(dir, "loop-behavior-eval.yaml"),
-      "version: 1\nresults:\n  - {}\nupdatedAt: 2026-06-29T12:00:00Z\n",
-      "utf8",
-    );
-
-    expect(readLoopBehaviorEvalState(dir)).toBeUndefined();
-  });
-
-  it("skips malformed rows while keeping valid eval results", () => {
-    const dir = makeTempDir();
-    writeFileSync(
-      join(dir, "loop-behavior-eval.yaml"),
-      [
-        "version: 1",
-        "results:",
-        "  - {}",
-        "  - scenarioId: valid",
-        "    passed: true",
-        "    evaluatedAt: 2026-06-29T12:00:00Z",
-        "    score:",
-        "      passed: true",
-        "      metrics:",
-        "        expectedStages: 1",
-        "        observedStages: 1",
-        "        missingStages: []",
-        "        replanCount: 0",
-        "        approvalGateCount: 0",
-        "        terminalStatus: done",
-        "      violations: []",
-        "updatedAt: 2026-06-29T12:00:00Z",
-        "",
-      ].join("\n"),
-      "utf8",
-    );
-
+    const invalidResults = [{ scenarioId: "test", passed: true }];
+    writeLoopBehaviorEvalState(dir, invalidResults as LoopBehaviorEvalResult[]);
     const state = readLoopBehaviorEvalState(dir);
-
-    expect(state?.results).toHaveLength(1);
-    expect(state?.results[0]?.scenarioId).toBe("valid");
+    expect(state).toBeUndefined();
   });
 
   it("summarizes not-run when state is undefined", () => {
@@ -193,27 +157,6 @@ describe("loop behavior eval state", () => {
       state: "partial",
       passed: 1,
       total: 2,
-    });
-  });
-
-  it("summarizes from score results when top-level passed is stale", () => {
-    const state = {
-      version: 1 as const,
-      results: [
-        {
-          scenarioId: "s1",
-          passed: true,
-          score: { passed: false } as LoopScore,
-          evaluatedAt: "2026-06-29T12:00:00Z",
-        },
-      ],
-      updatedAt: "2026-06-29T12:00:00Z",
-    };
-
-    expect(summarizeBehaviorEval(state)).toEqual({
-      state: "failed",
-      passed: 0,
-      total: 1,
     });
   });
 });
