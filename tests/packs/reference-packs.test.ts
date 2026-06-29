@@ -46,6 +46,8 @@ describe("reference packs", () => {
   it("ships the expected curated set with valid manifests", () => {
     expect(packDirs.map((dir) => loadYaml(join(dir, "pack.yaml"), PackManifest).name)).toEqual([
       "backend-api",
+      "compliance",
+      "data-ml",
       "frontend",
       "infra",
       "security",
@@ -55,7 +57,7 @@ describe("reference packs", () => {
   it("loads all reference packs with the base without duplicate artifacts", () => {
     const loaded = loadBase(baseDir, packDirs);
 
-    expect(loaded.packs).toHaveLength(4);
+    expect(loaded.packs).toHaveLength(6);
     expect(loaded.roles.map((role) => role.frontmatter.name)).toEqual(
       expect.arrayContaining([
         "architect",
@@ -63,6 +65,8 @@ describe("reference packs", () => {
         "frontend-reviewer",
         "api-reviewer",
         "infra-reviewer",
+        "data-reviewer",
+        "compliance-reviewer",
       ]),
     );
     expect(loaded.skills.map((skill) => skill.frontmatter.name)).toEqual(
@@ -72,6 +76,8 @@ describe("reference packs", () => {
         "ui-smoke-check",
         "api-contract-review",
         "deploy-readiness",
+        "data-pipeline-review",
+        "privacy-audit-check",
       ]),
     );
     expect(loaded.integrations.map((integration) => integration.name)).toEqual(
@@ -88,6 +94,8 @@ describe("reference packs", () => {
     );
     expect(loaded.constitution).toContain("## Pack guidance: security");
     expect(loaded.constitution).toContain("## Pack guidance: frontend");
+    expect(loaded.constitution).toContain("## Pack guidance: data-ml");
+    expect(loaded.constitution).toContain("## Pack guidance: compliance");
   });
 
   it("rejects duplicate pack manifest names from two directories", () => {
