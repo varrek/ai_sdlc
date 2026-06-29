@@ -6,6 +6,7 @@ import { parse as parseYaml, stringify } from "yaml";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCompileCli } from "../../src/cli/compile.js";
 import { loadAnswersFile, runCustomize } from "../../src/cli/customize.js";
+import { buildStatus } from "../../src/cli/status.js";
 import {
   buildCodebaseMap,
   buildProjectContext,
@@ -524,6 +525,119 @@ describe("test command mining — language & workflow heuristics", () => {
       scaffold({ "package.json": "{}", ".github/workflows/ci.yml": wf("npm test --") }),
     );
     expect(p.testCommand).toBe("npm test");
+  });
+});
+
+describe("test command mining — GitLab CI", () => {
+  function scaffold(files: Record<string, string>): string {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-gl-"));
+    tmpDirs.push(dir);
+    for (const [rel, body] of Object.entries(files)) {
+      const abs = join(dir, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, body, "utf8");
+    }
+    return dir;
+  }
+
+  it("extracts pytest from a GitLab CI test job script array", () => {
+    const p = mineRepo(
+      scaffold({
+        "pyproject.toml": "[tool.pytest.ini_options]\n",
+        ".gitlab-ci.yml": [
+          "stages:",
+          "  - test",
+          "lint:",
+          "  script:",
+          "    - flake8 .",
+          "test:",
+          "  stage: test",
+          "  script:",
+          "    - pip install -r requirements.txt",
+          "    - pytest",
+          "",
+        ].join("\n"),
+      }),
+    );
+    expect(p.testCommand).toBe("pytest");
+    expect(p.evidence["test-command"]).toEqual([".gitlab-ci.yml"]);
+  });
+
+  it("prefers a test/ci-named GitLab job over an alphabetically earlier incidental job", () => {
+    const p = mineRepo(
+      scaffold({
+        "pyproject.toml": "[tool.pytest.ini_options]\n",
+        ".gitlab-ci.yml": [
+          "aaa-nightly:",
+          "  script:",
+          "    - pytest tests/perf/huge.py",
+          "ci:",
+          "  script:",
+          "    - pytest",
+          "",
+        ].join("\n"),
+      }),
+    );
+    expect(p.testCommand).toBe("pytest");
+    expect(p.evidence["test-command"]).toEqual([".gitlab-ci.yml"]);
+  });
+
+  it("rejects a minority-language GitLab test command on a Python-primary repo", () => {
+    const files: Record<string, string> = {
+      "package.json": JSON.stringify({ scripts: { test: "node run-js-tests.js" } }),
+      ".gitlab-ci.yml": ["test:", "  script:", "    - npm test", ""].join("\n"),
+    };
+    for (let i = 0; i < 12; i++) files[`pkg/mod${i}.py`] = "x = 1\n";
+    const p = mineRepo(scaffold(files));
+    expect(p.testCommand).toBeUndefined();
+    expect(computeGaps(p).map((g) => g.id)).toEqual(["test-command"]);
+  });
+
+  it("leaves testCommand undefined when GitLab jobs have no test invocation", () => {
+    const p = mineRepo(
+      scaffold({
+        "pyproject.toml": "[project]\nname = \"x\"\n",
+        ".gitlab-ci.yml": [
+          "lint:",
+          "  script:",
+          "    - flake8 .",
+          "deploy:",
+          "  script:",
+          "    - ./deploy.sh",
+          "",
+        ].join("\n"),
+      }),
+    );
+    expect(p.testCommand).toBeUndefined();
+    expect(computeGaps(p).map((g) => g.id)).toEqual(["test-command"]);
+  });
+
+  it("keeps GitHub Actions precedence when both GitHub and GitLab CI are present", () => {
+    const wf = (cmd: string): string =>
+      ["name: x", "on: [push]", "jobs:", "  t:", "    steps:", `      - run: ${cmd}`, ""].join("\n");
+    const p = mineRepo(
+      scaffold({
+        "pyproject.toml": "[tool.pytest.ini_options]\n",
+        ".github/workflows/ci.yml": wf("pytest --github"),
+        ".gitlab-ci.yml": ["test:", "  script:", "    - pytest --gitlab", ""].join("\n"),
+      }),
+    );
+    expect(p.testCommand).toBe("pytest --github");
+    expect(p.evidence["test-command"]).toEqual([".github/workflows/ci.yml"]);
+  });
+
+  it("reports CI provenance for a GitLab-mined test command during customize", () => {
+    const dir = scaffold({
+      "pyproject.toml": "[tool.pytest.ini_options]\n",
+      ".gitlab-ci.yml": ["test:", "  script:", "    - pytest", ""].join("\n"),
+    });
+    const overlayDir = tmpOverlay();
+    const result = runCustomize({ repoRoot: dir, overlayDir });
+    expect(result.ready).toBe(true);
+    const overlay = Overlay.parse(parseYaml(readFileSync(join(overlayDir, ".customize.yaml"), "utf8")));
+    expect(overlay.interviewAnswers["test-command"]).toBe("pytest");
+    const report = buildStatus({ repoRoot: dir, overlayDir });
+    expect(report.gapClosureProvenance["test-command"]).toBe("ci");
   });
 });
 
