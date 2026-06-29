@@ -2,11 +2,13 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "./args.js";
+import { DEFAULT_CACHE_DIR, DEFAULT_CATALOG, DEFAULT_REPORT_DIR, parseFailOnClasses, runBench } from "./bench.js";
 import { runCompileCli } from "./compile.js";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
 import { loadAnswersFile, runCustomize } from "./customize.js";
 import { EXPLAIN_CLAIM_KEYS, explainClaim, explainStandard, isExplainClaimKey } from "./explain.js";
+import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "./garden-docs.js";
 import { buildStatus, formatStatus } from "./status.js";
 import { runSmokeCli } from "./smoke.js";
 import { runUpgrade } from "./upgrade.js";
@@ -21,14 +23,25 @@ Usage:
   aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot,codex]
 
 Commands:
-  compile      Compile the host-neutral base (+ overlay) to host-native config.
-  gen-matrix   Regenerate docs/capability-matrix.md from adapter capabilities.
-  customize    Adapt the base to the current repository (Plugin Mode by default; use --mode deterministic to opt out).
-  upgrade      Re-pin the base and replay compile, flagging overlay conflicts (U5).
-  smoke        Run the smoke validation gate (U7).
-  status       Report setup freshness, blocking gaps, and evidence coverage.
-  explain      Show a mined standard (by number) or stable claim key and its evidence.
+  compile     Compile the host-neutral base (+ overlay) to host-native config.
+  gen-matrix  Regenerate docs/capability-matrix.md from adapter capabilities.
+  customize   Adapt the base to the current repository (Plugin Mode by default; use --mode deterministic to opt out).
+  upgrade     Re-pin the base and replay compile, flagging overlay conflicts (U5).
+  smoke       Run the smoke validation gate (U7).
+  status      Report setup freshness, blocking gaps, and evidence coverage.
+  bench       Run a reproducible external-repo setup evaluation.
+  explain     Show a mined standard (by number) or stable claim key and its evidence.
+  garden-docs Report stale or noisy agent-facing documentation.
   record-event Record a loop trace event to .sdlc/loop_history/events.jsonl (for hooks/skills).
+
+Bench flags:
+  --seed <n> --count <n> --catalog <file> --cache-dir <dir> --report-dir <dir>
+  --base <dir> --mode deterministic|plugin --dry-run --skip-clone --force
+  --repo-timeout-ms <n> --fail-on-class <class,class>
+
+Garden-docs flags:
+  --repo <dir> --config <dir> --overlay <file> --overlay-dir <dir>
+  --format text|json --write-report --fail-on warning|error
 `;
 
 function fail(message: string): never {
@@ -296,6 +309,73 @@ function cmdExplain(rest: string[]): void {
   process.exit(result.ok ? 0 : 1);
 }
 
+function cmdBench(rest: string[]): void {
+  const { options, flags } = parseArgs(rest);
+  let mode: OperatingModeValue;
+  try {
+    mode = OperatingMode.parse(options.get("mode") ?? "deterministic");
+  } catch (error) {
+    fail(`bench: invalid --mode (${(error as Error).message})`);
+  }
+  let failOnClasses;
+  try {
+    failOnClasses = parseFailOnClasses(options.get("fail-on-class"));
+  } catch (error) {
+    fail(`bench: ${(error as Error).message}`);
+  }
+  const seed = Number(options.get("seed") ?? "42");
+  const count = Number(options.get("count") ?? "5");
+  const repoTimeoutMs = options.get("repo-timeout-ms") ? Number(options.get("repo-timeout-ms")) : undefined;
+  if (!Number.isInteger(seed)) fail("bench: --seed must be an integer");
+  if (!Number.isInteger(count) || count < 1) fail("bench: --count must be a positive integer");
+  if (repoTimeoutMs !== undefined && (!Number.isFinite(repoTimeoutMs) || repoTimeoutMs < 1)) {
+    fail("bench: --repo-timeout-ms must be a positive number");
+  }
+
+  const result = runBench({
+    seed,
+    count,
+    catalogPath: options.get("catalog") ?? DEFAULT_CATALOG,
+    cacheDir: options.get("cache-dir") ?? DEFAULT_CACHE_DIR,
+    reportDir: options.get("report-dir") ?? DEFAULT_REPORT_DIR,
+    baseDir: options.get("base") ?? "sdlc-base",
+    mode,
+    skipClone: flags.has("skip-clone"),
+    dryRun: flags.has("dry-run"),
+    force: flags.has("force"),
+    repoTimeoutMs,
+    failOnClasses,
+  });
+  process.stdout.write(`${result.output}\n`);
+  process.exit(result.exitCode);
+}
+
+function cmdGardenDocs(rest: string[]): void {
+  const { options, flags } = parseArgs(rest);
+  let format;
+  let failOn;
+  try {
+    format = parseGardenDocsFormat(options.get("format"));
+    failOn = parseGardenDocsFailOn(options.get("fail-on"));
+  } catch (error) {
+    fail(`garden-docs: ${(error as Error).message}`);
+  }
+  const result = runGardenDocs({
+    repoRoot: options.get("repo") ?? process.cwd(),
+    configDir: options.get("config"),
+    overlayPath: options.get("overlay"),
+    overlayDir: options.get("overlay-dir"),
+    format,
+    failOn,
+    writeReport: flags.has("write-report"),
+  });
+  process.stdout.write(`${result.output}\n`);
+  if (result.writtenPaths.length > 0) {
+    process.stdout.write(`Wrote: ${result.writtenPaths.join(", ")}\n`);
+  }
+  process.exit(result.exitCode);
+}
+
 function cmdUpgrade(rest: string[]): void {
   const { options } = parseArgs(rest);
   const oldBaseDir = options.get("old-base");
@@ -376,11 +456,17 @@ function main(): void {
     case "status":
       cmdStatus(rest);
       return;
+    case "bench":
+      cmdBench(rest);
+      return;
     case "explain":
       cmdExplain(rest);
       return;
     case "record-event":
       cmdRecordEvent(rest);
+      return;
+    case "garden-docs":
+      cmdGardenDocs(rest);
       return;
     case undefined:
     case "help":

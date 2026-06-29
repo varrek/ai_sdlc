@@ -41,10 +41,11 @@ export function hasDeterministicTesterGrounding(input: RoleGroundingInput): bool
 }
 
 export function hasDeterministicEngineerGrounding(input: RoleGroundingInput): boolean {
-  const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
-  if (rootCommand) return true;
-  if ((input.projectContext?.packages ?? []).some((pkg) => Boolean(pkg.testCommand?.trim()))) return true;
-  return Boolean(input.projectContext && input.projectContext.map.length > 0);
+  return Boolean(
+    input.overlay.interviewAnswers?.["test-command"]?.trim() ||
+      (input.projectContext?.map.length ?? 0) > 0 ||
+      (input.projectContext?.packages ?? []).some((pkg) => Boolean(pkg.testCommand?.trim())),
+  );
 }
 
 export function appendRoleGrounding(role: Role, input: RoleGroundingInput): Role {
@@ -79,21 +80,19 @@ function appendEngineerGrounding(role: Role, input: RoleGroundingInput): Role {
   if (role.frontmatter.name !== "engineer" || !hasDeterministicEngineerGrounding(input)) {
     return role;
   }
-  const lines = ["Use these mined signals before editing:"];
-  const editAreas = input.projectContext?.map.slice(0, 6) ?? [];
-  if (editAreas.length > 0) {
-    lines.push("- **Likely edit areas:**");
-    lines.push(...editAreas.map((entry) => `  - \`${entry.path}\` — ${entry.role}`));
+  const lines = ["Use this mined context before editing:"];
+  const map = input.projectContext?.map ?? [];
+  if (map.length > 0) {
+    lines.push(
+      "Likely edit areas:",
+      ...map.slice(0, 6).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
+    );
+    if (map.length > 6) lines.push(`- ${map.length - 6} additional entries are available in the codebase map.`);
   }
   const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
-  if (rootCommand) {
-    lines.push(`- **Verification command:** \`${rootCommand}\``);
-  }
-  for (const pkg of input.projectContext?.packages ?? []) {
-    const command = pkg.testCommand?.trim();
-    if (!command) continue;
-    lines.push(`- **\`${pkg.path}\` verification:** \`${command}\``);
-  }
+  if (rootCommand) lines.push(`Run relevant validation with \`${rootCommand}\`.`);
+  const packageCommands = (input.projectContext?.packages ?? []).filter((pkg) => pkg.testCommand?.trim()).slice(0, 4);
+  for (const pkg of packageCommands) lines.push(`For \`${pkg.path}\`, use \`${pkg.testCommand}\`.`);
   return appendGroundingSection(role, lines.join("\n"));
 }
 

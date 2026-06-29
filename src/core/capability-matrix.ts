@@ -8,6 +8,8 @@ const ROWS: { key: keyof HostCapabilities; label: string }[] = [
   { key: "perRoleToolRestriction", label: "Per-role tool restriction" },
   { key: "gates", label: "Hooks / Approved? gate" },
   { key: "mcp", label: "MCP" },
+  { key: "pluginDistribution", label: "Plugin distribution metadata" },
+  { key: "lspGuidance", label: "LSP setup guidance" },
 ];
 
 const LEVEL_LABEL: Record<CapabilityLevel, string> = {

@@ -29,10 +29,21 @@ describe("host manifest", () => {
     const manifest = HostManifest.parse({
       version: 1,
       hosts: ["cursor"],
-      options: { cursor: { pluginManifest: true, pluginName: "team-sdlc" } },
+      options: {
+        cursor: {
+          pluginManifest: true,
+          pluginName: "team-sdlc",
+          pluginDisplayName: "Team SDLC",
+          pluginDescription: "Team distribution bundle.",
+          pluginVersion: "1.0.0",
+          pluginPublisher: "team",
+          pluginRepository: "https://github.com/team/repo",
+        },
+      },
     });
     expect(manifest.options?.cursor?.pluginManifest).toBe(true);
     expect(manifest.options?.cursor?.pluginName).toBe("team-sdlc");
+    expect(manifest.options?.cursor?.pluginVersion).toBe("1.0.0");
   });
 
   it("rejects invalid cursor plugin names", () => {
@@ -41,6 +52,16 @@ describe("host manifest", () => {
         version: 1,
         hosts: ["cursor"],
         options: { cursor: { pluginManifest: true, pluginName: "Bad_Name" } },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects invalid cursor plugin distribution fields", () => {
+    expect(
+      HostManifest.safeParse({
+        version: 1,
+        hosts: ["cursor"],
+        options: { cursor: { pluginManifest: true, pluginVersion: "v1", pluginRepository: "not-a-url" } },
       }).success,
     ).toBe(false);
   });

@@ -109,6 +109,8 @@ hood.
 | `aisdlc smoke` | Run the smoke validation gate and report setup-readiness. |
 | `aisdlc upgrade` | Re-pin the base and replay compile, flagging overlay conflicts. |
 | `aisdlc gen-matrix` | Regenerate `docs/capability-matrix.md` from adapter capabilities. |
+| `aisdlc bench` | Run a reproducible external-repo setup evaluation from the pinned catalog. |
+| `aisdlc garden-docs` | Report stale or noisy agent-facing docs for continuous doc gardening. |
 | `aisdlc help` | Show usage. |
 
 Common flags:
@@ -120,6 +122,18 @@ Common flags:
   `--hosts cursor,claude-code,copilot,codex`, `--force`
 - `smoke`: `--repo <dir>`, `--config <dir>`, `--packs <dir,dir>`,
   `--overlay <file>`, `--compile`
+- `bench`: `--seed <n>`, `--count <n>`, `--catalog <file>`,
+  `--cache-dir <dir>`, `--report-dir <dir>`, `--base <dir>`,
+  `--mode deterministic|plugin`, `--dry-run`, `--skip-clone`, `--force`,
+  `--repo-timeout-ms <n>`, `--fail-on-class <class,class>`
+- `garden-docs`: `--repo <dir>`, `--config <dir>`, `--overlay <file>`,
+  `--overlay-dir <dir>`, `--format text|json`, `--write-report`,
+  `--fail-on warning|error`
+
+`bench` clones only pinned public repos into `.verify/repos/` and writes reports
+under `.verify/reports/`. It is opt-in and does not run external project package
+managers, build scripts, or tests. It requires `git` on `PATH`. See
+[`docs/eval/external-repo-workflow.md`](./docs/eval/external-repo-workflow.md).
 
 ## What gets emitted
 
@@ -133,7 +147,12 @@ Compilation produces native config for each enabled host (plus a host-neutral
   per-role MCP least-privilege (`.cursor/hooks/`, `.cursor/sdlc/role-policy.json`).
   Optionally, set `options.cursor.pluginManifest: true` in `host-manifest.yaml`
   to also emit `.cursor-plugin/plugin.json` with explicit paths to those artifacts
-  for Cursor plugin discovery (see `docs/plans/2026-06-29-005-feat-cursor-plugin-manifest-plan.md`).
+  for Cursor plugin discovery. Cursor plugin options can also carry distribution
+  identity (`pluginDisplayName`, `pluginDescription`, `pluginVersion`,
+  `pluginPublisher`, `pluginRepository`). When plugin manifest emission is on,
+  compile also writes `.sdlc/lsp-guidance.md`, a mined language-server setup guide
+  for host/plugin installation. ai-sdlc emits guidance only; it does not install
+  or run LSP servers.
 - **GitHub Copilot** — `.github/copilot-instructions.md` (gates + project
   standards), `.github/agents/` (custom-agent profiles with `target`, posture
   `tools`, MCP `server/*` scoping, and native handoffs), a sequential handoff
@@ -145,6 +164,16 @@ Compilation produces native config for each enabled host (plus a host-neutral
 
 Generated artifacts and per-project state live under `.sdlc/` and are
 git-ignored by default.
+
+## Doc Gardening
+
+`aisdlc garden-docs` checks the repo's agent-facing docs for issues that make
+large codebases harder for agents to navigate: bloated root instruction files,
+broken local markdown links, missing codebase-map pointers, and stale generated
+capability matrix content. By default it reports findings without changing docs
+or failing the command; use `--fail-on warning` or `--fail-on error` for CI, and
+`--write-report` to write `.sdlc/doc-gardening-report.json` plus a markdown
+summary.
 
 ## Default Plugin Mode
 

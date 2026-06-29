@@ -21,6 +21,8 @@ export interface MapEntry {
 export interface PackageContext {
   /** Repo-relative POSIX path of the package directory. */
   path: string;
+  /** Mined language identifiers for this package. */
+  languages?: string[];
   /** The rendered instruction-file body (host-neutral markdown). */
   instructionBody: string;
   /** The package-local test command, when known. */
@@ -28,6 +30,8 @@ export interface PackageContext {
 }
 
 export interface ProjectContext {
+  /** Mined language identifiers across the repository. */
+  languages?: string[];
   packages: PackageContext[];
   map: MapEntry[];
   /** Directory names agents should not search/read (vendored, generated, caches). */
@@ -88,7 +92,12 @@ export function parseProjectContext(text: string): ProjectContext | undefined {
       Array.isArray(parsed.map) &&
       Array.isArray(parsed.exclusions)
     ) {
-      return { packages: parsed.packages, map: parsed.map, exclusions: parsed.exclusions };
+      return {
+        languages: Array.isArray(parsed.languages) ? parsed.languages : undefined,
+        packages: parsed.packages,
+        map: parsed.map,
+        exclusions: parsed.exclusions,
+      };
     }
   } catch {
     /* malformed → treat as absent */

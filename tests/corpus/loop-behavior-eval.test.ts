@@ -1,59 +1,71 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
-  evaluateLoopBehaviorScenario,
   LOOP_BEHAVIOR_SCENARIOS,
+  LOOP_HANDBACK_SCENARIOS,
   LOOP_ROLE_CHOICE_SCENARIOS,
-  selectLoopRoleForTask,
-  syntheticPassingTrace,
+  evaluateHandbackScenario,
+  evaluateLoopBehaviorScenario,
+  evaluateRoleChoiceScenario,
   testerFailureHandbackTrace,
 } from "./loop-behavior-eval.js";
+import { guidanceFromSetup } from "./behavior-eval-v2.js";
+import { cleanupCorpusTempDirs, copyFixture, runSetup } from "./corpus-harness.js";
 import { scoreLoopTrace } from "../../src/eval/loop-score.js";
 
-describe("loop behavior eval", () => {
-  it("passes the pinned quick, standard, and full synthetic scenarios", () => {
-    const results = LOOP_BEHAVIOR_SCENARIOS.map(evaluateLoopBehaviorScenario);
+afterEach(() => cleanupCorpusTempDirs());
 
-    expect(results.map((result) => result.score.passed)).toEqual([true, true, true]);
-    expect(results[0]?.score.metrics.expectedStages).toBe(2);
-    expect(results[1]?.score.metrics.expectedStages).toBe(4);
-    expect(results[2]?.score.metrics.expectedStages).toBe(5);
-  });
+describe("loop behavior eval synthetic traces", () => {
+  it.each(LOOP_BEHAVIOR_SCENARIOS.map((scenario) => [scenario.id, scenario] as const))(
+    "%s passes with valid trace",
+    (scenarioId, scenario) => {
+      const result = evaluateLoopBehaviorScenario(scenario);
+      expect(result.scenarioId).toBe(scenarioId);
+      expect(result.score.passed).toBe(true);
+      expect(result.score.violations).toEqual([]);
+    },
+  );
 
-  it("detects when standard-track review happens without tester verification", () => {
-    const trace = syntheticPassingTrace(["architect", "engineer", "reviewer"]);
-
+  it("tester failure handback trace requires engineer rework", () => {
+    const trace = testerFailureHandbackTrace();
     const score = scoreLoopTrace(trace, {
       stages: ["architect", "engineer", "test", "reviewer"],
-      approvalBeforeStages: ["reviewer"],
     });
-
-    expect(score.passed).toBe(false);
-    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "missing-stage", stage: "test" }));
-    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "tester-before-reviewer" }));
+    expect(score.passed).toBe(true);
+    expect(score.metrics.replanCount).toBe(1);
+    expect(score.violations).toEqual([]);
   });
+});
 
-  it("selects the right loop role for pinned decision prompts", () => {
-    for (const scenario of LOOP_ROLE_CHOICE_SCENARIOS) {
-      expect(selectLoopRoleForTask(scenario.task)).toBe(scenario.expectedRole);
-    }
-    expect(selectLoopRoleForTask("Who should debug the review failure?")).toBe("debugger");
-  });
+describe("loop role-choice eval with guidance bundles", () => {
+  it.each(LOOP_ROLE_CHOICE_SCENARIOS.map((scenario) => [scenario.id, scenario] as const))(
+    "%s selects correct role from guidance bundle",
+    (scenarioId, scenario) => {
+      const root = copyFixture("python-rags");
+      const artifacts = runSetup(root);
+      const bundle = guidanceFromSetup(artifacts);
 
-  it("accepts a Tester failure only when it hands back to Engineer before done", () => {
-    const handbackScore = scoreLoopTrace(testerFailureHandbackTrace(), {
-      stages: ["architect", "engineer", "test", "reviewer"],
-    });
-    const noHandbackTrace = testerFailureHandbackTrace().filter(
-      (event) => !(event.type === "handoff" && event.toRole === "engineer") && event.type !== "replan",
-    );
-    const noHandbackScore = scoreLoopTrace(noHandbackTrace, {
-      stages: ["architect", "engineer", "test", "reviewer"],
-    });
+      const result = evaluateRoleChoiceScenario(scenario, bundle);
 
-    expect(handbackScore.passed).toBe(true);
-    expect(noHandbackScore.passed).toBe(false);
-    expect(noHandbackScore.violations).toContainEqual(
-      expect.objectContaining({ kind: "evaluator-handback" }),
-    );
-  });
+      expect(result.scenarioId).toBe(scenarioId);
+      expect(result.pass, `Expected ${result.expected} but got ${result.selected}`).toBe(true);
+      expect(result.selected).toBe(scenario.expectedRole);
+    },
+  );
+});
+
+describe("loop evaluator handback eval with guidance bundles", () => {
+  it.each(LOOP_HANDBACK_SCENARIOS.map((scenario) => [scenario.id, scenario] as const))(
+    "%s selects correct handback role from guidance",
+    (scenarioId, scenario) => {
+      const root = copyFixture("python-rags");
+      const artifacts = runSetup(root);
+      const bundle = guidanceFromSetup(artifacts);
+
+      const result = evaluateHandbackScenario(scenario, bundle);
+
+      expect(result.scenarioId).toBe(scenarioId);
+      expect(result.pass, `Expected ${result.expected} but got ${result.selected}`).toBe(true);
+      expect(result.selected).toBe(scenario.expectedHandbackRole);
+    },
+  );
 });

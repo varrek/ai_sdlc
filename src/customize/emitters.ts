@@ -209,29 +209,54 @@ export function buildOverlay(
  */
 export function buildCodebaseMap(profile: RepoProfile): MapEntry[] {
   if (profile.architecture?.confidence === "low") return [];
-  if (profile.packages && profile.packages.length > 0) {
-    return profile.packages.map((pkg) => ({
-      path: pkg.path,
-      role: packageRole(pkg),
-      sources: packageMapSources(pkg),
-    }));
-  }
+  const map = new Map<string, MapEntry>();
   if (profile.architecture?.confidence === "high") {
     const { sourceRoot, modules } = profile.architecture;
-    return modules.map((m) => {
+    for (const m of modules) {
       const path = m === "." ? sourceRoot : sourceRoot === "." ? m : `${sourceRoot}/${m}`;
       const cited = profile.evidence[`architecture:module:${m}`]?.[0];
-      return { path, role: "Source module", sources: [cited ?? path] };
-    });
+      map.set(path, { path, role: "Source module", sources: [cited ?? path] });
+    }
   }
-  return [];
+  if (profile.packages && profile.packages.length > 0) {
+    for (const pkg of profile.packages) {
+      map.set(pkg.path, {
+        path: pkg.path,
+        role: packageRole(pkg),
+        sources: packageMapSources(pkg),
+      });
+    }
+  }
+  return [...map.values()].sort(compareMapEntries);
 }
 
 function packageRole(pkg: PackageProfile): string {
-  const lang = pkg.languages[0] ? capitalize(pkg.languages[0]) : "Package";
+  const lang = packagePrimaryLanguage(pkg);
   const fw = pkg.frameworks.length > 0 ? ` (${pkg.frameworks.join(", ")})` : "";
   const test = pkg.testCommand ? `, tests via \`${pkg.testCommand}\`` : "";
   return `${lang}${fw}${test}`;
+}
+
+function packagePrimaryLanguage(pkg: PackageProfile): string {
+  const evidenceText = Object.values(pkg.evidence).flat().join("\n");
+  const jsTooling =
+    /\b(jest|vitest|eslint)\b/.test(pkg.testCommand ?? "") ||
+    pkg.linters.includes("eslint") ||
+    /(^|\/)(package\.json|tsconfig\.json|\.eslintrc)/.test(evidenceText);
+  if (jsTooling) {
+    return pkg.languages.includes("typescript") || /tsconfig\.json/.test(evidenceText) ? "Typescript" : "Javascript";
+  }
+  return pkg.languages[0] ? capitalize(pkg.languages[0]) : "Package";
+}
+
+function compareMapEntries(a: MapEntry, b: MapEntry): number {
+  const aSource = a.role === "Source module";
+  const bSource = b.role === "Source module";
+  const aParentOfB = b.path.startsWith(`${a.path}/`);
+  const bParentOfA = a.path.startsWith(`${b.path}/`);
+  if (aParentOfB && aSource !== bSource) return -1;
+  if (bParentOfA && aSource !== bSource) return 1;
+  return a.path.localeCompare(b.path);
 }
 
 function packageMapSources(pkg: PackageProfile): string[] {
@@ -256,11 +281,13 @@ export function buildProjectContext(profile: RepoProfile, index: StandardsIndex)
     const scoped = index.standards.filter((s) => s.scope === pkg.path);
     return {
       path: pkg.path,
+      languages: pkg.languages,
       testCommand: pkg.testCommand,
       instructionBody: renderPackageInstructionBody(pkg.path, scoped),
     };
   });
   return {
+    languages: profile.languages,
     packages,
     map: buildCodebaseMap(profile),
     exclusions: [...DEFAULT_EXCLUSIONS],
@@ -312,7 +339,7 @@ export function evidenceCoverage(index: StandardsIndex): EvidenceCoverage {
 export function evidenceQuality(profile: RepoProfile, index: StandardsIndex): EvidenceQuality {
   const demoted = new Set(
     (profile.architecture?.demotedRoots ?? []).filter(
-      (root) => !["tests", "test", "spec", "__tests__"].includes(root),
+      (root) => ![".circleci", ".github", "tests", "test", "spec", "__tests__"].includes(root),
     ),
   );
   const lowValueSources = new Set<string>();

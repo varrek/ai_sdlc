@@ -20,6 +20,11 @@ export const CursorPluginName = z
   .regex(/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/, "plugin name must be lowercase kebab-case");
 export type CursorPluginName = z.infer<typeof CursorPluginName>;
 
+export const CursorPluginVersion = z
+  .string()
+  .regex(/^\d+\.\d+\.\d+(-[a-z0-9.-]+)?$/, "plugin version must be semver-like");
+export type CursorPluginVersion = z.infer<typeof CursorPluginVersion>;
+
 export const HostOptions = z
   .object({
     copilot: z
@@ -34,6 +39,16 @@ export const HostOptions = z
         pluginManifest: z.boolean().default(false),
         /** Override default plugin `name` (`ai-sdlc`). */
         pluginName: CursorPluginName.optional(),
+        /** Human-readable plugin display name. */
+        pluginDisplayName: z.string().min(1).max(80).optional(),
+        /** Marketplace/distribution description. */
+        pluginDescription: z.string().min(1).max(240).optional(),
+        /** Distribution version for generated plugin metadata. */
+        pluginVersion: CursorPluginVersion.optional(),
+        /** Owning publisher/team slug for distribution catalogs. */
+        pluginPublisher: CursorPluginName.optional(),
+        /** Source repository URL for distribution metadata. */
+        pluginRepository: z.string().url().optional(),
       })
       .strict()
       .optional(),

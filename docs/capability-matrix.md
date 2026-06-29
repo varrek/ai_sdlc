@@ -13,3 +13,5 @@ Levels: **Native** (first-class), **Partial** (supported with limits),
 | Per-role tool restriction | Fallback | Native | Partial | Partial |
 | Hooks / Approved? gate | Native | Native | Fallback | Native |
 | MCP | Native | Native | Native | Native |
+| Plugin distribution metadata | Partial | None | None | None |
+| LSP setup guidance | Partial | None | None | None |

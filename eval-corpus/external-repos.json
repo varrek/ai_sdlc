@@ -1,0 +1,75 @@
+{
+  "catalogRevision": "2026-06-29",
+  "repos": [
+    {
+      "id": "vitejs/vite@869e8ead2eab03190435855ac39aa63de3d05526",
+      "owner": "vitejs",
+      "repo": "vite",
+      "commit": "869e8ead2eab03190435855ac39aa63de3d05526",
+      "primaryLanguage": "TypeScript",
+      "toolTags": ["pnpm", "vitest", "frontend"],
+      "sizeBand": "big",
+      "catalogRevision": "2026-06-29"
+    },
+    {
+      "id": "pallets/flask@36e4a824f340fdee7ed50937ba8e7f6bc7d17f81",
+      "owner": "pallets",
+      "repo": "flask",
+      "commit": "36e4a824f340fdee7ed50937ba8e7f6bc7d17f81",
+      "primaryLanguage": "Python",
+      "toolTags": ["pytest", "pallets", "web"],
+      "sizeBand": "medium",
+      "catalogRevision": "2026-06-29"
+    },
+    {
+      "id": "cli/cli@71fb4f5f4358c44c9328637752f0c15a47d84139",
+      "owner": "cli",
+      "repo": "cli",
+      "commit": "71fb4f5f4358c44c9328637752f0c15a47d84139",
+      "primaryLanguage": "Go",
+      "toolTags": ["go-test", "cli"],
+      "sizeBand": "big",
+      "catalogRevision": "2026-06-29"
+    },
+    {
+      "id": "rust-lang/cargo@a335d47ff8036918d3d548dabd513dc0444096a9",
+      "owner": "rust-lang",
+      "repo": "cargo",
+      "commit": "a335d47ff8036918d3d548dabd513dc0444096a9",
+      "primaryLanguage": "Rust",
+      "toolTags": ["cargo", "rust"],
+      "sizeBand": "big",
+      "catalogRevision": "2026-06-29"
+    },
+    {
+      "id": "spring-projects/spring-petclinic@b3ee2c53e76e9267f03551a7cd36b0983c859c56",
+      "owner": "spring-projects",
+      "repo": "spring-petclinic",
+      "commit": "b3ee2c53e76e9267f03551a7cd36b0983c859c56",
+      "primaryLanguage": "Java",
+      "toolTags": ["maven", "spring"],
+      "sizeBand": "medium",
+      "catalogRevision": "2026-06-29"
+    },
+    {
+      "id": "rails/rails@abfb644722dbeb7f3453cfa6ffae265016739019",
+      "owner": "rails",
+      "repo": "rails",
+      "commit": "abfb644722dbeb7f3453cfa6ffae265016739019",
+      "primaryLanguage": "Ruby",
+      "toolTags": ["rails", "bundler"],
+      "sizeBand": "big",
+      "catalogRevision": "2026-06-29"
+    },
+    {
+      "id": "dotnet/aspnetcore@2b7a3d5c1757296f038696e208662370edac5368",
+      "owner": "dotnet",
+      "repo": "aspnetcore",
+      "commit": "2b7a3d5c1757296f038696e208662370edac5368",
+      "primaryLanguage": "C#",
+      "toolTags": ["dotnet", "aspnetcore"],
+      "sizeBand": "big",
+      "catalogRevision": "2026-06-29"
+    }
+  ]
+}

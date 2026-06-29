@@ -1,7 +1,10 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
+import { LSP_GUIDANCE_PATH } from "../../core/lsp-guidance.js";
 import { stableJson } from "../shared/roles.js";
 
 const DEFAULT_PLUGIN_NAME = "ai-sdlc";
+const DEFAULT_PLUGIN_DISPLAY_NAME = "AI SDLC";
+const DEFAULT_PLUGIN_DESCRIPTION = "Evidence-backed AI SDLC configuration compiled for this repository.";
 const DEFAULT_PLUGIN_VERSION = "0.1.0";
 
 /**
@@ -15,14 +18,16 @@ export function emitPluginManifest(model: NeutralModel): EmittedFile {
 
   const manifest = {
     name,
-    displayName: "AI SDLC",
-    description:
-      "Evidence-backed AI SDLC configuration compiled for this repository.",
-    version: DEFAULT_PLUGIN_VERSION,
+    displayName: cursorOptions?.pluginDisplayName ?? DEFAULT_PLUGIN_DISPLAY_NAME,
+    description: cursorOptions?.pluginDescription ?? DEFAULT_PLUGIN_DESCRIPTION,
+    version: cursorOptions?.pluginVersion ?? DEFAULT_PLUGIN_VERSION,
+    ...(cursorOptions?.pluginPublisher ? { publisher: cursorOptions.pluginPublisher } : {}),
+    ...(cursorOptions?.pluginRepository ? { repository: cursorOptions.pluginRepository } : {}),
     agents: ".cursor/agents",
     skills: ".agents/skills",
     hooks: ".cursor/hooks.json",
     mcpServers: ".cursor/mcp.json",
+    documentation: LSP_GUIDANCE_PATH,
   };
 
   return {

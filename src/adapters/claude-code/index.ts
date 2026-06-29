@@ -12,6 +12,8 @@ const CAPABILITIES: HostCapabilities = {
   perRoleToolRestriction: "native", // tools/disallowedTools frontmatter
   gates: "native",
   mcp: "native",
+  pluginDistribution: "none",
+  lspGuidance: "none",
 };
 
 export class ClaudeCodeAdapter implements Adapter {

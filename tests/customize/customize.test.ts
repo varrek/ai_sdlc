@@ -162,6 +162,9 @@ describe("repo miner", () => {
     expect(p.frameworks).toContain("spring-boot");
     expect(p.testRunner).toBe("maven");
     expect(p.testCommand).toBe("mvn test");
+    expect(p.architecture?.confidence).toBe("high");
+    expect(p.architecture?.sourceRoot).toBe("src/main/java/com/example");
+    expect(p.architecture?.modules).toEqual(["owner", "vet"]);
   });
 
   it("detects Kotlin/Gradle with gradlew test default", () => {
@@ -191,12 +194,36 @@ describe("repo miner", () => {
     expect(p.evidence["test-runner:dotnet"]).toEqual(["SampleApp.csproj"]);
   });
 
+  it("detects .NET monorepo test command from eng build script", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-dotnet-eng-"));
+    tmpDirs.push(dir);
+    mkdirSync(join(dir, "eng"), { recursive: true });
+    writeFileSync(
+      join(dir, "eng", "build.sh"),
+      "#!/usr/bin/env bash\n# Usage:\n#   --[no-]test Run tests.\n",
+      "utf8",
+    );
+    mkdirSync(join(dir, "src", "App"), { recursive: true });
+    writeFileSync(join(dir, "src", "App", "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />\n", "utf8");
+    writeFileSync(join(dir, "src", "App", "Program.cs"), "class Program {}\n", "utf8");
+
+    const p = mineRepo(dir);
+
+    expect(p.languages).toContain("csharp");
+    expect(p.testRunner).toBe("dotnet");
+    expect(p.testCommand).toBe("./eng/build.sh --test");
+    expect(p.evidence["test-runner:dotnet"]).toEqual(["eng/build.sh"]);
+  });
+
   it("detects Go test runner default and golangci-lint from explicit signals", () => {
     const p = mineRepo(repo("go-app"));
     expect(p.languages).toContain("go");
     expect(p.testRunner).toBe("go");
     expect(p.testCommand).toBe("go test ./...");
     expect(p.linters).toContain("golangci-lint");
+    expect(p.architecture?.confidence).toBe("high");
+    expect(p.architecture?.sourceRoot).toBe(".");
+    expect(p.architecture?.modules).toEqual(["internal", "pkg"]);
   });
 
   it("does not infer minitest from Gemfile alone without a Rakefile test task", () => {
@@ -269,7 +296,7 @@ describe("repo miner", () => {
     expect(suggestTrack(after)).toBe(suggestTrack(before));
   });
 
-  it("stays idempotent when compile overwrites a pre-existing AGENTS.md/CLAUDE.md", () => {
+  it("stays idempotent when compile overwrites pre-existing generated root files", () => {
     // Repos commonly ship their own AGENTS.md / CLAUDE.md (and .claude/.cursor)
     // before adopting the SDLC. Compile overwrites those in place and records
     // them in emitted.json — so the manifest alone can't keep mining stable: the
@@ -280,8 +307,12 @@ describe("repo miner", () => {
     cpSync(repo("ts-app"), work, { recursive: true });
     writeFileSync(join(work, "AGENTS.md"), "# hand-written constitution\n", "utf8");
     writeFileSync(join(work, "CLAUDE.md"), "# hand-written guide\n", "utf8");
+    writeFileSync(join(work, ".mcp.json"), "{}\n", "utf8");
+    writeFileSync(join(work, "portability.gap.yml"), "version: 1\ngaps: []\n", "utf8");
     mkdirSync(join(work, ".claude"), { recursive: true });
     writeFileSync(join(work, ".claude", "settings.json"), "{}\n", "utf8");
+    mkdirSync(join(work, ".vscode"), { recursive: true });
+    writeFileSync(join(work, ".vscode", "mcp.json"), "{}\n", "utf8");
 
     const before = mineRepo(work);
     runCompileCli({ baseDir, overlayPath: undefined, outDir: work, sdlcDir: join(work, ".sdlc") });
@@ -341,6 +372,27 @@ describe("workspace mining (monorepo)", () => {
 
   it("leaves packages undefined for a single-package repo (common case unchanged)", () => {
     expect(mineRepo(repo("ts-app")).packages).toBeUndefined();
+  });
+
+  it("keeps architecture modules in the map when nested packages are also detected", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-map-merge-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "go.mod"), "module example.com/app\n", "utf8");
+    mkdirSync(join(dir, "internal"), { recursive: true });
+    writeFileSync(join(dir, "internal", "auth.go"), "package internal\n", "utf8");
+    mkdirSync(join(dir, "pkg"), { recursive: true });
+    writeFileSync(join(dir, "pkg", "cmd.go"), "package pkg\n", "utf8");
+    mkdirSync(join(dir, "web"), { recursive: true });
+    writeFileSync(join(dir, "web", "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }), "utf8");
+    writeFileSync(join(dir, "web", "index.ts"), "export const x = 1;\n", "utf8");
+    mkdirSync(join(dir, "tools"), { recursive: true });
+    writeFileSync(join(dir, "tools", "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }), "utf8");
+    writeFileSync(join(dir, "tools", "index.ts"), "export const x = 1;\n", "utf8");
+
+    const map = buildCodebaseMap(mineRepo(dir));
+
+    expect(map.map((entry) => entry.path)).toEqual(["internal", "pkg", "tools", "web"]);
+    expect(map.find((entry) => entry.path === "web")?.role).toBe("Typescript, tests via `vitest run`");
   });
 
   it("excludes playground/demo/__tests__ dirs matched by a declared workspace glob", () => {

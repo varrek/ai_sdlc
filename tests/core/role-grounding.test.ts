@@ -35,14 +35,18 @@ const monorepoContext: ProjectContext = {
 };
 
 describe("role grounding", () => {
-  it("appends architect map grounding without changing other roles", () => {
+  it("appends architect and engineer map grounding while keeping tester generic", () => {
     const base = loadBase(baseDir);
     const overlay = Overlay.parse({ version: 1 });
     const model = mergeOverlay(base, overlay, sampleMap);
     const architect = model.roles.find((r) => r.frontmatter.name === "architect")!;
+    const engineer = model.roles.find((r) => r.frontmatter.name === "engineer")!;
     const tester = model.roles.find((r) => r.frontmatter.name === "tester")!;
     expect(architect.body).toContain(ROLE_GROUNDING_HEADING);
     expect(architect.body).toContain("`src`");
+    expect(engineer.body).toContain(ROLE_GROUNDING_HEADING);
+    expect(engineer.body).toContain("Likely edit areas:");
+    expect(engineer.body).toContain("`src`");
     expect(tester.body).not.toContain(ROLE_GROUNDING_HEADING);
   });
 
@@ -74,7 +78,7 @@ describe("role grounding", () => {
     expect(engineer.body).toContain(ROLE_GROUNDING_HEADING);
     expect(engineer.body).toContain("Likely edit areas");
     expect(engineer.body).toContain("`src`");
-    expect(engineer.body).toContain("Verification command");
+    expect(engineer.body).toContain("Run relevant validation");
     expect(engineer.body).toContain("`pytest`");
   });
 
@@ -101,7 +105,7 @@ describe("role grounding", () => {
 
     expect(hasDeterministicEngineerGrounding({ overlay, projectContext: emptyContext })).toBe(true);
     expect(engineer.body).toContain(ROLE_GROUNDING_HEADING);
-    expect(engineer.body).toContain("Verification command");
+    expect(engineer.body).toContain("Run relevant validation");
     expect(engineer.body).toContain("`npm test`");
   });
 

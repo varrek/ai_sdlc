@@ -19,6 +19,8 @@ const CAPABILITIES: HostCapabilities = {
   perRoleToolRestriction: "partial", // agent `tools` + server/* MCP scoping; partial enforcement
   gates: "fallback", // no IDE PreToolUse hook → instruction checklist + CI + cloud hook
   mcp: "native",
+  pluginDistribution: "none",
+  lspGuidance: "none",
 };
 
 /**
