@@ -26,6 +26,7 @@ export interface SetupArtifacts {
   projectContext: ProjectContext;
   standardsIndex: string;
   architect: string;
+  tester: string;
   constitution: string;
   overlay: OverlaySnapshot;
 }
@@ -57,6 +58,7 @@ export function runSetup(root: string): SetupArtifacts {
   ) as ProjectContext;
   const standardsIndex = readFileSync(join(overlayDir, "standards-index.yaml"), "utf8");
   const architect = readFileSync(join(root, ".cursor", "agents", "architect.md"), "utf8");
+  const tester = readFileSync(join(root, ".cursor", "agents", "tester.md"), "utf8");
   const constitution = readFileSync(join(root, "AGENTS.md"), "utf8");
   const overlayRaw = YAML.parse(readFileSync(overlayPath, "utf8")) as {
     interviewAnswers?: Record<string, string>;
@@ -66,5 +68,5 @@ export function runSetup(root: string): SetupArtifacts {
     interviewAnswers: overlayRaw.interviewAnswers ?? {},
     gapClosureProvenance: overlayRaw.gapClosureProvenance ?? {},
   };
-  return { smoke, status, projectContext, standardsIndex, architect, constitution, overlay };
+  return { smoke, status, projectContext, standardsIndex, architect, tester, constitution, overlay };
 }

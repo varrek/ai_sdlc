@@ -22,8 +22,11 @@ export interface CorpusExpectation {
   packageExpectations?: PackageExpectation[];
   workspacePackageCount?: number;
   architectHasGrounding?: boolean;
+  testerHasGrounding?: boolean;
   architectMustInclude?: string[];
   architectMustNotInclude?: string[];
+  testerMustInclude?: string[];
+  testerMustNotInclude?: string[];
   constitutionMustInclude?: string[];
   constitutionMustNotInclude?: string[];
   standardsMustInclude?: string[];
@@ -43,7 +46,9 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommandProvenance: "miner",
     mapPaths: ["src"],
     architectHasGrounding: true,
+    testerHasGrounding: true,
     architectMustInclude: ["src"],
+    testerMustInclude: ["pytest", "provenance: miner"],
     constitutionMustInclude: ["pytest", "src"],
     standardsMustInclude: ["pytest", "Project architecture"],
   },
@@ -59,7 +64,9 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommandProvenance: "miner",
     mapPaths: ["src"],
     architectHasGrounding: true,
+    testerHasGrounding: true,
     architectMustInclude: ["src"],
+    testerMustInclude: ["vitest run", "provenance: miner"],
     constitutionMustInclude: ["vitest run"],
     standardsMustInclude: ["vitest run"],
   },
@@ -78,7 +85,9 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
       { path: "packages/web", testCommand: "vitest run" },
     ],
     architectHasGrounding: true,
+    testerHasGrounding: true,
     architectMustInclude: ["packages/api", "pytest", "packages/web", "vitest run"],
+    testerMustInclude: ["packages/api", "pytest", "packages/web", "vitest run"],
     standardsMustInclude: ["packages/api", "packages/web", "pytest", "vitest run"],
   },
   {
@@ -94,6 +103,8 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommandProvenance: "ci",
     mapPaths: [],
     architectHasGrounding: false,
+    testerHasGrounding: true,
+    testerMustInclude: ["npm test", "provenance: ci"],
     constitutionMustInclude: ["npm test"],
     standardsMustInclude: ["npm test", "confidence is low"],
     standardsMustNotInclude: ["Project architecture: modules"],
@@ -107,6 +118,8 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     handsOff: false,
     mapPaths: [],
     architectHasGrounding: false,
+    testerHasGrounding: false,
+    testerMustNotInclude: ["## Deterministic project grounding"],
     standardsMustInclude: ["streamlit"],
   },
   {
@@ -118,6 +131,8 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     handsOff: false,
     mapPaths: [],
     architectHasGrounding: false,
+    testerHasGrounding: false,
+    testerMustNotInclude: ["## Deterministic project grounding"],
   },
   {
     fixture: "fastapi-like",
@@ -131,7 +146,9 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommandProvenance: "miner",
     mapMustNotInclude: ["docs_src"],
     architectHasGrounding: true,
+    testerHasGrounding: true,
     architectMustInclude: ["fastapi"],
+    testerMustInclude: ["pytest"],
     architectMustNotInclude: ["docs_src"],
     constitutionMustNotInclude: ["docs_src"],
   },
@@ -146,7 +163,10 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommand: "vitest run",
     testCommandProvenance: "miner",
     mapPaths: ["packages/vite"],
+    architectHasGrounding: true,
+    testerHasGrounding: true,
     architectMustInclude: ["packages/vite"],
+    testerMustInclude: ["vitest run"],
     constitutionMustNotInclude: ["playground"],
   },
   {
@@ -160,14 +180,16 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     handsOff: false,
     mapPaths: [],
     architectHasGrounding: false,
+    testerHasGrounding: false,
     standardsMustInclude: ["confidence is low"],
     standardsMustNotInclude: ["Project architecture: modules"],
     architectMustNotInclude: ["## Deterministic project grounding"],
+    testerMustNotInclude: ["## Deterministic project grounding"],
   },
 ];
 
 export function assertCorpusExpectation(artifacts: SetupArtifacts, expected: CorpusExpectation): void {
-  const { smoke, status, projectContext, standardsIndex, architect, constitution, overlay } = artifacts;
+  const { smoke, status, projectContext, standardsIndex, architect, tester, constitution, overlay } = artifacts;
   const mapPaths = projectContext.map.map((entry) => entry.path);
 
   expect(smoke.setupReady, `${expected.fixture} smoke.setupReady`).toBe(expected.setupReady);
@@ -223,6 +245,18 @@ export function assertCorpusExpectation(artifacts: SetupArtifacts, expected: Cor
   const hasGrounding = architect.includes("## Deterministic project grounding");
   if (expected.architectHasGrounding !== undefined) {
     expect(hasGrounding, `${expected.fixture} architect grounding`).toBe(expected.architectHasGrounding);
+  }
+  const testerHasGroundingSection = tester.includes("## Deterministic project grounding");
+  if (expected.testerHasGrounding !== undefined) {
+    expect(testerHasGroundingSection, `${expected.fixture} tester grounding`).toBe(expected.testerHasGrounding);
+  }
+  if (expected.testerMustInclude) {
+    for (const text of expected.testerMustInclude) {
+      expect(tester, `${expected.fixture} tester includes ${text}`).toContain(text);
+    }
+  }
+  for (const text of expected.testerMustNotInclude ?? []) {
+    expect(tester, `${expected.fixture} tester excludes ${text}`).not.toContain(text);
   }
   for (const text of expected.architectMustInclude ?? []) {
     expect(architect, `${expected.fixture} architect includes ${text}`).toContain(text);

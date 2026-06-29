@@ -1,10 +1,35 @@
 import { assertRoleAddendumWithinContract } from "./role-addenda.js";
 import type { ProjectContext } from "./project-context.js";
-import type { Role } from "../schema/index.js";
+import type { Overlay, Role } from "../schema/index.js";
 
-const ARCHITECT_GROUNDING_HEADING = "## Deterministic project grounding";
-const MAX_ARCHITECT_GROUNDING_CHARS = 1200;
+export const ROLE_GROUNDING_HEADING = "## Deterministic project grounding";
+const MAX_ROLE_GROUNDING_CHARS = 1200;
 
+const BARE_TEST_DIR_REMINDER =
+  "Do not infer a test runner from bare `tests/`, `test/`, or `__tests__/` directories without toolchain evidence.";
+
+export interface RoleGroundingInput {
+  overlay: Overlay;
+  projectContext?: ProjectContext;
+}
+
+export function hasDeterministicTesterGrounding(input: RoleGroundingInput): boolean {
+  const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
+  if (rootCommand) return true;
+  return (input.projectContext?.packages ?? []).some((pkg) => Boolean(pkg.testCommand?.trim()));
+}
+
+export function appendRoleGrounding(role: Role, input: RoleGroundingInput): Role {
+  if (role.frontmatter.name === "architect") {
+    return appendArchitectGrounding(role, input.projectContext);
+  }
+  if (role.frontmatter.name === "tester") {
+    return appendTesterGrounding(role, input);
+  }
+  return role;
+}
+
+/** @deprecated Use appendRoleGrounding — kept for direct unit tests of Architect behavior. */
 export function appendArchitectGrounding(role: Role, projectContext: ProjectContext | undefined): Role {
   if (role.frontmatter.name !== "architect" || !projectContext || projectContext.map.length === 0) {
     return role;
@@ -16,10 +41,42 @@ export function appendArchitectGrounding(role: Role, projectContext: ProjectCont
   if (projectContext.map.length > 8) {
     lines.push(`- ${projectContext.map.length - 8} additional entries are available in the codebase map.`);
   }
-  const grounding = lines.join("\n").slice(0, MAX_ARCHITECT_GROUNDING_CHARS);
-  assertRoleAddendumWithinContract(role.frontmatter.name, role.frontmatter.posture, grounding);
+  return appendGroundingSection(role, lines.join("\n"));
+}
+
+function appendTesterGrounding(role: Role, input: RoleGroundingInput): Role {
+  if (role.frontmatter.name !== "tester" || !hasDeterministicTesterGrounding(input)) {
+    return role;
+  }
+  const lines = buildTesterGroundingLines(input);
+  return appendGroundingSection(role, lines.join("\n"));
+}
+
+function buildTesterGroundingLines(input: RoleGroundingInput): string[] {
+  const lines = [
+    "Use these mined, evidence-backed test commands when verifying changes:",
+  ];
+  const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
+  if (rootCommand) {
+    const provenance = input.overlay.gapClosureProvenance?.["test-command"];
+    const provenanceSuffix =
+      provenance === "miner" || provenance === "ci" ? ` (provenance: ${provenance})` : "";
+    lines.push(`- **Root:** \`${rootCommand}\`${provenanceSuffix}`);
+  }
+  for (const pkg of input.projectContext?.packages ?? []) {
+    const command = pkg.testCommand?.trim();
+    if (!command) continue;
+    lines.push(`- **\`${pkg.path}\`:** \`${command}\``);
+  }
+  lines.push(`- ${BARE_TEST_DIR_REMINDER}`);
+  return lines;
+}
+
+function appendGroundingSection(role: Role, grounding: string): Role {
+  const bounded = grounding.slice(0, MAX_ROLE_GROUNDING_CHARS);
+  assertRoleAddendumWithinContract(role.frontmatter.name, role.frontmatter.posture, bounded);
   return {
     ...role,
-    body: `${role.body.trimEnd()}\n\n${ARCHITECT_GROUNDING_HEADING}\n\n${grounding}\n`,
+    body: `${role.body.trimEnd()}\n\n${ROLE_GROUNDING_HEADING}\n\n${bounded}\n`,
   };
 }

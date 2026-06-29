@@ -3,7 +3,7 @@ import type { LoadedBase } from "./loader.js";
 import { skillsForTrack } from "./loop.js";
 import { renderCodebaseMap, type ProjectContext } from "./project-context.js";
 import { appendAddendum, assertRoleAddendumWithinContract } from "./role-addenda.js";
-import { appendArchitectGrounding } from "./role-grounding.js";
+import { appendRoleGrounding, type RoleGroundingInput } from "./role-grounding.js";
 import type { NeutralModel } from "./types.js";
 
 /**
@@ -21,9 +21,10 @@ export function mergeOverlay(
   overlay: Overlay,
   projectContext?: ProjectContext,
 ): NeutralModel {
+  const groundingInput: RoleGroundingInput = { overlay, projectContext };
   const roles = base.roles
     .map((role) => applyRoleOverlay(role, overlay))
-    .map((role) => appendArchitectGrounding(role, projectContext));
+    .map((role) => appendRoleGrounding(role, groundingInput));
   let constitution = appendStandards(base.constitution, overlay.standards);
   if (projectContext && projectContext.map.length > 0) {
     constitution = `${constitution}\n${renderCodebaseMap(projectContext.map)}\n`;

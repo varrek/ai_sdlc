@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  buildProjectContext,
   evidenceCoverage,
   evidenceQuality,
   type EvidenceCoverage,
@@ -14,6 +15,7 @@ import {
   overlayFingerprint,
 } from "./phase-fingerprints.js";
 import { inspectRepo } from "./customize.js";
+import { hasDeterministicTesterGrounding } from "../core/role-grounding.js";
 import type { OperatingMode } from "../schema/index.js";
 
 export interface StatusReport {
@@ -74,6 +76,9 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const provenance = inspection.overlay.gapClosureProvenance;
   const provenanceValues = Object.values(provenance);
   const handsOff = setupReady && provenanceValues.length > 0 && provenanceValues.every((p) => p === "miner" || p === "ci");
+  const projectContext = buildProjectContext(inspection.profile, inspection.standardsIndex);
+  const groundingInput = { overlay: inspection.overlay, projectContext };
+  const testerDeterministic = hasDeterministicTesterGrounding(groundingInput);
   return {
     initialized: inspection.initialized,
     operatingMode: inspection.overlay.operatingMode,
@@ -89,7 +94,8 @@ export function buildStatus(options: StatusOptions): StatusReport {
     architectureReasons: inspection.profile.architecture?.reasons ?? [],
     evidenceQuality: quality,
     roleStates: {
-      architect: roleState(archConfidence, Boolean(inspection.overlay.roleAddenda.architect)),
+      architect: roleState(archConfidence === "high", Boolean(inspection.overlay.roleAddenda.architect)),
+      tester: roleState(testerDeterministic, Boolean(inspection.overlay.roleAddenda.tester)),
     },
     blockingGaps: inspection.gaps.length,
     coverage: evidenceCoverage(inspection.standardsIndex),
@@ -128,12 +134,11 @@ function setupPhaseStatus(options: {
 }
 
 function roleState(
-  architectureConfidence: "high" | "low" | undefined,
+  hasDeterministicGrounding: boolean,
   hasLlmAddendum: boolean,
 ): "generic" | "deterministic" | "llm-authored" | "deterministic+llm" {
-  const deterministic = architectureConfidence === "high";
-  if (deterministic && hasLlmAddendum) return "deterministic+llm";
-  if (deterministic) return "deterministic";
+  if (hasDeterministicGrounding && hasLlmAddendum) return "deterministic+llm";
+  if (hasDeterministicGrounding) return "deterministic";
   if (hasLlmAddendum) return "llm-authored";
   return "generic";
 }
@@ -188,7 +193,9 @@ export function formatStatus(report: StatusReport): string {
   if (report.evidenceQuality.lowValueSources.length > 0) {
     lines.push(`Low-value evidence sources: ${report.evidenceQuality.lowValueSources.join(", ")}`);
   }
-  lines.push(`Role grounding: architect=${report.roleStates.architect}`);
+  lines.push(
+    `Role grounding: architect=${report.roleStates.architect}, tester=${report.roleStates.tester}`,
+  );
 
   lines.push("", "Standards:");
   report.standards.forEach((s, i) => lines.push(`  ${i + 1}. ${s}`));

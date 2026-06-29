@@ -1,7 +1,7 @@
 import type { SetupArtifacts } from "./corpus-harness.js";
 
 /** Surfaces where generated guidance should carry actionable agent signals. */
-export type GuidanceSurface = "constitution" | "architect" | "standards" | "map" | "packages";
+export type GuidanceSurface = "constitution" | "architect" | "tester" | "standards" | "map" | "packages";
 
 export interface BehaviorScenario {
   id: string;
@@ -38,7 +38,7 @@ export const BEHAVIOR_SCENARIOS: BehaviorScenario[] = [
     task: "Run the project test suite before shipping a change to application code.",
     preferredModule: "src",
     preferredTestCommand: "pytest",
-    requiredSurfaces: ["constitution", "standards", "map"],
+    requiredSurfaces: ["constitution", "standards", "map", "tester"],
   },
   {
     id: "ts-app-run-tests",
@@ -46,7 +46,7 @@ export const BEHAVIOR_SCENARIOS: BehaviorScenario[] = [
     task: "Run tests for the TypeScript application source.",
     preferredModule: "src",
     preferredTestCommand: "vitest run",
-    requiredSurfaces: ["constitution", "standards", "map"],
+    requiredSurfaces: ["constitution", "standards", "map", "tester"],
   },
   {
     id: "monorepo-api-tests",
@@ -54,7 +54,7 @@ export const BEHAVIOR_SCENARIOS: BehaviorScenario[] = [
     task: "Change the Python API package and run its tests.",
     preferredModule: "packages/api",
     preferredTestCommand: "pytest",
-    requiredSurfaces: ["architect", "standards", "packages"],
+    requiredSurfaces: ["architect", "standards", "packages", "tester"],
   },
   {
     id: "monorepo-web-tests",
@@ -62,7 +62,7 @@ export const BEHAVIOR_SCENARIOS: BehaviorScenario[] = [
     task: "Change the web frontend package and run its tests.",
     preferredModule: "packages/web",
     preferredTestCommand: "vitest run",
-    requiredSurfaces: ["architect", "standards", "packages"],
+    requiredSurfaces: ["architect", "standards", "packages", "tester"],
   },
   {
     id: "ci-repo-npm-test",
@@ -70,7 +70,7 @@ export const BEHAVIOR_SCENARIOS: BehaviorScenario[] = [
     task: "Run the CI-equivalent test command locally.",
     preferredModule: "",
     preferredTestCommand: "npm test",
-    requiredSurfaces: ["constitution", "standards"],
+    requiredSurfaces: ["constitution", "standards", "tester"],
   },
   {
     id: "fastapi-like-product-root",
@@ -93,7 +93,16 @@ export const BEHAVIOR_SCENARIOS: BehaviorScenario[] = [
 ];
 
 function surfaceRequiresTestCommand(surface: GuidanceSurface): boolean {
-  return surface === "constitution" || surface === "standards" || surface === "packages";
+  return (
+    surface === "constitution" ||
+    surface === "standards" ||
+    surface === "packages" ||
+    surface === "tester"
+  );
+}
+
+function surfaceRequiresModule(surface: GuidanceSurface): boolean {
+  return surface !== "tester";
 }
 
 function surfaceText(artifacts: SetupArtifacts, surface: GuidanceSurface): string {
@@ -102,6 +111,8 @@ function surfaceText(artifacts: SetupArtifacts, surface: GuidanceSurface): strin
       return artifacts.constitution;
     case "architect":
       return artifacts.architect;
+    case "tester":
+      return artifacts.tester;
     case "standards":
       return artifacts.standardsIndex;
     case "map":
@@ -123,7 +134,9 @@ function scoreSurface(
   surface: GuidanceSurface,
 ): BehaviorSignalResult {
   const text = surfaceText(artifacts, surface);
-  const modulePresent = scenario.preferredModule === "" || text.includes(scenario.preferredModule);
+  const moduleRequired = surfaceRequiresModule(surface);
+  const modulePresent =
+    !moduleRequired || scenario.preferredModule === "" || text.includes(scenario.preferredModule);
   const commandRequired = surfaceRequiresTestCommand(surface);
   const commandPresent = !commandRequired || text.includes(scenario.preferredTestCommand);
   const avoidOnSurface = surface === "architect" || surface === "map";
@@ -147,7 +160,7 @@ export function evaluateBehaviorScenario(
   );
   const missing: string[] = [];
   for (const signal of signals) {
-    if (scenario.preferredModule && !signal.modulePresent) {
+    if (surfaceRequiresModule(signal.surface) && scenario.preferredModule && !signal.modulePresent) {
       missing.push(`${signal.surface}: missing module \`${scenario.preferredModule}\``);
     }
     if (surfaceRequiresTestCommand(signal.surface) && !signal.commandPresent) {
