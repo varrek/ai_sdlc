@@ -5,16 +5,16 @@ Shared domain vocabulary for this project — entities, named processes, and sta
 ## Compilation pipeline
 
 ### Base
-The host-neutral, company-shared source of SDLC capabilities — the Constitution, roles, skills, and integration contracts — that every project starts from before any project-specific customization.
+The shared source of SDLC capabilities — the Constitution, roles, skills, and integration contracts — that every project starts from before any project-specific customization. In Plugin Mode it is a baseline for LLM-personalized policy, not the final authority on every workflow choice.
 
 ### Constitution
-The Base's governing document: the non-negotiable gates that always hold (review required, tests pass, the Approved? Gate, least-privilege MCP) plus the configurable edges an Overlay is allowed to tune.
+The Base's governing document: the default gates and workflow posture a project starts from, plus the configurable edges an Overlay is allowed to tune. In deterministic mode its hard gates are non-negotiable; in Plugin Mode, accepted LLM-personalized policy may adapt them when project context justifies the change.
 
 ### Overlay
-The project-specific layer that edits only the configurable edges of the Base — added standards, Integration Bindings, role-model overrides, and the chosen Ceremony Track. It is merged onto the Base to produce the Neutral Model and can never weaken a hard gate.
+The project-specific layer that records accepted customization — standards, Integration Bindings, role-model overrides, Ceremony Track, role guidance, and Plugin Mode policy changes. In deterministic mode it cannot weaken hard gates; in Plugin Mode it can carry accepted Project-Adaptable Workflow Policy.
 
 ### Neutral Model
-The fully resolved, host-agnostic model produced by merging an Overlay onto the Base. It is the single source of truth every Adapter reads, and nothing else.
+The resolved model produced from the Base plus accepted project customization. In deterministic mode it is produced by a pure merge; in Plugin Mode it may include accepted host-LLM personalization before Adapters emit host-native config.
 
 ### Adapter
 A pluggable, per-Host emitter that turns the Neutral Model into one Host's native configuration. Adapters are pure: they return files and capability gaps and never write to disk themselves.
@@ -44,6 +44,18 @@ A setup run that reaches setup-ready without requiring human-owned Overlay answe
 
 ### Corpus
 The representative set of target repositories used to validate ai-sdlc mining, compile, smoke, and status behavior across real project shapes. Corpus checks are regression signals for setup quality, not product source code.
+
+### Plugin Mode
+The ai-sdlc operating mode where a supported coding tool supplies the host LLM and interaction surface. In this mode, model invocation is an expected customization capability rather than an optional follow-up.
+
+### LLM-Personalized Setup
+A setup run where `/customize` and compile use the host LLM to generate project-specific role guidance or workflow policy, and setup readiness depends on the generated personalization being accepted.
+
+### Project-Adaptable Workflow Policy
+The generated, project-specific treatment of gates, role postures, and review flow. Unlike the Base's original hard gates, these policies may change when repo evidence or project intent justifies the change.
+
+### Behavior-Level Eval
+An evaluation that checks whether generated guidance changes an agent's decisions on pinned tasks, such as choosing the right module, test command, risk surface, or review flow. It sits above structural compile and smoke checks.
 
 ### Ceremony Track
 The level of process formality chosen for a project — Quick (the minimal single-writer slice), Standard (adds up-front planning), or Full (adds the integration wrap-up) — which selects how many loop stages run.
