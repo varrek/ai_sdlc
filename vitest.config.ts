@@ -2,11 +2,13 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    // The default worker-thread pool (tinypool) crashes on teardown in
-    // restricted/sandboxed and some CI environments. Forks are robust there.
-    pool: "forks",
+    // Keep test execution serial in restricted/sandboxed environments where
+    // worker-pool teardown can otherwise crash after tests finish.
+    pool: "threads",
+    isolate: false,
+    fileParallelism: false,
     poolOptions: {
-      forks: { singleFork: true },
+      threads: { singleThread: true },
     },
     include: ["tests/**/*.test.ts"],
   },

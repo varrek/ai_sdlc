@@ -5,7 +5,7 @@ import {
   type PackageContext,
   type ProjectContext,
 } from "../core/project-context.js";
-import { Overlay, type CeremonyTrack, type IntegrationBinding } from "../schema/index.js";
+import { Overlay, type CeremonyTrack, type IntegrationBinding, type OperatingMode } from "../schema/index.js";
 import type { PackageProfile, RepoProfile } from "./repo-miner.js";
 
 export interface StandardEntry {
@@ -150,15 +150,17 @@ export function buildStandardsIndex(profile: RepoProfile): StandardsIndex {
  *
  * Re-runs are non-destructive: a `prior` overlay (the previously emitted, then
  * possibly hand-edited `.customize.yaml`) wins for the user-owned edges —
- * existing integration bindings, role-model overrides, and the chosen track are
- * preserved rather than overwritten. Mined standards are always regenerated
- * (drift is reported separately).
+ * existing integration bindings, role-model overrides, the chosen track,
+ * operating mode, and accepted role addenda are preserved rather than
+ * overwritten. Mined standards are always regenerated (drift is reported
+ * separately).
  */
 export function buildOverlay(
   profile: RepoProfile,
   answers: Record<string, string> = {},
   prior?: Overlay,
   gapClosureProvenance: Overlay["gapClosureProvenance"] = {},
+  operatingMode?: OperatingMode,
 ): Overlay {
   const index = buildStandardsIndex(profile);
   const integrations: Record<string, IntegrationBinding> = { ...(prior?.integrations ?? {}) };
@@ -173,6 +175,7 @@ export function buildOverlay(
 
   return Overlay.parse({
     version: 1,
+    operatingMode: operatingMode ?? prior?.operatingMode ?? "plugin",
     defaultTrack: prior?.defaultTrack ?? suggestTrack(profile),
     // Only unscoped (root / cross-cutting) standards land in the constitution;
     // package-scoped ones flow into per-package instruction files via the
@@ -180,6 +183,7 @@ export function buildOverlay(
     standards: index.standards.filter((s) => !s.scope).map((s) => s.statement),
     integrations,
     roleModels: prior?.roleModels ?? {},
+    roleAddenda: prior?.roleAddenda ?? {},
     interviewAnswers: answers,
     gapClosureProvenance: { ...(prior?.gapClosureProvenance ?? {}), ...gapClosureProvenance },
   });

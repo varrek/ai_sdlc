@@ -605,6 +605,23 @@ describe("runCustomize", () => {
     expect(forced.freshnessSkipped).toBe(false);
   });
 
+  it("defaults to Plugin Mode and preserves an explicit deterministic opt-out", () => {
+    const overlayDir = tmpOverlay();
+    runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+
+    const path = join(overlayDir, ".customize.yaml");
+    const first = Overlay.parse(parseYaml(readFileSync(path, "utf8")));
+    expect(first.operatingMode).toBe("plugin");
+
+    runCustomize({ repoRoot: repo("python-rags"), overlayDir, operatingMode: "deterministic" });
+    const optedOut = Overlay.parse(parseYaml(readFileSync(path, "utf8")));
+    expect(optedOut.operatingMode).toBe("deterministic");
+
+    runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+    const preserved = Overlay.parse(parseYaml(readFileSync(path, "utf8")));
+    expect(preserved.operatingMode).toBe("deterministic");
+  });
+
   it("loadAnswersFile parses a YAML map and rejects non-string values", () => {
     const dir = mkdtempSync(join(tmpdir(), "aisdlc-ans-"));
     tmpDirs.push(dir);
@@ -643,17 +660,20 @@ describe("runCustomize", () => {
     expect(overlay.integrations.jira?.serverId).toBe("jira-mcp");
   });
 
-  it("preserves prior overlay edits (bindings + role model) on re-run", () => {
+  it("preserves prior overlay edits (bindings, role model, mode, role addenda) on re-run", () => {
     const overlayDir = tmpOverlay();
     const first = runCustomize({ repoRoot: repo("python-rags"), overlayDir });
     expect(first.ready).toBe(true); // setup-ready from the start; integrations deferred
 
-    // User hand-edits the overlay: binds the servers and pins a role model.
+    // User hand-edits the overlay: binds the servers, pins a role model, opts
+    // into Plugin Mode, and accepts generated role guidance.
     const path = join(overlayDir, ".customize.yaml");
     const edited = Overlay.parse(parseYaml(readFileSync(path, "utf8")));
     edited.interviewAnswers["gitlab-server"] = "gitlab-mcp";
     edited.integrations.jira = { serverId: "jira-mcp", allowedRoles: [] };
     edited.roleModels.engineer = "opus";
+    edited.operatingMode = "plugin";
+    edited.roleAddenda.engineer = "Use pytest from the repo root and keep FastAPI routes typed.";
     writeFileSync(path, stringify(edited), "utf8");
 
     // Re-run with no new answers: prior edits must survive (prior-wins).
@@ -664,5 +684,7 @@ describe("runCustomize", () => {
     expect(after.integrations.gitlab?.serverId).toBe("gitlab-mcp");
     expect(after.integrations.jira?.serverId).toBe("jira-mcp");
     expect(after.roleModels.engineer).toBe("opus");
+    expect(after.operatingMode).toBe("plugin");
+    expect(after.roleAddenda.engineer).toContain("FastAPI routes");
   });
 });

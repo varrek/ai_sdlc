@@ -71,6 +71,12 @@ describe("skill", () => {
     expect(skill.frontmatter.name).toBe("customize");
     expect(skill.frontmatter.disableModelInvocation).toBe(false);
   });
+
+  it("allows the shipped customize skill to invoke the host model", () => {
+    const skill = loadMarkdown(base("skills/customize/SKILL.md"), Skill);
+    expect(skill.frontmatter.name).toBe("customize");
+    expect(skill.frontmatter.disableModelInvocation).toBe(false);
+  });
 });
 
 describe("integration contract", () => {
@@ -91,9 +97,16 @@ describe("overlay", () => {
       defaultTrack: "standard",
       integrations: { jira: { serverId: "jira-cloud", allowedRoles: ["architect"] } },
     });
+    expect(overlay.operatingMode).toBe("plugin");
     expect(overlay.standards).toEqual([]);
     expect(overlay.roleModels).toEqual({});
     expect(overlay.integrations.jira!.serverId).toBe("jira-cloud");
+  });
+
+  it("accepts explicit deterministic mode and rejects unknown operating modes", () => {
+    expect(Overlay.parse({ version: 1, operatingMode: "deterministic" }).operatingMode).toBe("deterministic");
+    expect(Overlay.parse({ version: 1, operatingMode: "plugin" }).operatingMode).toBe("plugin");
+    expect(Overlay.safeParse({ version: 1, operatingMode: "legacy" }).success).toBe(false);
   });
 
   it("rejects unknown top-level keys so gates can't be disabled by typo", () => {

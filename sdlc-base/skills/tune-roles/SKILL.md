@@ -1,6 +1,6 @@
 ---
 name: tune-roles
-description: Author short, repo-specific addenda to the base role prompts (architect/engineer/tester/reviewer/debugger) from mined evidence, write them to the overlay, then recompile and re-smoke. Use after /customize when the generic role prompts should learn this repo's stack, test command, and risk hot-spots.
+description: Author repo-specific role guidance from mined evidence, write it to the overlay, then recompile and re-smoke. Default Plugin Mode /customize invokes this automatically when the host model is available.
 ---
 
 # /tune-roles
@@ -8,22 +8,24 @@ description: Author short, repo-specific addenda to the base role prompts (archi
 Personalize the role agents for *this* repository. You (the host agent) draft a
 short **addendum** per role from the mined evidence, write it into the overlay,
 then recompile and re-smoke. The compiler merges each addendum into its role body
-under a fenced heading — so the base prompt (and its gate language) always
-survives, and your additions are visible as a normal, reviewable overlay diff.
+under a fenced heading, so additions are visible as a normal, reviewable overlay
+diff.
 
-This is the one step where the *model* authors config. Everything downstream stays
-deterministic: your output is overlay text, not compiled output.
+This is the first step where the *model* authors config. Your output is overlay
+state, not hidden compiled output; users must be able to review what changed.
 
 ## Invariants (non-negotiable)
 
-- **Additive only.** Addenda *add* repo-specific guidance. They never restate,
-  soften, or override the base prompt, the four gates, or a role's posture. On any
-  conflict, the base prompt wins.
+- **Prose cannot hide policy changes.** `roleAddenda` prose adds repo-specific
+  guidance. Do not weaken gates, change postures, or expand capabilities in prose;
+  those changes require the structured Plugin Mode policy channel. Until that
+  channel exists, present them as review notes instead of encoding them in
+  `roleAddenda`.
 - **Bounded + enforced.** Each addendum is capped (~1500 chars) and checked by the
   addenda contract at compile time. An addendum that trips the contract fails the
   build — fix the text, don't work around it.
 - **Reviewable.** The result is an `overlay.roleAddenda` diff a human approves
-  before it ships. Never auto-apply without that review.
+  before it ships. Never hide generated guidance outside the overlay.
 
 ## Contract — what an addendum may and may not contain
 
@@ -38,8 +40,9 @@ middleware in `src/auth/` is security-sensitive").
 - Weaken the **single-writer** rule.
 - Grant file-write to a non-`write` role (architect/reviewer/tester/debugger).
 
-If you find yourself writing any of the second list, stop — that belongs to the
-base constitution, not an overlay addendum.
+If you find yourself writing any of the second list, stop. In Plugin Mode it may
+be relevant as a structured policy proposal, but it is not valid role-addendum
+prose.
 
 ## Flow
 
@@ -62,5 +65,6 @@ base constitution, not an overlay addendum.
 
 - Addenda for a role not present in the resolved model are ignored, so a track that
   drops a role (e.g. quick has no architect) simply won't emit that addendum.
-- This skill is opt-in and separate from the deterministic `/customize` chain; run
-  it when the generic prompts are leaving repo-specific value on the table.
+- In default Plugin Mode this skill is part of `/customize`; in deterministic mode
+  it remains an explicit follow-up when the team wants reviewable role addenda
+  without changing the operating mode.

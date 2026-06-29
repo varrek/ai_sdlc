@@ -7,13 +7,16 @@ here so that base upgrades stay clean.
 ## Files
 
 - `.customize.yaml` — the overlay. Edit this; it is the only hand-edited file.
+  New overlays default to `operatingMode: plugin`; set
+  `operatingMode: deterministic` only to opt out of host-LLM personalization.
 - `project.lock` — records the pinned base version. Written by `aisdlc upgrade`.
 
 ## Workflow
 
-1. `aisdlc customize` mines the repo and fills in `.customize.yaml` (interviewing
-   only for gaps it cannot infer).
-2. `aisdlc compile` merges base + overlay and emits host-native config.
+1. `aisdlc customize` mines the repo, fills in `.customize.yaml`, and in default
+   Plugin Mode asks the host model to draft reviewable role guidance.
+2. `aisdlc compile` merges base + accepted overlay state and emits host-native
+   config.
 3. `aisdlc upgrade` re-pins the base to a new version and replays the compile.
    - **No conflicts:** `project.lock` advances; your overlay is untouched.
    - **Conflict** (a base push changes something you overrode): the upgrade
@@ -22,6 +25,6 @@ here so that base upgrades stay clean.
 
 ## What you cannot do here
 
-The non-negotiable gates — review required, tests must pass, the `Approved?`
-gate, and least-privilege MCP — are not expressible in the overlay. They are
-enforced by the base and apply to every project.
+Do not encode hidden gate, posture, or capability changes in prose role guidance.
+Plugin Mode policy changes must use a structured, reviewable policy channel; until
+that channel exists, keep them as review notes rather than overlay behavior.

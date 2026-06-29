@@ -8,9 +8,9 @@ standards.
 
 - **Base** — the host-neutral source of truth: the Constitution (non-negotiable
   gates + configurable edges), roles, skills, and integration contracts.
-- **Overlay** — the per-project layer that tunes only the configurable edges
-  (added standards, integration bindings, role-model overrides, ceremony track).
-  It can never weaken a hard gate.
+- **Overlay** — the per-project layer that records accepted customization
+  (added standards, integration bindings, role-model overrides, ceremony track,
+  operating mode, and generated role guidance). Plugin Mode is the default.
 - **Adapters** — pure per-host emitters that turn the merged model into each
   host's native files.
 
@@ -50,7 +50,7 @@ idempotent and freshness-aware — re-running skips work whose inputs are
 unchanged.
 
 ```bash
-# 1. Mine the repo for evidence and write the project overlay.
+# 1. Mine the repo for evidence and write the Plugin Mode project overlay.
 aisdlc customize --repo .
 
 # 2. Compile the base (+ overlay) into host-native config in this repo.
@@ -86,13 +86,15 @@ needs them, not during setup.
 
 If `customize` reports a blocking gap (e.g. it couldn't mine a test command),
 answer it in `.sdlc/overlay/.customize.yaml` (or pass `--answers-file`) and
-re-run.
+re-run. Use `aisdlc customize --repo . --mode deterministic` only for projects
+that explicitly opt out of host-LLM personalization.
 
 ### Skill-driven flow
 
 Inside a configured host, the `/customize` skill orchestrates the same
-`customize → compile → smoke` chain for you and resumes from the first stale
-phase. The CLI commands above are what that skill calls under the hood.
+`customize → personalize → compile → smoke` chain for you and resumes from the
+first stale phase. The CLI commands above are what that skill calls under the
+hood.
 
 ## Commands
 
@@ -107,7 +109,8 @@ phase. The CLI commands above are what that skill calls under the hood.
 
 Common flags:
 
-- `customize`: `--repo <dir>` (default: cwd), `--answers-file <file>`, `--force`
+- `customize`: `--repo <dir>` (default: cwd), `--answers-file <file>`,
+  `--mode plugin|deterministic` (default: plugin), `--force`
 - `compile`: `--base <dir>` (default: `sdlc-base`), `--packs <dir,dir>`,
   `--out <dir>` (required), `--overlay <file>`,
   `--hosts cursor,claude-code,copilot,codex`, `--force`
@@ -136,9 +139,17 @@ Compilation produces native config for each enabled host (plus a host-neutral
 Generated artifacts and per-project state live under `.sdlc/` and are
 git-ignored by default.
 
-## Non-negotiable gates
+## Default Plugin Mode
 
-These four gates hold on every host and cannot be disabled by an overlay:
+`aisdlc customize` defaults to Plugin Mode. The host model drafts reviewable,
+repo-specific role guidance into the overlay; compile and smoke only activate
+validated overlay state. Deterministic mode is still available for projects that
+need a no-host-LLM setup path.
+
+## Base Gates
+
+These four base gates hold unless a future accepted Plugin Mode policy channel
+changes the workflow with structured, reviewable rationale:
 
 1. **Review required** — every change is reviewed before it merges.
 2. **Tests must pass** — the project test suite is green before a change ships.
