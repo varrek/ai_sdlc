@@ -37,10 +37,38 @@ process.exit(0);
 
 const APPROVED_GATE_SCRIPT = `#!/usr/bin/env node
 // Codex PreToolUse Approved? gate. Blocks apply_patch/Bash/MCP until SDLC_APPROVED=1.
-if (process.env.SDLC_APPROVED !== "1") {
+import { execSync } from "node:child_process";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet. Halting before write/MCP.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  reason: "Human approved via SDLC_APPROVED=1",
+  evidence: scope ? [scope] : undefined,
+});
+
+try {
+  // Use double quotes and escape backslashes and double quotes in the JSON
+  const escapedEvent = event.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"');
+  execSync(\`npx --yes aisdlc record-event --event "\${escapedEvent}"\`, { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  console.warn("Warning: failed to record approval event:", err.message);
+}
+
 process.exit(0);
 `;
 

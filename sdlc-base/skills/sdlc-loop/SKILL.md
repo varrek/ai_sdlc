@@ -51,6 +51,30 @@ If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
 
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  ```bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  ```
+- **Handoff**: When transitioning between roles
+  ```bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  ```
+- **Test run**: After running tests (Tester or Engineer)
+  ```bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  ```
+- **Review verdict**: After Reviewer completes their assessment
+  ```bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  ```
+
+Approval gate events are recorded automatically by the gate hooks.
+
 ## Per-host notes
 
 - **Cursor / Claude Code:** full depth — subagents with enforced postures and a
