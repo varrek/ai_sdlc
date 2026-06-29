@@ -254,6 +254,7 @@ function hasTerminalWithoutEngineerRework(trace: LoopTraceEvent[], fromIndex: nu
     const event = trace[i]!;
     if (event.type === "replan" && event.role === "engineer") return false;
     if (event.type === "plan_created" && event.role === "engineer") return false;
+    if (event.type === "handoff" && event.toRole === "engineer") return false;
     if (event.type === "tool_attempt" && event.role === "engineer") return false;
     if (event.type === "test_run" && event.role === "engineer") return false;
     if (event.type === "done" || event.type === "stuck") return true;

@@ -178,7 +178,7 @@ describe("loop trace scoring", () => {
     );
   });
 
-  it("does not count a bare handoff as Engineer rework after evaluator failure", () => {
+  it("recognizes handoff to Engineer as evaluator handback rework", () => {
     const trace = standardTrace();
     trace[4] = {
       type: "test_run",
@@ -200,7 +200,7 @@ describe("loop trace scoring", () => {
 
     const score = scoreLoopTrace(trace, { stages: [...standardStages] });
 
-    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
+    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
   });
 
   it("requires Engineer rework before stuck after evaluator failure", () => {
