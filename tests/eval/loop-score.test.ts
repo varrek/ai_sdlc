@@ -70,6 +70,25 @@ describe("loop trace scoring", () => {
     expect(score.violations).toContainEqual(expect.objectContaining({ kind: "missing-stage", stage: "engineer" }));
   });
 
+  it("does not count staged approval gates as substantive stage execution", () => {
+    const trace = standardTrace().filter(
+      (event) => event.type === "approval_gate" || event.type === "handoff" || event.type === "done",
+    );
+    trace.unshift({
+      type: "approval_gate",
+      taskId: "synthetic-loop",
+      role: "engineer",
+      stage: "engineer",
+      verdict: "approved",
+      reason: "Hook-recorded approval.",
+    });
+
+    const score = scoreLoopTrace(trace, { stages: [...standardStages] });
+
+    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "missing-stage", stage: "engineer" }));
+    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "role-ownership" }));
+  });
+
   it("does not apply role ownership checks to approval gates", () => {
     const trace = standardTrace();
     trace.splice(2, 0, {

@@ -197,12 +197,13 @@ function eventStage(event: LoopTraceEvent): LoopStage | undefined {
     case "plan_created":
     case "tool_attempt":
     case "test_run":
-    case "approval_gate":
     case "review_verdict":
     case "replan":
     case "done":
     case "stuck":
       return event.stage;
+    case "approval_gate":
+      return undefined;
     case "handoff":
       return undefined;
     default: {
