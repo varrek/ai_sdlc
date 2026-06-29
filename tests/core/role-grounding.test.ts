@@ -89,6 +89,22 @@ describe("role grounding", () => {
     expect(engineer.body).not.toContain(ROLE_GROUNDING_HEADING);
   });
 
+  it("grounds engineer from test-command evidence when the project map is empty", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({
+      version: 1,
+      interviewAnswers: { "test-command": "npm test" },
+    });
+    const emptyContext: ProjectContext = { packages: [], map: [], exclusions: [] };
+    const model = mergeOverlay(base, overlay, emptyContext);
+    const engineer = model.roles.find((r) => r.frontmatter.name === "engineer")!;
+
+    expect(hasDeterministicEngineerGrounding({ overlay, projectContext: emptyContext })).toBe(true);
+    expect(engineer.body).toContain(ROLE_GROUNDING_HEADING);
+    expect(engineer.body).toContain("Verification command");
+    expect(engineer.body).toContain("`npm test`");
+  });
+
   it("appends package-local tester grounding when root test-command gap is open", () => {
     const base = loadBase(baseDir);
     const overlay = Overlay.parse({ version: 1 });

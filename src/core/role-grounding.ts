@@ -41,6 +41,9 @@ export function hasDeterministicTesterGrounding(input: RoleGroundingInput): bool
 }
 
 export function hasDeterministicEngineerGrounding(input: RoleGroundingInput): boolean {
+  const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
+  if (rootCommand) return true;
+  if ((input.projectContext?.packages ?? []).some((pkg) => Boolean(pkg.testCommand?.trim()))) return true;
   return Boolean(input.projectContext && input.projectContext.map.length > 0);
 }
 
@@ -85,6 +88,11 @@ function appendEngineerGrounding(role: Role, input: RoleGroundingInput): Role {
   const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
   if (rootCommand) {
     lines.push(`- **Verification command:** \`${rootCommand}\``);
+  }
+  for (const pkg of input.projectContext?.packages ?? []) {
+    const command = pkg.testCommand?.trim();
+    if (!command) continue;
+    lines.push(`- **\`${pkg.path}\` verification:** \`${command}\``);
   }
   return appendGroundingSection(role, lines.join("\n"));
 }

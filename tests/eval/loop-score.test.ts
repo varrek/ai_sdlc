@@ -20,15 +20,15 @@ describe("loop trace scoring", () => {
 
   it("flags reviewer before tester and a missing approval gate", () => {
     const trace = standardTrace().filter((event) => event.type !== "approval_gate");
-    const reviewerHandoff = trace.find(
-      (event) => event.type === "handoff" && event.toStage === "reviewer",
+    const reviewerVerdict = trace.find(
+      (event) => event.type === "review_verdict" && event.stage === "reviewer",
     );
-    const testerHandoffIndex = trace.findIndex(
-      (event) => event.type === "handoff" && event.toStage === "test",
+    const testRunIndex = trace.findIndex(
+      (event) => event.type === "test_run" && event.stage === "test",
     );
-    const reviewerHandoffIndex = trace.indexOf(reviewerHandoff!);
-    trace.splice(reviewerHandoffIndex, 1);
-    trace.splice(testerHandoffIndex, 0, reviewerHandoff!);
+    const reviewerVerdictIndex = trace.indexOf(reviewerVerdict!);
+    trace.splice(reviewerVerdictIndex, 1);
+    trace.splice(testRunIndex, 0, reviewerVerdict!);
 
     const score = scoreLoopTrace(trace, { stages: [...standardStages] });
 
@@ -58,6 +58,16 @@ describe("loop trace scoring", () => {
         message: expect.stringContaining("test stage must be performed by tester"),
       }),
     );
+  });
+
+  it("does not count handoffs as substantive stage execution", () => {
+    const trace = standardTrace().filter((event) => event.type === "handoff" || event.type === "done");
+
+    const score = scoreLoopTrace(trace, { stages: [...standardStages] });
+
+    expect(score.passed).toBe(false);
+    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "missing-stage", stage: "architect" }));
+    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "missing-stage", stage: "engineer" }));
   });
 
   it("enforces the replan budget", () => {

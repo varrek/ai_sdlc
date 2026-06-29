@@ -203,7 +203,7 @@ function eventStage(event: LoopTraceEvent): LoopStage | undefined {
     case "stuck":
       return event.stage;
     case "handoff":
-      return event.toStage;
+      return undefined;
     default: {
       const _exhaustive: never = event;
       return _exhaustive;
