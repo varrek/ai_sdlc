@@ -24,6 +24,10 @@ export interface RepoEvalResult {
     reused: boolean;
     root?: string;
   };
+  materialization?: {
+    ms: number;
+    cacheReused?: boolean;
+  };
   setup?: {
     setupReady: boolean;
     alignmentReady: boolean;
@@ -42,12 +46,24 @@ export interface RepoEvalResult {
     compileFresh: boolean;
     upToDate: boolean;
     packages: number;
+    agentQuality: AgentQuality;
   };
   timings?: SetupChainResult["timings"];
   failureClass?: EvalFailureClass;
   failureConfidence?: 50 | 75 | 100;
   failureMessage?: string;
   untrustedNotes?: string[];
+}
+
+export interface AgentQuality {
+  score: number;
+  architectGrounded: boolean;
+  engineerGrounded: boolean;
+  testerGrounded: boolean;
+  hasRootTestCommand: boolean;
+  hasCodebaseMap: boolean;
+  evidenceBackedStandards: boolean;
+  mapIsNoisy: boolean;
 }
 
 export interface EvalRunSummary {
@@ -58,6 +74,14 @@ export interface EvalRunSummary {
   failureClasses: Partial<Record<EvalFailureClass, number>>;
   slowestRepoIds: string[];
   slowestPhases: Partial<Record<keyof SetupChainResult["timings"], { repoId: string; ms: number }>>;
+  slowestMaterialization?: { repoId: string; ms: number };
+  agentQuality: {
+    averageScore: number;
+    missingArchitectGrounding: number;
+    missingEngineerGrounding: number;
+    missingTesterGrounding: number;
+    noisyMaps: number;
+  };
 }
 
 export interface EvalRunReport {
@@ -96,6 +120,7 @@ export function resultFromSetup(repo: ExternalRepoEntry, setup: SetupChainResult
       compileFresh: setup.freshness.compileFresh,
       upToDate: setup.freshness.upToDate,
       packages: setup.status.packages,
+      agentQuality: buildAgentQuality(setup),
     },
     timings: setup.timings,
     failureClass: failure?.failureClass,
@@ -150,12 +175,34 @@ export function summarizeResults(results: RepoEvalResult[]): EvalRunSummary {
   let setupReady = 0;
   let handsOff = 0;
   let validButNeedsAttention = 0;
+  let qualityTotal = 0;
+  let qualityCount = 0;
+  let missingArchitectGrounding = 0;
+  let missingEngineerGrounding = 0;
+  let missingTesterGrounding = 0;
+  let noisyMaps = 0;
+  let slowestMaterialization: EvalRunSummary["slowestMaterialization"];
   const slowestPhases: EvalRunSummary["slowestPhases"] = {};
   for (const result of results) {
     if (result.failureClass) failureClasses[result.failureClass] = (failureClasses[result.failureClass] ?? 0) + 1;
     if (result.setup?.setupReady) setupReady++;
     if (result.setup?.handsOff) handsOff++;
     if (result.setup && !result.setup.alignmentReady && result.setup.setupReady) validButNeedsAttention++;
+    if (result.setup?.agentQuality) {
+      const quality = result.setup.agentQuality;
+      qualityTotal += quality.score;
+      qualityCount++;
+      if (!quality.architectGrounded) missingArchitectGrounding++;
+      if (!quality.engineerGrounded) missingEngineerGrounding++;
+      if (!quality.testerGrounded) missingTesterGrounding++;
+      if (quality.mapIsNoisy) noisyMaps++;
+    }
+    if (result.materialization) {
+      const current = slowestMaterialization;
+      if (!current || result.materialization.ms > current.ms) {
+        slowestMaterialization = { repoId: result.repo.id, ms: result.materialization.ms };
+      }
+    }
     if (result.timings) {
       for (const key of Object.keys(result.timings) as Array<keyof SetupChainResult["timings"]>) {
         const current = slowestPhases[key];
@@ -177,6 +224,14 @@ export function summarizeResults(results: RepoEvalResult[]): EvalRunSummary {
     failureClasses,
     slowestRepoIds,
     slowestPhases,
+    slowestMaterialization,
+    agentQuality: {
+      averageScore: qualityCount === 0 ? 0 : Math.round(qualityTotal / qualityCount),
+      missingArchitectGrounding,
+      missingEngineerGrounding,
+      missingTesterGrounding,
+      noisyMaps,
+    },
   };
 }
 
@@ -200,6 +255,12 @@ export function renderEvalSummary(report: EvalRunReport): string {
   if (Object.keys(report.summary.slowestPhases).length > 0) {
     lines.push(`Slowest phases: ${JSON.stringify(report.summary.slowestPhases)}`);
   }
+  if (report.summary.slowestMaterialization) {
+    lines.push(
+      `Slowest materialization: ${report.summary.slowestMaterialization.repoId} (${report.summary.slowestMaterialization.ms}ms)`,
+    );
+  }
+  lines.push(`Agent quality: avg ${report.summary.agentQuality.averageScore}/100`);
   return lines.join("\n");
 }
 
@@ -229,5 +290,35 @@ function redactResult(result: RepoEvalResult): RepoEvalResult {
   return {
     ...result,
     failureMessage: result.failureMessage ? redactUntrustedText(result.failureMessage) : undefined,
+  };
+}
+
+function buildAgentQuality(setup: SetupChainResult): AgentQuality {
+  const states = setup.status.roleStates;
+  const architectGrounded = states.architect !== "generic";
+  const engineerGrounded = states.engineer !== "generic";
+  const testerGrounded = states.tester !== "generic";
+  const hasRootTestCommand = Boolean(setup.status.gapClosureProvenance["test-command"]);
+  const hasCodebaseMap = setup.status.architectureConfidence === "high";
+  const evidenceBackedStandards =
+    setup.status.coverage.total > 0 && setup.status.coverage.covered === setup.status.coverage.total;
+  const mapIsNoisy = setup.status.packages > 8;
+  const score =
+    (architectGrounded ? 20 : 0) +
+    (engineerGrounded ? 20 : 0) +
+    (testerGrounded ? 20 : 0) +
+    (hasRootTestCommand ? 15 : 0) +
+    (hasCodebaseMap ? 15 : 0) +
+    (evidenceBackedStandards ? 10 : 0) -
+    (mapIsNoisy ? 10 : 0);
+  return {
+    score: Math.max(0, Math.min(100, score)),
+    architectGrounded,
+    engineerGrounded,
+    testerGrounded,
+    hasRootTestCommand,
+    hasCodebaseMap,
+    evidenceBackedStandards,
+    mapIsNoisy,
   };
 }

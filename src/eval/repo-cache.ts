@@ -20,6 +20,7 @@ export interface RepoCacheOptions {
   skipClone?: boolean;
   force?: boolean;
   timeoutMs?: number;
+  symlinkScanLimit?: number;
   git?: GitRunner;
 }
 
@@ -45,6 +46,7 @@ interface CacheMetadata {
 }
 
 const metadataFile = ".aisdlc-eval-cache.json";
+const DEFAULT_SYMLINK_SCAN_LIMIT = 500_000;
 const defaultGitRunner: GitRunner = {
   run(args, options) {
     execFileSync("git", args, {
@@ -76,10 +78,10 @@ export function materializeRepo(options: RepoCacheOptions): RepoCacheResult {
   };
 
   if (!options.force && cacheMatches(root, expected)) {
-    const symlinkFailure = firstOutboundSymlink(root);
+    const symlinkFailure = firstOutboundSymlink(root, options.symlinkScanLimit ?? DEFAULT_SYMLINK_SCAN_LIMIT);
     if (symlinkFailure) {
       rmSync(root, { recursive: true, force: true });
-      return { ok: false, failureClass: "workflow-error", message: symlinkFailure };
+      return { ok: false, failureClass: classifySymlinkFailure(symlinkFailure), message: symlinkFailure };
     }
     return { ok: true, root, reused: true };
   }
@@ -106,10 +108,10 @@ export function materializeRepo(options: RepoCacheOptions): RepoCacheResult {
       "--detach",
       options.entry.commit,
     ], { timeoutMs: options.timeoutMs });
-    const symlinkFailure = firstOutboundSymlink(root);
+    const symlinkFailure = firstOutboundSymlink(root, options.symlinkScanLimit ?? DEFAULT_SYMLINK_SCAN_LIMIT);
     if (symlinkFailure) {
       rmSync(root, { recursive: true, force: true });
-      return { ok: false, failureClass: "workflow-error", message: symlinkFailure };
+      return { ok: false, failureClass: classifySymlinkFailure(symlinkFailure), message: symlinkFailure };
     }
     writeFileSync(join(root, metadataFile), `${JSON.stringify(expected, null, 2)}\n`, "utf8");
     return { ok: true, root, reused: false };
@@ -160,7 +162,7 @@ function cacheMatches(root: string, expected: CacheMetadata): boolean {
   }
 }
 
-function firstOutboundSymlink(root: string): string | undefined {
+function firstOutboundSymlink(root: string, maxEntries: number): string | undefined {
   const resolvedRoot = realpathSync(root);
   const stack = [resolvedRoot];
   let visited = 0;
@@ -171,7 +173,7 @@ function firstOutboundSymlink(root: string): string | undefined {
       const path = join(dir, name);
       const stat = lstatSync(path);
       visited++;
-      if (visited > 20000) return "repo exceeded symlink scan entry limit";
+      if (visited > maxEntries) return `repo exceeded symlink scan entry limit (${maxEntries})`;
       if (stat.isSymbolicLink()) {
         const target = realpathSync(path);
         if (!isWithin(resolvedRoot, target)) return `repo contains outbound symlink at ${path}`;
@@ -197,5 +199,9 @@ function classifyGitFailure(error: unknown): RepoCacheFailureClass {
   if (/timed out|ETIMEDOUT|SIGTERM|timeout/i.test(message)) return "scale-timeout";
   if (/not our ref|reference is not a tree|couldn't find remote ref/i.test(message)) return "upstream-drift";
   return "network";
+}
+
+function classifySymlinkFailure(message: string): RepoCacheFailureClass {
+  return message.includes("symlink scan entry limit") ? "scale-timeout" : "workflow-error";
 }
 

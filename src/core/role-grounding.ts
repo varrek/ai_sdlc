@@ -28,12 +28,23 @@ export function hasDeterministicTesterGrounding(input: RoleGroundingInput): bool
   return (input.projectContext?.packages ?? []).some((pkg) => Boolean(pkg.testCommand?.trim()));
 }
 
+export function hasDeterministicEngineerGrounding(input: RoleGroundingInput): boolean {
+  return Boolean(
+    input.overlay.interviewAnswers?.["test-command"]?.trim() ||
+      (input.projectContext?.map.length ?? 0) > 0 ||
+      (input.projectContext?.packages ?? []).some((pkg) => Boolean(pkg.testCommand?.trim())),
+  );
+}
+
 export function appendRoleGrounding(role: Role, input: RoleGroundingInput): Role {
   if (role.frontmatter.name === "architect") {
     return appendArchitectGrounding(role, input.projectContext);
   }
   if (role.frontmatter.name === "tester") {
     return appendTesterGrounding(role, input);
+  }
+  if (role.frontmatter.name === "engineer") {
+    return appendEngineerGrounding(role, input);
   }
   return role;
 }
@@ -58,6 +69,26 @@ function appendTesterGrounding(role: Role, input: RoleGroundingInput): Role {
     return role;
   }
   const lines = buildTesterGroundingLines(input);
+  return appendGroundingSection(role, lines.join("\n"));
+}
+
+function appendEngineerGrounding(role: Role, input: RoleGroundingInput): Role {
+  if (role.frontmatter.name !== "engineer" || !hasDeterministicEngineerGrounding(input)) {
+    return role;
+  }
+  const lines = ["Use this mined context before editing:"];
+  const map = input.projectContext?.map ?? [];
+  if (map.length > 0) {
+    lines.push(
+      "Likely edit areas:",
+      ...map.slice(0, 6).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
+    );
+    if (map.length > 6) lines.push(`- ${map.length - 6} additional entries are available in the codebase map.`);
+  }
+  const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
+  if (rootCommand) lines.push(`Run relevant validation with \`${rootCommand}\`.`);
+  const packageCommands = (input.projectContext?.packages ?? []).filter((pkg) => pkg.testCommand?.trim()).slice(0, 4);
+  for (const pkg of packageCommands) lines.push(`For \`${pkg.path}\`, use \`${pkg.testCommand}\`.`);
   return appendGroundingSection(role, lines.join("\n"));
 }
 

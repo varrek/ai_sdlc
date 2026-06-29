@@ -48,7 +48,9 @@ describe("status", () => {
 
     const report = buildStatus({ repoRoot: work, overlayDir });
 
+    expect(report.roleStates.engineer).toBe("deterministic");
     expect(report.roleStates.tester).toBe("deterministic");
+    expect(formatStatus(report)).toContain("engineer=deterministic");
     expect(formatStatus(report)).toContain("tester=deterministic");
   });
 
@@ -59,7 +61,9 @@ describe("status", () => {
 
     const report = buildStatus({ repoRoot: work, overlayDir });
 
+    expect(report.roleStates.engineer).toBe("generic");
     expect(report.roleStates.tester).toBe("generic");
+    expect(formatStatus(report)).toContain("engineer=generic");
     expect(formatStatus(report)).toContain("tester=generic");
   });
 });

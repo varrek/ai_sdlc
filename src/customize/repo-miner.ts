@@ -35,7 +35,7 @@ const IGNORE_DIRS = new Set([
   ".sdlc",
 ]);
 
-const WALK_DEPTH = 4;
+const WALK_DEPTH = 8;
 
 /** Observable architecture: the source module map + entrypoints (never inferred layering). */
 export interface Architecture {
@@ -212,6 +212,7 @@ function walk(root: string, excluded: ReadonlySet<string>): string[] {
 function isGeneratedArtifact(rel: string): boolean {
   const base = rel.slice(rel.lastIndexOf("/") + 1);
   if (base === "AGENTS.md" || base === "CLAUDE.md") return true;
+  if (rel === ".mcp.json" || rel === ".vscode/mcp.json" || rel === "portability.gap.yml") return true;
   if (rel === ".github/copilot-instructions.md") return true;
   if (rel === ".github/workflows/sdlc-gate.yml") return true;
   return (
@@ -268,6 +269,37 @@ function immediateSubdirs(files: string[], dir: string): string[] {
   return [...subs].sort();
 }
 
+function rootSourceDirs(files: string[], extensionPattern: RegExp): string[] {
+  const dirs = new Set<string>();
+  for (const f of files) {
+    if (!extensionPattern.test(f)) continue;
+    const slash = f.indexOf("/");
+    if (slash > 0) dirs.add(f.slice(0, slash));
+  }
+  return [...dirs].filter((dir) => !isLowValueRoot(dir)).sort();
+}
+
+function commonPathPrefix(paths: string[]): string | undefined {
+  if (paths.length === 0) return undefined;
+  const prefix = paths[0]!.split("/");
+  for (const path of paths.slice(1)) {
+    const parts = path.split("/");
+    let i = 0;
+    while (i < prefix.length && i < parts.length && prefix[i] === parts[i]) i++;
+    prefix.length = i;
+  }
+  return prefix.length > 0 ? prefix.join("/") : undefined;
+}
+
+function jvmSourceRoot(files: string[], sourceBase: string): string | undefined {
+  const prefix = `${sourceBase}/`;
+  const sourceDirs = files
+    .filter((f) => f.startsWith(prefix) && /\.(java|kt)$/.test(f))
+    .map((f) => f.slice(0, f.lastIndexOf("/")))
+    .filter((dir) => dir.length > sourceBase.length);
+  return commonPathPrefix(sourceDirs) ?? (sourceDirs.length > 0 ? sourceBase : undefined);
+}
+
 /**
  * Mine observable architecture: the dominant source directory, its immediate
  * module subdirectories, and declared entrypoints. Only facts are recorded —
@@ -290,6 +322,43 @@ function mineArchitecture(
   const entrypoints = mineEntrypoints(root, fileSet, evidence);
   const productHints = productRootHints(root, fileSet, entrypoints);
   const demotedRoots = [...bySeg.keys()].filter((seg) => seg !== "." && isLowValueRoot(seg)).sort();
+
+  const jvmRoot = jvmSourceRoot(files, "src/main/java") ?? jvmSourceRoot(files, "src/main/kotlin");
+  if (jvmRoot) {
+    const modules = immediateSubdirs(files, jvmRoot);
+    const boundedModules = (modules.length > 0 ? modules : ["."]).slice(0, MAX_ARCHITECTURE_MODULES);
+    for (const m of boundedModules) {
+      const path = m === "." ? jvmRoot : `${jvmRoot}/${m}`;
+      addEvidence(evidence, `architecture:module:${m}`, path);
+    }
+    return {
+      confidence: "high",
+      reasons: ["jvm source root"],
+      sourceRoot: jvmRoot,
+      modules: boundedModules,
+      demotedRoots,
+      overflowModules: Math.max(0, modules.length - boundedModules.length),
+      entrypoints,
+    };
+  }
+
+  if (fileSet.has("go.mod")) {
+    const modules = rootSourceDirs(files, /\.go$/).filter((dir) => dir !== ".");
+    if (modules.length > 0) {
+      const boundedModules = modules.slice(0, MAX_ARCHITECTURE_MODULES);
+      for (const m of boundedModules) addEvidence(evidence, `architecture:module:${m}`, m);
+      return {
+        confidence: "high",
+        reasons: ["go module root"],
+        sourceRoot: ".",
+        modules: boundedModules,
+        demotedRoots,
+        overflowModules: Math.max(0, modules.length - boundedModules.length),
+        entrypoints,
+      };
+    }
+  }
+
   const candidates = [...bySeg.entries()]
     .filter(([seg]) => seg !== ".")
     .map(([seg, count]) => {
@@ -811,6 +880,11 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
       addEvidence(evidence, "test-runner:dotnet", csprojPath ?? "global.json");
     }
   }
+  const dotnetBuildScript = dotnetBuildScriptTestCommand(fileSet, read(root, "eng/build.sh"));
+  if (dotnetBuildScript) {
+    testRunner = testRunner ?? "dotnet";
+    addEvidence(evidence, "test-runner:dotnet", dotnetBuildScript.evidence);
+  }
 
   // ---- Go signals ----
   if (fileSet.has("go.mod")) {
@@ -861,6 +935,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     testRunner,
     hasGradlew,
     csprojPath,
+    dotnetBuildScript,
     langShares,
     sourceFileTotal,
   });
@@ -1187,6 +1262,7 @@ interface TestCommandSignals {
   testRunner: string | undefined;
   hasGradlew: boolean;
   csprojPath: string | undefined;
+  dotnetBuildScript: { command: string; evidence: string } | undefined;
   /** Extension-based language share (0..1), keyed by language. Empty when no source. */
   langShares: Map<string, number>;
   /** Total extension-classified source files; 0 for a manifest-only repo. */
@@ -1477,10 +1553,20 @@ function runnerDefaultEvidence(signals: TestCommandSignals): string {
   if (signals.testRunner === "rspec" && signals.fileSet.has("Gemfile")) return "Gemfile";
   if (signals.testRunner === "minitest" && signals.fileSet.has("Gemfile")) return "Gemfile";
   if (signals.testRunner === "dotnet" && signals.csprojPath) return signals.csprojPath;
+  if (signals.testRunner === "dotnet" && signals.dotnetBuildScript) return signals.dotnetBuildScript.evidence;
   if (signals.testRunner === "go" && signals.fileSet.has("go.mod")) return "go.mod";
   if (signals.fileSet.has("pyproject.toml")) return "pyproject.toml";
   if (signals.fileSet.has("package.json")) return "package.json";
   return "tests/";
+}
+
+function dotnetBuildScriptTestCommand(
+  fileSet: Set<string>,
+  engBuildSh: string,
+): { command: string; evidence: string } | undefined {
+  if (!fileSet.has("eng/build.sh")) return undefined;
+  if (!/--\[no-\]test|--test\b/.test(engBuildSh)) return undefined;
+  return { command: "./eng/build.sh --test", evidence: "eng/build.sh" };
 }
 
 function runnerDefaultCommand(
@@ -1507,6 +1593,7 @@ function runnerDefaultCommand(
     case "minitest":
       return "bundle exec rake test";
     case "dotnet":
+      if (signals.dotnetBuildScript) return signals.dotnetBuildScript.command;
       return "dotnet test";
     default:
       return undefined;

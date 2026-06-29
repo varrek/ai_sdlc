@@ -74,6 +74,7 @@ describe("bench command", () => {
     expect(result.exitCode).toBe(0);
     expect(result.report?.results).toHaveLength(2);
     expect(result.report?.summary.failureClasses["miner-bug"]).toBe(2);
+    expect(result.report?.summary.slowestMaterialization?.ms).toBeGreaterThanOrEqual(0);
     expect(result.report?.results[0]!.failureMessage).toContain("token=<redacted>");
   });
 

@@ -16,7 +16,7 @@ import {
 } from "./phase-fingerprints.js";
 import { inspectRepo } from "./customize.js";
 import { readAcceptedLearnings, summarizeAcceptedLearnings } from "../core/accepted-learnings.js";
-import { hasDeterministicTesterGrounding } from "../core/role-grounding.js";
+import { hasDeterministicEngineerGrounding, hasDeterministicTesterGrounding } from "../core/role-grounding.js";
 import type { OperatingMode } from "../schema/index.js";
 
 export interface StatusReport {
@@ -83,6 +83,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const handsOff = setupReady && provenanceValues.length > 0 && provenanceValues.every((p) => p === "miner" || p === "ci");
   const projectContext = buildProjectContext(inspection.profile, inspection.standardsIndex);
   const groundingInput = { overlay: inspection.overlay, projectContext };
+  const engineerDeterministic = hasDeterministicEngineerGrounding(groundingInput);
   const testerDeterministic = hasDeterministicTesterGrounding(groundingInput);
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
   return {
@@ -101,6 +102,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
     evidenceQuality: quality,
     roleStates: {
       architect: roleState(archConfidence === "high", Boolean(inspection.overlay.roleAddenda.architect)),
+      engineer: roleState(engineerDeterministic, Boolean(inspection.overlay.roleAddenda.engineer)),
       tester: roleState(testerDeterministic, Boolean(inspection.overlay.roleAddenda.tester)),
     },
     blockingGaps: inspection.gaps.length,
@@ -204,7 +206,7 @@ export function formatStatus(report: StatusReport): string {
     lines.push(`Low-value evidence sources: ${report.evidenceQuality.lowValueSources.join(", ")}`);
   }
   lines.push(
-    `Role grounding: architect=${report.roleStates.architect}, tester=${report.roleStates.tester}`,
+    `Role grounding: architect=${report.roleStates.architect}, engineer=${report.roleStates.engineer}, tester=${report.roleStates.tester}`,
   );
   if (report.acceptedLearnings.count > 0) {
     lines.push(`Accepted learnings (${report.acceptedLearnings.count}):`);

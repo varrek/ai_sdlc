@@ -93,6 +93,7 @@ export function runBench(options: BenchOptions): BenchResult {
       }
     }
 
+    const materializeStart = performance.now();
     const materialized = materializeRepo({
       cacheDir,
       entry: repo,
@@ -103,6 +104,7 @@ export function runBench(options: BenchOptions): BenchResult {
       timeoutMs: options.repoTimeoutMs,
       git: options.git,
     });
+    const materializationMs = Math.round(performance.now() - materializeStart);
     let result: RepoEvalResult;
     if (materialized.ok) {
       try {
@@ -117,15 +119,17 @@ export function runBench(options: BenchOptions): BenchResult {
         result = {
           ...resultFromSetup(repo, setup, checkpointPath),
           cache: { reused: materialized.reused, root: materialized.root },
+          materialization: { ms: materializationMs, cacheReused: materialized.reused },
         };
       } catch (error) {
         result = {
           ...resultFromSetupError(repo, error, checkpointPath),
           cache: { reused: materialized.reused, root: materialized.root },
+          materialization: { ms: materializationMs, cacheReused: materialized.reused },
         };
       }
     } else {
-      result = resultFromCacheFailure(repo, materialized, checkpointPath);
+      result = { ...resultFromCacheFailure(repo, materialized, checkpointPath), materialization: { ms: materializationMs } };
     }
     writeCheckpoint(checkpointPath, result, repo, baseFp);
     results.push(result);

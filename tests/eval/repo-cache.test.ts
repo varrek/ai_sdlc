@@ -63,6 +63,27 @@ describe("repo cache", () => {
     if (!result.ok) expect(result.message).toContain("outbound symlink");
     expect(existsSync(cacheDir)).toBe(true);
   });
+
+  it("allows callers to lower the symlink scan limit for scale classification tests", () => {
+    const cacheDir = tmp("aisdlc-cache-limit-");
+    const git: GitRunner = {
+      run(args) {
+        if (args[0] !== "clone") return;
+        const root = args.at(-1)!;
+        mkdirSync(join(root, "src"), { recursive: true });
+        writeFileSync(join(root, "src", "one.txt"), "one", "utf8");
+        writeFileSync(join(root, "src", "two.txt"), "two", "utf8");
+      },
+    };
+
+    const result = materializeRepo({ ...options(cacheDir, git), symlinkScanLimit: 1 });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failureClass).toBe("scale-timeout");
+      expect(result.message).toContain("symlink scan entry limit");
+    }
+  });
 });
 
 function tmp(prefix: string): string {
