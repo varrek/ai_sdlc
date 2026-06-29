@@ -6,7 +6,7 @@ import { runCompileCli } from "./compile.js";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
 import { loadAnswersFile, runCustomize } from "./customize.js";
-import { explainStandard } from "./explain.js";
+import { EXPLAIN_CLAIM_KEYS, explainClaim, explainStandard, isExplainClaimKey } from "./explain.js";
 import { buildStatus, formatStatus } from "./status.js";
 import { runSmokeCli } from "./smoke.js";
 import { runUpgrade } from "./upgrade.js";
@@ -25,7 +25,7 @@ Commands:
   upgrade     Re-pin the base and replay compile, flagging overlay conflicts (U5).
   smoke       Run the smoke validation gate (U7).
   status      Report setup freshness, blocking gaps, and evidence coverage.
-  explain     Show a mined standard (by number) and the evidence behind it.
+  explain     Show a mined standard (by number) or stable claim key and its evidence.
 `;
 
 function fail(message: string): never {
@@ -238,16 +238,31 @@ function cmdStatus(rest: string[]): void {
 function cmdExplain(rest: string[]): void {
   const { options } = parseArgs(rest);
   const positional = rest.find((a) => !a.startsWith("-"));
-  if (positional === undefined) fail("explain: a standard number is required, e.g. `aisdlc explain 1`");
-  const n = Number(positional);
-  if (!Number.isInteger(n)) fail(`explain: '${positional}' is not a standard number. Run \`aisdlc status\` to list them.`);
+  if (positional === undefined) {
+    fail(
+      "explain: a standard number or claim key is required, e.g. `aisdlc explain 1` or `aisdlc explain test-command`",
+    );
+  }
 
-  const result = explainStandard({
-    repoRoot: options.get("repo") ?? process.cwd(),
-    overlayDir: options.get("overlay-dir"),
-    sdlcDir: options.get("sdlc-dir"),
-    n,
-  });
+  const repoRoot = options.get("repo") ?? process.cwd();
+  const overlayDir = options.get("overlay-dir");
+  const sdlcDir = options.get("sdlc-dir");
+
+  if (isExplainClaimKey(positional)) {
+    const result = explainClaim({ repoRoot, overlayDir, sdlcDir, key: positional });
+    process.stdout.write(`${result.message}\n`);
+    process.exit(result.ok ? 0 : 1);
+    return;
+  }
+
+  const n = Number(positional);
+  if (!Number.isInteger(n)) {
+    fail(
+      `explain: '${positional}' is not a standard number or supported claim key (${EXPLAIN_CLAIM_KEYS.join(", ")}). Run \`aisdlc status\` to list standards.`,
+    );
+  }
+
+  const result = explainStandard({ repoRoot, overlayDir, sdlcDir, n });
   process.stdout.write(`${result.message}\n`);
   process.exit(result.ok ? 0 : 1);
 }
