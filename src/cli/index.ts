@@ -57,8 +57,9 @@ function isLoopTraceEvent(value: unknown): value is LoopTraceEvent {
 
 function approvalEventKey(event: LoopTraceEvent): string | undefined {
   if (event.type !== "approval_gate" || event.verdict !== "approved") return undefined;
+  if (!event.stage) return undefined;
   const evidence = [...(event.evidence ?? [])].sort().join("\0");
-  return [event.taskId, event.role ?? "", evidence].join("\0");
+  return [event.taskId, event.role ?? "", event.stage, evidence].join("\0");
 }
 
 /** Where `customize` writes the project overlay. */

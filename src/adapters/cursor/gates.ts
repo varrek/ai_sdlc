@@ -52,6 +52,11 @@ function findSdlcDir() {
   }
 }
 
+function gateStage() {
+  const stage = process.env.SDLC_GATE_STAGE || process.env.SDLC_STAGE;
+  return ["architect", "engineer", "test", "reviewer", "wrap-up"].includes(stage) ? stage : undefined;
+}
+
 if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet. Halting before write-out.");
   process.exit(2);
@@ -62,14 +67,17 @@ const taskId = process.env.SDLC_TASK_ID || "unknown";
 const scope = process.env.SDLC_SCOPE || "workspace";
 const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
 const sdlcDir = process.env.SDLC_DIR || findSdlcDir();
+const stage = gateStage();
+const checkpoint = process.env.SDLC_CHECKPOINT || stage || scope;
 
 const event = JSON.stringify({
   type: "approval_gate",
   taskId,
   verdict: "approved",
   role,
-  reason: "Human approved via SDLC_APPROVED=1",
-  evidence: scope ? [scope] : undefined,
+  stage,
+  reason: \`Human approved via SDLC_APPROVED=1 (\${checkpoint})\`,
+  evidence: [scope, checkpoint].filter(Boolean),
 });
 
 try {
