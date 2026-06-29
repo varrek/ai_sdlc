@@ -199,9 +199,11 @@ function cmdCustomize(rest: string[]): void {
       );
     }
   } else if (result.drift.changed) {
-    process.stdout.write(
-      `Drift: +${result.drift.added.length} / -${result.drift.removed.length} standards since last run.\n`,
-    );
+    const driftDetail =
+      result.drift.added.length === 0 && result.drift.removed.length === 0
+        ? "standards evidence metadata changed since last run"
+        : `+${result.drift.added.length} / -${result.drift.removed.length} standards since last run`;
+    process.stdout.write(`Drift: ${driftDetail}.\n`);
   }
   if (result.packageCount > 1) {
     process.stdout.write(

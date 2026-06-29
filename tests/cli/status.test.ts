@@ -1,11 +1,13 @@
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { parse as parseYaml, stringify } from "yaml";
 import { runCustomize } from "../../src/cli/customize.js";
 import { buildStatus, formatStatus } from "../../src/cli/status.js";
 import { upsertAcceptedLearning } from "../../src/core/accepted-learnings.js";
+import type { StandardsIndex } from "../../src/customize/emitters.js";
 import {
   type LoopBehaviorEvalResult,
   writeLoopBehaviorEvalState,
@@ -137,6 +139,22 @@ describe("status", () => {
     expect(report.loopQuality.behaviorEval.passed).toBe(2);
     expect(report.loopQuality.behaviorEval.total).toBe(2);
     expect(formatStatus(report)).toContain("behavior eval=passed (2/2)");
+  });
+
+  it("reports stale freshness when standards evidence metadata drifts", () => {
+    const work = tmpWork("python-rags");
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+    const standardsPath = join(overlayDir, "standards-index.yaml");
+    const edited = parseYaml(readFileSync(standardsPath, "utf8")) as StandardsIndex;
+    edited.standards[0]!.sources = ["stale-source.txt"];
+    writeFileSync(standardsPath, stringify(edited), "utf8");
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+
+    expect(report.upToDate).toBe(false);
+    expect(report.stalePhases).toContain("overlay-written");
+    expect(formatStatus(report)).toContain("Freshness: stale");
   });
 
   it("reports partial behavior eval when some scenarios fail", () => {

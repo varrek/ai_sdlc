@@ -89,6 +89,29 @@ describe("repo cache", () => {
     }
   });
 
+  it("returns a structured failure for dangling symlinks in reused cache entries", () => {
+    const cacheDir = tmp("aisdlc-cache-reused-dangling-symlink-");
+    const git: GitRunner = {
+      run(args) {
+        if (args[0] !== "clone") return;
+        mkdirSync(args.at(-1)!, { recursive: true });
+      },
+    };
+    const first = materializeRepo(options(cacheDir, git));
+    expect(first.ok).toBe(true);
+    if (!first.ok) throw new Error(first.message);
+    symlinkSync(join(first.root, "missing-target"), join(first.root, "dangling"));
+
+    const result = materializeRepo(options(cacheDir, git));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failureClass).toBe("workflow-error");
+      expect(result.message).toContain("symlink scan failed");
+    }
+    expect(existsSync(first.root)).toBe(false);
+  });
+
   it("allows callers to lower the symlink scan limit for scale classification tests", () => {
     const cacheDir = tmp("aisdlc-cache-limit-");
     const git: GitRunner = {

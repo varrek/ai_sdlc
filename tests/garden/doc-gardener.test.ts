@@ -157,6 +157,20 @@ describe("doc gardener", () => {
     expect(report.findings.some((finding) => finding.id === "broken-local-link")).toBe(false);
   });
 
+  it("ignores markdown-looking links inside multi-backtick code spans", () => {
+    const root = tmpRepo();
+    mkdirSync(join(root, "docs"), { recursive: true });
+    writeFileSync(
+      join(root, "docs", "guide.md"),
+      "Use `` `[Missing][target]` `` when documenting reference-link regexes.\n",
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root });
+
+    expect(report.findings.some((finding) => finding.id === "broken-local-link")).toBe(false);
+  });
+
   it("ignores markdown-looking links inside indented code blocks", () => {
     const root = tmpRepo();
     mkdirSync(join(root, "docs"), { recursive: true });

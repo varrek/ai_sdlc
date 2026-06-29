@@ -69,7 +69,10 @@ function collectTestCommandNegativeEvidence(
 }
 
 function explainTestCommand(profile: RepoProfile, overlay: Overlay): ExplainResult {
-  const resolvedCommand = overlay.interviewAnswers["test-command"]?.trim() || profile.testCommand;
+  const resolvedCommand =
+    "test-command" in overlay.interviewAnswers
+      ? overlay.interviewAnswers["test-command"]?.trim()
+      : profile.testCommand;
   const provenance = overlay.gapClosureProvenance?.["test-command"];
   const positive = collectTestCommandPositiveEvidence(profile);
   const negative = collectTestCommandNegativeEvidence(profile, resolvedCommand);

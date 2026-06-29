@@ -299,7 +299,7 @@ function maskMarkdownCode(contents: string): string {
       blankMarkdown(match),
     )
     .replace(/^(?: {4}|\t).+$/gm, (match) => blankMarkdown(match))
-    .replace(/`[^`\n]+`/g, (match) => blankMarkdown(match));
+    .replace(/(`+)[^\n]*?\1/g, (match) => blankMarkdown(match));
 }
 
 function blankMarkdown(value: string): string {

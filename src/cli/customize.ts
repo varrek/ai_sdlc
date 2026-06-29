@@ -188,6 +188,7 @@ export function inspectRepo(options: {
   const overlayDir = options.overlayDir ?? join(options.repoRoot, ".sdlc", "overlay");
   const sdlcDir = options.sdlcDir ?? dirname(overlayDir);
   const overlayPath = join(overlayDir, OVERLAY_FILE);
+  const standardsPath = join(overlayDir, STANDARDS_FILE);
 
   const priorOverlay = existsSync(overlayPath) ? loadOverlay(overlayPath) : undefined;
   const answers = mergeAnswers(priorOverlay, {});
@@ -196,6 +197,7 @@ export function inspectRepo(options: {
   const gapClosureProvenance = resolveGapClosureProvenance(profile, answers, priorOverlay, {});
   const gaps = computeGaps(profile, answers);
   const standardsIndex = buildStandardsIndex(profile);
+  const drift = diffStandardsIndex(standardsIndex, readPriorStandards(standardsPath));
 
   const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance);
   const minedFp = fingerprint([stableProfileJson(profile)]);
@@ -203,7 +205,8 @@ export function inspectRepo(options: {
   const state = readSetupState(sdlcDir);
   const upToDate =
     isPhaseFresh(state, "mined", minedFp) &&
-    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath));
+    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath)) &&
+    !drift.changed;
 
   return {
     profile,
