@@ -85,9 +85,13 @@ export interface RepoProfile {
   root: string;
   languages: string[];
   frameworks: string[];
+  /** Browser E2E tools evidenced by deps or config (e.g. `playwright`, `cypress`). */
+  tools: string[];
   testRunner?: string;
   /** A runnable test command (e.g. `vitest run`, `pytest`), not just the runner name. */
   testCommand?: string;
+  /** Runnable browser E2E command when evidenced separately from the unit-test suite. */
+  e2eTestCommand?: string;
   linters: string[];
   packageManagers: string[];
   manifests: string[];
@@ -480,6 +484,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
 
   const languages = new Set<string>();
   const frameworks = new Set<string>();
+  const tools = new Set<string>();
   const linters = new Set<string>();
   const packageManagers = new Set<string>();
   const manifests: string[] = [];
@@ -487,6 +492,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
   const docs: string[] = [];
   let testRunner: string | undefined;
   let pkgTestScript = "";
+  let pkgScripts: Record<string, string> = {};
   let codeowners: string | undefined;
 
   // Count files per extension-detected language. A single stray file in a large
@@ -622,6 +628,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     }
     const pkg = safeJson(read(root, "package.json"));
     const scripts = (pkg.scripts ?? {}) as Record<string, string>;
+    pkgScripts = scripts;
     const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) } as Record<string, string>;
     const testScript = scripts.test ?? "";
     pkgTestScript = testScript;
@@ -647,6 +654,18 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     if ("next" in deps) {
       frameworks.add("next");
       addEvidence(evidence, "framework:next", "package.json");
+    }
+    const playwrightConfig = files.find((f) => PLAYWRIGHT_CONFIG.test(configBasename(f)));
+    if ("@playwright/test" in deps || playwrightConfig) {
+      tools.add("playwright");
+      if ("@playwright/test" in deps) addEvidence(evidence, "tool:playwright", "package.json");
+      if (playwrightConfig) addEvidence(evidence, "tool:playwright", playwrightConfig);
+    }
+    const cypressConfig = files.find((f) => CYPRESS_CONFIG.test(configBasename(f)));
+    if ("cypress" in deps || cypressConfig) {
+      tools.add("cypress");
+      if ("cypress" in deps) addEvidence(evidence, "tool:cypress", "package.json");
+      if (cypressConfig) addEvidence(evidence, "tool:cypress", cypressConfig);
     }
   }
   if (fileSet.has("tsconfig.json")) {
@@ -847,6 +866,16 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
   });
   if (testCommand) addEvidence(evidence, "test-command", testCommand.evidence);
 
+  const e2eTestCommand = resolveE2eTestCommand(root, {
+    ciFiles,
+    fileSet,
+    pkgScripts,
+    tools,
+    langShares,
+    sourceFileTotal,
+  });
+  if (e2eTestCommand) addEvidence(evidence, "e2e-test-command", e2eTestCommand.evidence);
+
   // ---- Architecture + conventions ----
   const architecture = mineArchitecture(root, files, fileSet, evidence);
   const conventions = mineConventions(root, files, evidence);
@@ -866,8 +895,10 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     root,
     languages: [...languages].sort(),
     frameworks: [...frameworks].sort(),
+    tools: [...tools].sort(),
     testRunner,
     testCommand: testCommand?.command,
+    e2eTestCommand: e2eTestCommand?.command,
     linters: [...linters].sort(),
     packageManagers: [...packageManagers].sort(),
     manifests: manifests.sort(),
@@ -1115,9 +1146,19 @@ function safeJson(text: string): Record<string, unknown> {
   }
 }
 
-/** Matches the runnable invocation of a common test runner inside a shell line. */
+/** Matches the runnable invocation of a common unit-test runner inside a shell line. */
 const TEST_TOOL =
   /(^|\s)(pytest|vitest|jest|tox|mocha)\b|(npm|yarn|pnpm)\s+(run\s+)?test\b|\bgo\s+test\b|\bcargo\s+test\b|\bmvn\s+test\b|\b(?:\.\/)?gradlew?\s+test\b|\bbundle\s+exec\s+(rspec|rake)\b|\bdotnet\s+test\b|\bmake\s+test\b/;
+
+/** Playwright / Cypress config filenames at repo root or nested paths. */
+const PLAYWRIGHT_CONFIG = /^playwright\.config\.(ts|js|mjs|cjs)$/;
+const CYPRESS_CONFIG = /^cypress\.config\.(ts|js|mjs|cjs)$/;
+
+const E2E_SCRIPT_KEYS = ["test:e2e", "e2e", "test:e2e:ci"] as const;
+
+function configBasename(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
 
 /** Leading `FOO=bar BAZ="qux" ` environment assignments before the real command. */
 const ENV_ASSIGN_PREFIX = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s+)+/;
@@ -1169,7 +1210,9 @@ function commandEcosystem(command: string): Ecosystem {
   if (/\b(pytest|tox|nox)\b/.test(c) || /\bpython3?\s+-m\b/.test(c) || /\buv\s+run\b/.test(c)) {
     return "python";
   }
-  if (/\b(npm|yarn|pnpm|npx|node)\b/.test(c) || /\b(jest|vitest|mocha)\b/.test(c)) return "js";
+  if (/\b(npm|yarn|pnpm|npx|node)\b/.test(c) || /\b(jest|vitest|mocha|playwright|cypress)\b/.test(c)) {
+    return "js";
+  }
   return undefined;
 }
 
@@ -1180,7 +1223,10 @@ function commandEcosystem(command: string): Ecosystem {
  * nothing is rejected. Otherwise the toolchain's language must clear the floor —
  * this is what keeps a Python repo's auxiliary `npm test` from being chosen.
  */
-function ecosystemAllowed(command: string, signals: TestCommandSignals): boolean {
+function ecosystemAllowed(
+  command: string,
+  signals: Pick<TestCommandSignals, "langShares" | "sourceFileTotal">,
+): boolean {
   const eco = commandEcosystem(command);
   if (eco === undefined || signals.sourceFileTotal === 0) return true;
   const share = (lang: string): number => signals.langShares.get(lang) ?? 0;
@@ -1265,6 +1311,132 @@ function resolveTestCommand(
   if (fallback && ecosystemAllowed(fallback, signals)) {
     const evidence = runnerDefaultEvidence(signals);
     return { command: fallback, evidence };
+  }
+  return undefined;
+}
+
+interface E2eCommandSignals {
+  ciFiles: string[];
+  fileSet: Set<string>;
+  pkgScripts: Record<string, string>;
+  tools: Set<string>;
+  langShares: Map<string, number>;
+  sourceFileTotal: number;
+}
+
+/** Rank CI workflow files so E2E-named jobs are consulted before generic test workflows. */
+function e2eWorkflowRank(path: string): number {
+  const base = path.slice(path.lastIndexOf("/") + 1).replace(/\.(ya?ml)$/, "").toLowerCase();
+  if (base === "e2e" || base.includes("e2e")) return 0;
+  if (base.includes("playwright") || base.includes("cypress")) return 1;
+  return 2;
+}
+
+/**
+ * Pick a browser E2E command separately from the unit-test suite. Priority:
+ * package.json E2E scripts > CI E2E jobs > inferred default when a tool is known.
+ */
+function resolveE2eTestCommand(
+  root: string,
+  signals: E2eCommandSignals,
+): { command: string; evidence: string } | undefined {
+  if (signals.tools.size === 0 && !hasE2eScript(signals.pkgScripts)) return undefined;
+
+  for (const key of E2E_SCRIPT_KEYS) {
+    const script = signals.pkgScripts[key]?.trim();
+    if (!script) continue;
+    const segment = pickE2eSegment(script) ?? pickTestSegment(script);
+    if (segment && ecosystemAllowed(segment, signals)) {
+      return { command: trimTrailingSeparator(segment), evidence: "package.json" };
+    }
+  }
+
+  const workflows = signals.ciFiles
+    .filter((f) => f.startsWith(".github/workflows/"))
+    .sort((a, b) => e2eWorkflowRank(a) - e2eWorkflowRank(b) || (a < b ? -1 : a > b ? 1 : 0));
+  for (const wf of workflows) {
+    const command = e2eCommandFromWorkflow(read(root, wf));
+    if (command && ecosystemAllowed(command, signals)) {
+      return { command: trimTrailingSeparator(command), evidence: wf };
+    }
+  }
+
+  if (signals.tools.has("playwright")) {
+    return {
+      command: "npx playwright test",
+      evidence: findPlaywrightConfigEvidence(signals.fileSet) ?? "package.json",
+    };
+  }
+  if (signals.tools.has("cypress")) {
+    return {
+      command: "npx cypress run",
+      evidence: findCypressConfigEvidence(signals.fileSet) ?? "package.json",
+    };
+  }
+  return undefined;
+}
+
+function hasE2eScript(scripts: Record<string, string>): boolean {
+  return E2E_SCRIPT_KEYS.some((key) => Boolean(scripts[key]?.trim()));
+}
+
+function findPlaywrightConfigEvidence(fileSet: Set<string>): string | undefined {
+  for (const name of ["playwright.config.ts", "playwright.config.js", "playwright.config.mjs"]) {
+    if (fileSet.has(name)) return name;
+  }
+  return undefined;
+}
+
+function findCypressConfigEvidence(fileSet: Set<string>): string | undefined {
+  for (const name of ["cypress.config.ts", "cypress.config.js", "cypress.config.mjs"]) {
+    if (fileSet.has(name)) return name;
+  }
+  return undefined;
+}
+
+function e2eCommandFromWorkflow(text: string): string | undefined {
+  let doc: unknown;
+  try {
+    doc = parseYaml(text);
+  } catch {
+    return undefined;
+  }
+  const jobs = (doc as { jobs?: Record<string, unknown> } | null)?.jobs;
+  if (!jobs || typeof jobs !== "object") return undefined;
+
+  const ranked = Object.entries(jobs).sort(([a], [b]) => e2eJobRank(a) - e2eJobRank(b));
+  for (const [, job] of ranked) {
+    const steps = (job as { steps?: unknown })?.steps;
+    if (!Array.isArray(steps)) continue;
+    for (const step of steps) {
+      const run = typeof (step as { run?: unknown })?.run === "string" ? (step as { run: string }).run : undefined;
+      if (!run) continue;
+      const command = pickE2eSegment(run);
+      if (command) return command;
+    }
+  }
+  return undefined;
+}
+
+function e2eJobRank(name: string): number {
+  const n = name.toLowerCase();
+  if (n === "e2e" || n.includes("e2e")) return 0;
+  if (n.includes("playwright") || n.includes("cypress")) return 1;
+  return 2;
+}
+
+/** Like {@link pickTestSegment} but only returns browser E2E invocations. */
+function pickE2eSegment(run: string): string | undefined {
+  const segments = run
+    .split(/\n|&&|;/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const raw of segments) {
+    if (raw.includes("${{")) continue;
+    const segment = raw.replace(ENV_ASSIGN_PREFIX, "").trim();
+    if (!segment || isInstallCommand(segment)) continue;
+    if (/\bplaywright\s+test\b/.test(segment) || /\bcypress\s+run\b/.test(segment)) return segment;
+    if (/\bnpm\s+run\s+(test:e2e|e2e)\b/.test(segment)) return segment;
   }
   return undefined;
 }

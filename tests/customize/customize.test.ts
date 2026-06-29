@@ -211,6 +211,45 @@ describe("repo miner", () => {
     expect(p.testCommand).toBeUndefined();
   });
 
+  it("detects Playwright E2E tool without replacing the unit-test command", () => {
+    const p = mineRepo(repo("ts-playwright-e2e"));
+    expect(p.tools).toContain("playwright");
+    expect(p.testRunner).toBe("vitest");
+    expect(p.testCommand).toBe("vitest run");
+    expect(p.e2eTestCommand).toBe("playwright test");
+    expect(p.evidence["tool:playwright"]).toEqual(
+      expect.arrayContaining(["package.json", "playwright.config.ts"]),
+    );
+    const index = buildStandardsIndex(p);
+    expect(index.standards.some((s) => s.statement.includes("playwright"))).toBe(true);
+    expect(index.standards.some((s) => s.statement.includes("vitest run"))).toBe(true);
+  });
+
+  it("detects Cypress from config without inferring from a bare e2e/ directory", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-cypress-"));
+    tmpDirs.push(dir);
+    writeFileSync(
+      join(dir, "package.json"),
+      JSON.stringify({ name: "cypress-app", devDependencies: { cypress: "^13.0.0" } }),
+      "utf8",
+    );
+    writeFileSync(join(dir, "cypress.config.ts"), "export default {};\n", "utf8");
+    mkdirSync(join(dir, "e2e"), { recursive: true });
+    writeFileSync(join(dir, "e2e", "placeholder.txt"), "not a manifest\n", "utf8");
+    const withConfig = mineRepo(dir);
+    expect(withConfig.tools).toContain("cypress");
+    expect(withConfig.e2eTestCommand).toBe("npx cypress run");
+
+    const bare = mkdtempSync(join(tmpdir(), "aisdlc-bare-e2e-"));
+    tmpDirs.push(bare);
+    writeFileSync(join(bare, "package.json"), JSON.stringify({ name: "bare-e2e" }), "utf8");
+    mkdirSync(join(bare, "e2e"), { recursive: true });
+    writeFileSync(join(bare, "e2e", "smoke.spec.ts"), "// no tool evidence\n", "utf8");
+    const bareProfile = mineRepo(bare);
+    expect(bareProfile.tools).toEqual([]);
+    expect(bareProfile.e2eTestCommand).toBeUndefined();
+  });
+
   it("does not mine its own emitted config (mining is stable across an in-repo compile)", () => {
     // Regression: real single-repo usage compiles SDLC config (.claude/, .cursor/,
     // AGENTS.md, …) into the repo root. A re-mine must ignore those generated
