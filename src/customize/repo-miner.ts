@@ -1581,12 +1581,14 @@ function testCommandFromGitLabCi(text: string): string | undefined {
     return undefined;
   }
   if (!doc || typeof doc !== "object") return undefined;
-  const jobs = Object.entries(doc as Record<string, unknown>)
-    .filter(([name, value]) => isGitLabCiJob(name, value))
-    .sort(
-      ([a], [b]) =>
-        workflowRank(`.gitlab-ci.yml/${a}`) - workflowRank(`.gitlab-ci.yml/${b}`) || (a < b ? -1 : a > b ? 1 : 0),
-    );
+  const jobs: Array<[string, { script?: unknown }]> = [];
+  for (const [name, value] of Object.entries(doc as Record<string, unknown>)) {
+    if (isGitLabCiJob(name, value)) jobs.push([name, value]);
+  }
+  jobs.sort(
+    ([a], [b]) =>
+      workflowRank(`.gitlab-ci.yml/${a}`) - workflowRank(`.gitlab-ci.yml/${b}`) || (a < b ? -1 : a > b ? 1 : 0),
+  );
   for (const [, job] of jobs) {
     for (const line of gitLabCiScriptLines(job)) {
       const command = pickTestSegment(line);
