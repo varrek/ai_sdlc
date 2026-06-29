@@ -9,7 +9,7 @@ import { runCompileCli } from "../../src/cli/compile.js";
 import { explainStandard } from "../../src/cli/explain.js";
 import { runSmokeCli } from "../../src/cli/smoke.js";
 import { buildStatus } from "../../src/cli/status.js";
-import { buildStandardsIndex, evidenceCoverage } from "../../src/customize/emitters.js";
+import { buildStandardsIndex, evidenceCoverage, evidenceQuality } from "../../src/customize/emitters.js";
 import { mineRepo } from "../../src/customize/repo-miner.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -154,6 +154,13 @@ describe("U6 evidence coverage", () => {
     expect(cov.total).toBeGreaterThan(0);
     expect(cov.covered).toBe(cov.total);
     expect(cov.uncited).toEqual([]);
+  });
+
+  it("does not treat CI workflow evidence as low-value architecture evidence", () => {
+    const p = mineRepo(repo("ci-repo"));
+    const index = buildStandardsIndex(p);
+
+    expect(evidenceQuality(p, index).lowValueSources).not.toContain(".github/workflows/ci.yml");
   });
 });
 

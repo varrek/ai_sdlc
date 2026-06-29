@@ -13,7 +13,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "bench": "node dist/cli/index.js bench --seed 42 --count 5"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",

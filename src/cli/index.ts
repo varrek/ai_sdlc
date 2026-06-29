@@ -2,6 +2,7 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "./args.js";
+import { DEFAULT_CACHE_DIR, DEFAULT_CATALOG, DEFAULT_REPORT_DIR, parseFailOnClasses, runBench } from "./bench.js";
 import { runCompileCli } from "./compile.js";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
@@ -25,7 +26,13 @@ Commands:
   upgrade     Re-pin the base and replay compile, flagging overlay conflicts (U5).
   smoke       Run the smoke validation gate (U7).
   status      Report setup freshness, blocking gaps, and evidence coverage.
+  bench       Run a reproducible external-repo setup evaluation.
   explain     Show a mined standard (by number) or stable claim key and its evidence.
+
+Bench flags:
+  --seed <n> --count <n> --catalog <file> --cache-dir <dir> --report-dir <dir>
+  --base <dir> --mode deterministic|plugin --dry-run --skip-clone --force
+  --repo-timeout-ms <n> --fail-on-class <class,class>
 `;
 
 function fail(message: string): never {
@@ -267,6 +274,47 @@ function cmdExplain(rest: string[]): void {
   process.exit(result.ok ? 0 : 1);
 }
 
+function cmdBench(rest: string[]): void {
+  const { options, flags } = parseArgs(rest);
+  let mode: OperatingModeValue;
+  try {
+    mode = OperatingMode.parse(options.get("mode") ?? "deterministic");
+  } catch (error) {
+    fail(`bench: invalid --mode (${(error as Error).message})`);
+  }
+  let failOnClasses;
+  try {
+    failOnClasses = parseFailOnClasses(options.get("fail-on-class"));
+  } catch (error) {
+    fail(`bench: ${(error as Error).message}`);
+  }
+  const seed = Number(options.get("seed") ?? "42");
+  const count = Number(options.get("count") ?? "5");
+  const repoTimeoutMs = options.get("repo-timeout-ms") ? Number(options.get("repo-timeout-ms")) : undefined;
+  if (!Number.isInteger(seed)) fail("bench: --seed must be an integer");
+  if (!Number.isInteger(count) || count < 1) fail("bench: --count must be a positive integer");
+  if (repoTimeoutMs !== undefined && (!Number.isFinite(repoTimeoutMs) || repoTimeoutMs < 1)) {
+    fail("bench: --repo-timeout-ms must be a positive number");
+  }
+
+  const result = runBench({
+    seed,
+    count,
+    catalogPath: options.get("catalog") ?? DEFAULT_CATALOG,
+    cacheDir: options.get("cache-dir") ?? DEFAULT_CACHE_DIR,
+    reportDir: options.get("report-dir") ?? DEFAULT_REPORT_DIR,
+    baseDir: options.get("base") ?? "sdlc-base",
+    mode,
+    skipClone: flags.has("skip-clone"),
+    dryRun: flags.has("dry-run"),
+    force: flags.has("force"),
+    repoTimeoutMs,
+    failOnClasses,
+  });
+  process.stdout.write(`${result.output}\n`);
+  process.exit(result.exitCode);
+}
+
 function cmdUpgrade(rest: string[]): void {
   const { options } = parseArgs(rest);
   const oldBaseDir = options.get("old-base");
@@ -313,6 +361,9 @@ function main(): void {
       return;
     case "status":
       cmdStatus(rest);
+      return;
+    case "bench":
+      cmdBench(rest);
       return;
     case "explain":
       cmdExplain(rest);
