@@ -73,7 +73,12 @@ key loop events when practical:
   npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
   ```
 
-Approval gate events are recorded automatically by the gate hooks.
+Approval gate events are recorded automatically by the gate hooks. For accurate
+multi-gate traces, set `SDLC_TASK_ID` for the current task, `SDLC_GATE_STAGE` or
+`SDLC_STAGE` for the loop stage, and `SDLC_CHECKPOINT` for each distinct human
+decision (for example `before-engineer`, `before-reviewer`, or
+`after-tester-handback`). Repeated approvals at the same stage must use distinct
+checkpoint ids when they represent distinct decisions.
 
 ## Per-host notes
 
