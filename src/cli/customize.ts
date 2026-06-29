@@ -18,7 +18,7 @@ import { mineRepo, type RepoProfile } from "../customize/repo-miner.js";
 import { fingerprint, isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
 import { loadOverlay, PROJECT_CONTEXT_FILE } from "../core/loader.js";
 import { renderCodebaseMap, serializeProjectContext } from "../core/project-context.js";
-import type { CeremonyTrack, Overlay } from "../schema/index.js";
+import type { CeremonyTrack, OperatingMode, Overlay } from "../schema/index.js";
 
 export interface CustomizeOptions {
   repoRoot: string;
@@ -30,6 +30,8 @@ export interface CustomizeOptions {
   answers?: Record<string, string>;
   /** Bypass the freshness short-circuit and rewrite + re-record regardless. */
   force?: boolean;
+  /** Explicitly declare the project setup mode; omitted means preserve prior/default. */
+  operatingMode?: OperatingMode;
 }
 
 export interface CustomizeResult {
@@ -95,7 +97,7 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   const standardsIndex = buildStandardsIndex(profile);
   const drift = diffStandardsIndex(standardsIndex, readPriorStandards(standardsPath));
 
-  const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance);
+  const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance, options.operatingMode);
   const overlaySerialized = serializeOverlay(overlay);
   const projectContext = buildProjectContext(profile, standardsIndex);
 

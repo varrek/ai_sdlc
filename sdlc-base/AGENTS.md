@@ -5,10 +5,10 @@ compiled into each host's native format (Cursor rules, Claude Code / `AGENTS.md`
 Copilot instructions). Teams extend it through their **overlay** — they never
 edit this file directly.
 
-## Non-negotiable gates
+## Base Gates
 
-These four gates are hard. They are **not** expressible in the overlay schema, so
-no team can disable them by configuration or typo:
+These four gates are the base workflow every project starts from. They are not
+changed by prose role guidance or typo-prone ad hoc overlay fields:
 
 1. **Review required** — every change is reviewed before it merges (by a human, or
    an agent reviewer whose findings a human signs off on).
@@ -27,6 +27,12 @@ Everything below the gates is team-owned and lives in the project overlay:
 - Integration bindings (which MCP server backs each contract, and which roles may
   reach it).
 - Per-role model overrides.
+- Operating mode (Plugin Mode by default, deterministic as an explicit opt-out).
+- Reviewable generated role guidance.
+
+Plugin Mode policy changes that adapt gates, role postures, or review flow must
+be structured, visible, and validated before adapters emit them. Hidden prose does
+not grant capabilities.
 
 ## Roles
 

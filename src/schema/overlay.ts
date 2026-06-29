@@ -12,6 +12,9 @@ export const ROLE_ADDENDUM_MAX_CHARS = 1500;
 export const CeremonyTrack = z.enum(["quick", "standard", "full"]);
 export type CeremonyTrack = z.infer<typeof CeremonyTrack>;
 
+export const OperatingMode = z.enum(["deterministic", "plugin"]);
+export type OperatingMode = z.infer<typeof OperatingMode>;
+
 export const GapClosureProvenance = z.enum(["miner", "ci", "interview", "seeded", "manual", "unknown"]);
 export type GapClosureProvenance = z.infer<typeof GapClosureProvenance>;
 
@@ -55,6 +58,11 @@ export type IntegrationBinding = z.infer<typeof IntegrationBinding>;
 export const Overlay = z
   .object({
     version: z.literal(1),
+    /**
+     * Declared setup mode. Plugin Mode is the default; deterministic mode is an
+     * explicit opt-out for non-plugin or snapshot-focused projects.
+     */
+    operatingMode: OperatingMode.default("plugin"),
     defaultTrack: CeremonyTrack.optional(),
     /** Extra project standards appended to the base constitution. */
     standards: z.array(z.string().min(1)).default([]),

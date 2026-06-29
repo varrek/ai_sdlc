@@ -14,10 +14,13 @@ import {
   overlayFingerprint,
 } from "./phase-fingerprints.js";
 import { inspectRepo } from "./customize.js";
+import type { OperatingMode } from "../schema/index.js";
 
 export interface StatusReport {
   /** True once `aisdlc customize` has produced an overlay. */
   initialized: boolean;
+  /** Declared project setup mode from `.customize.yaml`. */
+  operatingMode: OperatingMode;
   /** True when a re-run would be a no-op (mined + overlay phases fresh). */
   upToDate: boolean;
   setupReady: boolean;
@@ -73,6 +76,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const handsOff = setupReady && provenanceValues.length > 0 && provenanceValues.every((p) => p === "miner" || p === "ci");
   return {
     initialized: inspection.initialized,
+    operatingMode: inspection.overlay.operatingMode,
     upToDate: inspection.upToDate,
     setupReady,
     alignmentReady: setupReady && !validButNeedsAttention,
@@ -150,6 +154,7 @@ export function formatStatus(report: StatusReport): string {
   }
 
   lines.push("Setup: initialized");
+  lines.push(`Operating mode: ${report.operatingMode}`);
   lines.push(`Setup-ready: ${report.setupReady ? "yes" : "no"}`);
   lines.push(`Alignment-ready: ${report.alignmentReady ? "yes" : report.validButNeedsAttention ? "needs attention" : "no"}`);
   lines.push(

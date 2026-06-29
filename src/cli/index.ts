@@ -11,7 +11,7 @@ import { buildStatus, formatStatus } from "./status.js";
 import { runSmokeCli } from "./smoke.js";
 import { runUpgrade } from "./upgrade.js";
 import { buildStandardsIndex, evidenceCoverage } from "../customize/emitters.js";
-import { HostId } from "../schema/index.js";
+import { HostId, OperatingMode, type OperatingMode as OperatingModeValue } from "../schema/index.js";
 
 const HELP = `aisdlc — internal AI SDLC framework compiler
 
@@ -21,7 +21,7 @@ Usage:
 Commands:
   compile     Compile the host-neutral base (+ overlay) to host-native config.
   gen-matrix  Regenerate docs/capability-matrix.md from adapter capabilities.
-  customize   Adapt the base to the current repository (U6).
+  customize   Adapt the base to the current repository (Plugin Mode by default; use --mode deterministic to opt out).
   upgrade     Re-pin the base and replay compile, flagging overlay conflicts (U5).
   smoke       Run the smoke validation gate (U7).
   status      Report setup freshness, blocking gaps, and evidence coverage.
@@ -109,6 +109,13 @@ function cmdCustomize(rest: string[]): void {
   const { options, flags } = parseArgs(rest);
   const repoRoot = options.get("repo") ?? process.cwd();
   const answersFile = options.get("answers-file");
+  let operatingMode: OperatingModeValue | undefined;
+  try {
+    const rawMode = options.get("mode");
+    operatingMode = rawMode ? OperatingMode.parse(rawMode) : undefined;
+  } catch (error) {
+    fail(`customize: invalid --mode (${(error as Error).message})`);
+  }
   let answers: Record<string, string> | undefined;
   try {
     answers = answersFile ? loadAnswersFile(answersFile) : undefined;
@@ -121,6 +128,7 @@ function cmdCustomize(rest: string[]): void {
     overlayDir: options.get("overlay-dir"),
     answers,
     force: flags.has("force"),
+    operatingMode,
   });
 
   if (result.freshnessSkipped) {
