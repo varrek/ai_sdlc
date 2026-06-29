@@ -31,6 +31,17 @@ describe("external repo catalog", () => {
     ).toThrow(/must be/);
   });
 
+  it("rejects entry catalog revisions that differ from the root catalog", () => {
+    expect(() =>
+      parseExternalRepoCatalog({
+        catalogRevision: "root",
+        repos: [
+          { ...repo("a", "one", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "TypeScript"), catalogRevision: "entry" },
+        ],
+      }),
+    ).toThrow(/must match catalog revision/);
+  });
+
   it("reports diversity gaps when the catalog cannot satisfy requested languages", () => {
     const narrow = parseExternalRepoCatalog({
       catalogRevision: "test",

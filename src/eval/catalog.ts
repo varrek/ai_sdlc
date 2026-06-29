@@ -46,6 +46,11 @@ export function parseExternalRepoCatalog(value: unknown): ExternalRepoCatalog {
     if (repo.id !== expectedId) {
       throw new Error(`external repo catalog id '${repo.id}' must be '${expectedId}'`);
     }
+    if (repo.catalogRevision !== catalog.catalogRevision) {
+      throw new Error(
+        `external repo '${repo.id}' catalogRevision '${repo.catalogRevision}' must match catalog revision '${catalog.catalogRevision}'`,
+      );
+    }
   }
   return catalog;
 }

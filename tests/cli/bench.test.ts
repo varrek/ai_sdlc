@@ -116,6 +116,46 @@ describe("bench command", () => {
     expect(resumed.report?.results).toHaveLength(1);
     expect(resumed.report?.summary.failureClasses["miner-bug"]).toBe(1);
   });
+
+  it("reruns corrupt checkpoints instead of crashing the report", () => {
+    const root = tmpVerifyRoot();
+    const catalogPath = writeCatalog(root);
+    const git = fakeGitRunner();
+
+    const first = runBench({
+      seed: 42,
+      count: 1,
+      catalogPath,
+      cacheDir: join(root, "repos"),
+      reportDir: join(root, "reports"),
+      baseDir: "sdlc-base",
+      mode: "deterministic",
+      git,
+      setupRunner() {
+        throw new Error("first run failed");
+      },
+    });
+    writeFileSync(first.report!.results[0]!.checkpointPath!, "{not-json", "utf8");
+
+    let setupCalls = 0;
+    const rerun = runBench({
+      seed: 42,
+      count: 1,
+      catalogPath,
+      cacheDir: join(root, "repos"),
+      reportDir: join(root, "reports"),
+      baseDir: "sdlc-base",
+      mode: "deterministic",
+      git,
+      setupRunner() {
+        setupCalls++;
+        throw new Error("rerun failed");
+      },
+    });
+
+    expect(setupCalls).toBe(1);
+    expect(rerun.report?.summary.failureClasses["miner-bug"]).toBe(1);
+  });
 });
 
 function tmpVerifyRoot(): string {

@@ -75,19 +75,22 @@ export function runBench(options: BenchOptions): BenchResult {
   mkdirSync(cacheDir, { recursive: true });
   mkdirSync(reportDir, { recursive: true });
 
-  const runId = buildRunId(catalog, selection.selected, options.seed, options.count);
+  const baseFp = baseFingerprint(options.baseDir, join(reportDir, ".sdlc-cache"));
+  const runId = buildRunId(catalog, selection.selected, options.seed, options.count, baseFp);
   const runDir = join(reportDir, runId);
   mkdirSync(runDir, { recursive: true });
 
   const startedAt = (options.now ?? new Date()).toISOString();
-  const baseFp = baseFingerprint(options.baseDir, join(reportDir, ".sdlc-cache"));
   const results: RepoEvalResult[] = [];
 
   for (const repo of selection.selected) {
     const checkpointPath = join(runDir, `${hashJson(repo.id).slice(0, 16)}.json`);
     if (!options.force && existsSync(checkpointPath)) {
-      results.push(JSON.parse(readFileSync(checkpointPath, "utf8")) as RepoEvalResult);
-      continue;
+      const checkpoint = readCheckpoint(checkpointPath, repo, baseFp);
+      if (checkpoint) {
+        results.push(checkpoint);
+        continue;
+      }
     }
 
     const materialized = materializeRepo({
@@ -124,7 +127,7 @@ export function runBench(options: BenchOptions): BenchResult {
     } else {
       result = resultFromCacheFailure(repo, materialized, checkpointPath);
     }
-    writeCheckpoint(checkpointPath, result);
+    writeCheckpoint(checkpointPath, result, repo, baseFp);
     results.push(result);
   }
 
@@ -171,14 +174,44 @@ export function parseFailOnClasses(value: string | undefined): EvalFailureClass[
     });
 }
 
-function buildRunId(catalog: ExternalRepoCatalog, repos: ExternalRepoEntry[], seed: number, count: number): string {
+function buildRunId(
+  catalog: ExternalRepoCatalog,
+  repos: ExternalRepoEntry[],
+  seed: number,
+  count: number,
+  baseFp: string,
+): string {
   const digest = hashJson({
+    baseFingerprint: baseFp,
     catalogRevision: catalog.catalogRevision,
-    ids: repos.map((repo) => repo.id),
+    entries: repos.map((repo) => ({ id: repo.id, hash: cacheEntryHash(repo) })),
   }).slice(0, 12);
   return `seed-${seed}-count-${count}-${digest}`;
 }
 
-function writeCheckpoint(path: string, result: RepoEvalResult): void {
-  writeFileSync(path, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+interface StoredCheckpoint {
+  baseFingerprint: string;
+  catalogEntryHash: string;
+  result: RepoEvalResult;
+}
+
+function readCheckpoint(path: string, repo: ExternalRepoEntry, baseFingerprint: string): RepoEvalResult | undefined {
+  try {
+    const checkpoint = JSON.parse(readFileSync(path, "utf8")) as Partial<StoredCheckpoint>;
+    if (checkpoint.baseFingerprint !== baseFingerprint) return undefined;
+    if (checkpoint.catalogEntryHash !== cacheEntryHash(repo)) return undefined;
+    if (checkpoint.result?.repo?.id !== repo.id) return undefined;
+    return checkpoint.result;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCheckpoint(path: string, result: RepoEvalResult, repo: ExternalRepoEntry, baseFingerprint: string): void {
+  const checkpoint: StoredCheckpoint = {
+    baseFingerprint,
+    catalogEntryHash: cacheEntryHash(repo),
+    result,
+  };
+  writeFileSync(path, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
 }
