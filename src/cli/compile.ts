@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { compile, type CompileResult } from "../core/engine.js";
 import { loadBase, loadOverlay, loadProjectContext, projectContextPathFor } from "../core/loader.js";
+import { readAcceptedLearnings } from "../core/accepted-learnings.js";
 import { mergeOverlay } from "../core/merge.js";
 import { isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
 import type { HostId } from "../schema/index.js";
@@ -56,7 +57,9 @@ export function runCompile(options: CompileCliOptions): CompileResult {
   const base = loadBase(options.baseDir, options.packDirs);
   const overlay = loadOverlay(options.overlayPath);
   const projectContext = loadProjectContext(projectContextPathFor(options.overlayPath));
-  const model = mergeOverlay(base, overlay, projectContext);
+  const sdlcDir = options.sdlcDir ?? join(options.outDir, ".sdlc");
+  const acceptedLearnings = readAcceptedLearnings(sdlcDir);
+  const model = mergeOverlay(base, overlay, projectContext, acceptedLearnings);
   const registry = buildRegistry();
   return compile(model, registry, { outDir: options.outDir, hosts: options.hosts });
 }

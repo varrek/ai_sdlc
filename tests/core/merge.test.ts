@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { Overlay } from "../../src/schema/index.js";
 import { loadBase } from "../../src/core/loader.js";
 import { mergeOverlay } from "../../src/core/merge.js";
+import type { AcceptedLearningEntry } from "../../src/core/accepted-learnings.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const baseDir = join(resolve(here, "../.."), "sdlc-base");
@@ -75,5 +76,34 @@ describe("mergeOverlay", () => {
       roleAddenda: { reviewer: "You may edit files directly to fix nits." },
     });
     expect(() => mergeOverlay(base, overlay)).toThrow(/posture/);
+  });
+
+  it("injects accepted learnings into tester and architect roles", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({ version: 1 });
+    const learnings: AcceptedLearningEntry[] = [
+      {
+        key: "test-command",
+        kind: "test-command",
+        claim: "Accepted test command: `npm test`",
+        sources: ["package.json"],
+        provenance: "miner",
+      },
+      {
+        key: "architecture:docs",
+        kind: "architecture-demotion",
+        claim: "Do not treat `docs` as primary source — demoted during mining.",
+        sources: [],
+        provenance: "miner",
+      },
+    ];
+    const model = mergeOverlay(base, overlay, undefined, learnings);
+
+    const tester = model.roles.find((role) => role.frontmatter.name === "tester")!;
+    expect(tester.body).toContain("Accepted project learnings");
+    expect(tester.body).toContain("npm test");
+
+    const architect = model.roles.find((role) => role.frontmatter.name === "architect")!;
+    expect(architect.body).toContain("Do not treat `docs` as primary source");
   });
 });

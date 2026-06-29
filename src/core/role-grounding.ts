@@ -1,9 +1,18 @@
 import { assertRoleAddendumWithinContract } from "./role-addenda.js";
+import type { AcceptedLearningEntry, AcceptedLearningKind } from "./accepted-learnings.js";
 import type { ProjectContext } from "./project-context.js";
 import type { Overlay, Role } from "../schema/index.js";
 
 export const ROLE_GROUNDING_HEADING = "## Deterministic project grounding";
 const MAX_ROLE_GROUNDING_CHARS = 1200;
+const ACCEPTED_LEARNINGS_HEADING = "## Accepted project learnings";
+const MAX_ACCEPTED_LEARNINGS_CHARS = 800;
+
+const LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
+  architect: ["architecture-demotion", "standard-added"],
+  engineer: ["test-command", "standard-added"],
+  tester: ["test-command"],
+};
 
 const BARE_TEST_DIR_REMINDER =
   "Do not infer a test runner from bare `tests/`, `test/`, or `__tests__/` directories without toolchain evidence.";
@@ -78,5 +87,24 @@ function appendGroundingSection(role: Role, grounding: string): Role {
   return {
     ...role,
     body: `${role.body.trimEnd()}\n\n${ROLE_GROUNDING_HEADING}\n\n${bounded}\n`,
+  };
+}
+
+export function appendAcceptedLearnings(role: Role, entries: AcceptedLearningEntry[]): Role {
+  const kinds = LEARNINGS_BY_ROLE[role.frontmatter.name];
+  if (!kinds || entries.length === 0) return role;
+
+  const relevant = entries.filter((entry) => kinds.includes(entry.kind));
+  if (relevant.length === 0) return role;
+
+  const lines = [
+    "These accepted learnings were recorded during setup — prefer them over inference:",
+    ...relevant.slice(0, 6).map((entry) => `- ${entry.claim}`),
+  ];
+  const block = lines.join("\n").slice(0, MAX_ACCEPTED_LEARNINGS_CHARS);
+  assertRoleAddendumWithinContract(role.frontmatter.name, role.frontmatter.posture, block);
+  return {
+    ...role,
+    body: `${role.body.trimEnd()}\n\n${ACCEPTED_LEARNINGS_HEADING}\n\n${block}\n`,
   };
 }

@@ -37,6 +37,8 @@ describe("status", () => {
 
     expect(report.operatingMode).toBe("plugin");
     expect(formatStatus(report)).toContain("Operating mode: plugin");
+    expect(report.acceptedLearnings.count).toBeGreaterThan(0);
+    expect(formatStatus(report)).toContain("Accepted learnings");
   });
 
   it("reports deterministic tester grounding when test commands are mined", () => {

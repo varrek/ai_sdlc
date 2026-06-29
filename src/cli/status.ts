@@ -15,6 +15,7 @@ import {
   overlayFingerprint,
 } from "./phase-fingerprints.js";
 import { inspectRepo } from "./customize.js";
+import { readAcceptedLearnings, summarizeAcceptedLearnings } from "../core/accepted-learnings.js";
 import { hasDeterministicTesterGrounding } from "../core/role-grounding.js";
 import type { OperatingMode } from "../schema/index.js";
 
@@ -43,6 +44,10 @@ export interface StatusReport {
   packages: number;
   /** Standard statements, in the order `aisdlc explain <n>` numbers them (1-based). */
   standards: string[];
+  acceptedLearnings: {
+    count: number;
+    claims: string[];
+  };
 }
 
 export interface StatusOptions {
@@ -79,6 +84,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const projectContext = buildProjectContext(inspection.profile, inspection.standardsIndex);
   const groundingInput = { overlay: inspection.overlay, projectContext };
   const testerDeterministic = hasDeterministicTesterGrounding(groundingInput);
+  const acceptedLearnings = readAcceptedLearnings(sdlcDir);
   return {
     initialized: inspection.initialized,
     operatingMode: inspection.overlay.operatingMode,
@@ -101,6 +107,10 @@ export function buildStatus(options: StatusOptions): StatusReport {
     coverage: evidenceCoverage(inspection.standardsIndex),
     packages: inspection.profile.packages?.length ?? 0,
     standards: inspection.standardsIndex.standards.map((s) => s.statement),
+    acceptedLearnings: {
+      count: acceptedLearnings.length,
+      claims: summarizeAcceptedLearnings(acceptedLearnings),
+    },
   };
 }
 
@@ -196,6 +206,12 @@ export function formatStatus(report: StatusReport): string {
   lines.push(
     `Role grounding: architect=${report.roleStates.architect}, tester=${report.roleStates.tester}`,
   );
+  if (report.acceptedLearnings.count > 0) {
+    lines.push(`Accepted learnings (${report.acceptedLearnings.count}):`);
+    for (const claim of report.acceptedLearnings.claims) {
+      lines.push(`  - ${claim}`);
+    }
+  }
 
   lines.push("", "Standards:");
   report.standards.forEach((s, i) => lines.push(`  ${i + 1}. ${s}`));

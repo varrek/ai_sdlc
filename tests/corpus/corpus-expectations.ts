@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import type { SetupArtifacts } from "./corpus-harness.js";
+import { architectPrimaryGuidance, type SetupArtifacts } from "./corpus-harness.js";
 
 export interface PackageExpectation {
   path: string;
@@ -350,6 +350,7 @@ export function assertCorpusExpectation(artifacts: SetupArtifacts, expected: Cor
       }
     }
   }
+  const architectPrimary = architectPrimaryGuidance(architect);
   const hasGrounding = architect.includes("## Deterministic project grounding");
   if (expected.architectHasGrounding !== undefined) {
     expect(hasGrounding, `${expected.fixture} architect grounding`).toBe(expected.architectHasGrounding);
@@ -370,7 +371,7 @@ export function assertCorpusExpectation(artifacts: SetupArtifacts, expected: Cor
     expect(architect, `${expected.fixture} architect includes ${text}`).toContain(text);
   }
   for (const text of expected.architectMustNotInclude ?? []) {
-    expect(architect, `${expected.fixture} architect excludes ${text}`).not.toContain(text);
+    expect(architectPrimary, `${expected.fixture} architect excludes ${text}`).not.toContain(text);
   }
   for (const text of expected.constitutionMustInclude ?? []) {
     expect(constitution, `${expected.fixture} constitution includes ${text}`).toContain(text);

@@ -57,6 +57,9 @@ The generated, project-specific treatment of gates, role postures, and review fl
 ### Behavior-Level Eval
 An evaluation that checks whether generated guidance changes an agent's decisions on pinned tasks, such as choosing the right module, test command, risk surface, or review flow. It sits above structural compile and smoke checks.
 
+### Accepted Learning Ledger
+A derived, typed record of setup facts the project has accepted — test-command corrections, demoted architecture roots, and newly mined standards — stored under `.sdlc/memory/` and surfaced in status and role guidance. It is evidence-linked and reviewable, not free-form chat memory.
+
 ### Ceremony Track
 The level of process formality chosen for a project — Quick (the minimal single-writer slice), Standard (adds up-front planning), or Full (adds the integration wrap-up) — which selects how many loop stages run.
 
