@@ -1753,6 +1753,7 @@ function testCommandFromMakefile(makefile: string): string | undefined {
   for (let i = 0; i < lines.length; i++) {
     if (!/^test\s*:/.test(lines[i]!)) continue;
     // Recipe lines follow, indented by a tab; take the first runnable one.
+    let fallback: string | undefined;
     for (let j = i + 1; j < lines.length; j++) {
       const line = lines[j]!;
       if (!/^\t/.test(line)) break;
@@ -1762,7 +1763,9 @@ function testCommandFromMakefile(makefile: string): string | undefined {
         .trim();
       const command = pickTestSegment(recipe);
       if (command) return command;
+      if (recipe && !fallback && !isInstallCommand(recipe)) fallback = recipe;
     }
+    return fallback;
   }
   return undefined;
 }

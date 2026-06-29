@@ -21,7 +21,8 @@ const GAPS: GapDef[] = [
   {
     id: "test-command",
     question: "What command runs the test suite?",
-    answered: (p, a) => Boolean(p.testCommand?.trim()) || Boolean(a["test-command"]?.trim()),
+    answered: (p, a) =>
+      "test-command" in a ? Boolean(a["test-command"]?.trim()) : Boolean(p.testCommand?.trim()),
   },
 ];
 

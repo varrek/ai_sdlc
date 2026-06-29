@@ -291,11 +291,14 @@ function markdownLinks(contents: string): MarkdownLink[] {
 }
 
 function maskMarkdownCode(contents: string): string {
-  if (!contents.includes("`") && !contents.includes("~~~")) return contents;
+  if (!contents.includes("`") && !contents.includes("~~~") && !/^(?: {4}|\t).+$/m.test(contents)) {
+    return contents;
+  }
   return contents
     .replace(/(^|\n)(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:\n\2[^\n]*(?=\n|$)|$)/g, (match) =>
       blankMarkdown(match),
     )
+    .replace(/^(?: {4}|\t).+$/gm, (match) => blankMarkdown(match))
     .replace(/`[^`\n]+`/g, (match) => blankMarkdown(match));
 }
 

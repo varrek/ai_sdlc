@@ -157,6 +157,29 @@ describe("doc gardener", () => {
     expect(report.findings.some((finding) => finding.id === "broken-local-link")).toBe(false);
   });
 
+  it("ignores markdown-looking links inside indented code blocks", () => {
+    const root = tmpRepo();
+    mkdirSync(join(root, "docs"), { recursive: true });
+    writeFileSync(
+      join(root, "docs", "guide.md"),
+      ["    [Missing][target]", "    [target]: missing.md", ""].join("\n"),
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root });
+
+    expect(report.findings.some((finding) => finding.id === "broken-local-link")).toBe(false);
+  });
+
+  it("does not report the current packs regex as a broken link", () => {
+    const report = analyzeDocGarden({ repoRoot: process.cwd() });
+    const packsFinding = report.findings.find(
+      (finding) => finding.id === "broken-local-link" && finding.path === "docs/packs.md",
+    );
+
+    expect(packsFinding).toBeUndefined();
+  });
+
   it("still reports missing reference links outside code", () => {
     const root = tmpRepo();
     mkdirSync(join(root, "docs"), { recursive: true });

@@ -602,6 +602,23 @@ describe("test command mining", () => {
     expect(p.testCommand).toBe("pytest");
     expect(p.evidence["test-command"]).toEqual(["Makefile"]);
   });
+
+  it("falls back to a custom Makefile test wrapper when no known runner segment exists", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-make-wrapper-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "pyproject.toml"), '[project]\nname = "x"\n', "utf8");
+    writeFileSync(join(dir, "src.py"), "print('x')\n", "utf8");
+    writeFileSync(
+      join(dir, "Makefile"),
+      ["test:", "\tpython -m pip install -r requirements.txt", "\t./scripts/test.sh", ""].join("\n"),
+      "utf8",
+    );
+
+    const p = mineRepo(dir);
+
+    expect(p.testCommand).toBe("./scripts/test.sh");
+    expect(p.evidence["test-command"]).toEqual(["Makefile"]);
+  });
 });
 
 describe("test command mining — language & workflow heuristics", () => {
@@ -842,10 +859,12 @@ describe("gap interview", () => {
 
   it("does not close the test-command gap with an empty manual answer", () => {
     const p = mineRepo(repo("thin-poc"));
+    const mined = mineRepo(repo("python-rags"));
 
     expect(computeGaps(p, { "test-command": "" }).map((g) => g.id)).toEqual(["test-command"]);
     expect(computeGaps(p, { "test-command": "   " }).map((g) => g.id)).toEqual(["test-command"]);
     expect(computeGaps(p, { "test-command": "npm test" })).toEqual([]);
+    expect(computeGaps(mined, { "test-command": "" }).map((g) => g.id)).toEqual(["test-command"]);
   });
 });
 
@@ -864,8 +883,8 @@ describe("standards drift", () => {
       diffStandardsIndex(
         { version: 1, standards: [{ statement, sources: ["ci.yml"] }] },
         { version: 1, standards: [{ statement, sources: ["package.json"] }] },
-      ).changed,
-    ).toBe(true);
+      ),
+    ).toEqual({ added: [], removed: [], changed: true });
 
     expect(
       diffStandardsIndex(
@@ -874,8 +893,8 @@ describe("standards drift", () => {
           standards: [{ statement, sources: ["package.json"], scope: "packages/api" }],
         },
         { version: 1, standards: [{ statement, sources: ["package.json"] }] },
-      ).changed,
-    ).toBe(true);
+      ),
+    ).toEqual({ added: [], removed: [], changed: true });
   });
 });
 
@@ -900,6 +919,22 @@ describe("runCustomize", () => {
     expect(result.gaps.map((g) => g.id)).toEqual(["test-command"]);
   });
 
+  it("keeps setup not ready when an explicit test-command answer is empty", () => {
+    const overlayDir = tmpOverlay();
+    const result = runCustomize({
+      repoRoot: repo("python-rags"),
+      overlayDir,
+      answers: { "test-command": "" },
+    });
+
+    expect(result.ready).toBe(false);
+    expect(result.gaps.map((g) => g.id)).toEqual(["test-command"]);
+    const overlay = Overlay.parse(
+      parseYaml(readFileSync(join(overlayDir, ".customize.yaml"), "utf8")),
+    );
+    expect(overlay.interviewAnswers["test-command"]).toBe("");
+  });
+
   it("skips the overlay write on an unchanged re-run and records both phases", () => {
     const overlayDir = tmpOverlay();
     const first = runCustomize({ repoRoot: repo("python-rags"), overlayDir });
@@ -914,6 +949,21 @@ describe("runCustomize", () => {
     const second = runCustomize({ repoRoot: repo("python-rags"), overlayDir });
     expect(second.freshnessSkipped).toBe(true);
     expect(readFileSync(overlayPath, "utf8")).toBe(firstWrite); // untouched
+  });
+
+  it("rewrites standards when only evidence metadata drifts", () => {
+    const overlayDir = tmpOverlay();
+    runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+    const standardsPath = join(overlayDir, "standards-index.yaml");
+    const edited = parseYaml(readFileSync(standardsPath, "utf8")) as StandardsIndex;
+    edited.standards[0]!.sources = ["stale-source.txt"];
+    writeFileSync(standardsPath, stringify(edited), "utf8");
+
+    const second = runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+    const rewritten = parseYaml(readFileSync(standardsPath, "utf8")) as StandardsIndex;
+
+    expect(second.freshnessSkipped).toBe(false);
+    expect(rewritten.standards[0]!.sources).not.toEqual(["stale-source.txt"]);
   });
 
   it("re-records overlay-written (mined stays fresh) when --answers-file adds a binding (AE4)", () => {

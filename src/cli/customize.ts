@@ -128,7 +128,8 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   const fresh =
     !options.force &&
     isPhaseFresh(state, "mined", minedFp) &&
-    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath));
+    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath)) &&
+    !drift.changed;
 
   if (!fresh) {
     write(overlayPath, overlaySerialized);
@@ -218,7 +219,7 @@ export function inspectRepo(options: {
 function seedMinedTestCommand(profile: RepoProfile, answers: Record<string, string>): void {
   // Persist the mined runnable test command so the "tests must pass" gate has a
   // command to run, and so it closes the test-command gap deterministically.
-  if (profile.testCommand && !answers["test-command"]) {
+  if (profile.testCommand && !("test-command" in answers)) {
     answers["test-command"] = profile.testCommand;
   }
 }

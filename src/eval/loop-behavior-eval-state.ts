@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseYaml, stringify } from "yaml";
-import type { LoopScore } from "./loop-score.js";
+import type { LoopScore, LoopScoreMetrics, LoopViolationKind } from "./loop-score.js";
 
 export interface LoopBehaviorEvalResult {
   scenarioId: string;
@@ -17,6 +17,18 @@ export interface LoopBehaviorEvalState {
 }
 
 const BEHAVIOR_EVAL_FILE = "loop-behavior-eval.yaml";
+const LOOP_TERMINAL_STATUSES = new Set<LoopScoreMetrics["terminalStatus"]>(["done", "stuck", "missing"]);
+const LOOP_VIOLATION_KINDS = new Set<LoopViolationKind>([
+  "missing-stage",
+  "stage-order",
+  "role-ownership",
+  "approval-gate",
+  "tester-before-reviewer",
+  "missing-evaluator-verdict",
+  "evaluator-handback",
+  "replan-budget",
+  "terminal",
+]);
 
 function evalStatePath(sdlcDir: string): string {
   return join(sdlcDir, BEHAVIOR_EVAL_FILE);
@@ -25,17 +37,47 @@ function evalStatePath(sdlcDir: string): string {
 function isEvalResult(value: unknown): value is LoopBehaviorEvalResult {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<LoopBehaviorEvalResult>;
-  const score = candidate.score as Partial<LoopScore> | undefined;
   return (
     typeof candidate.scenarioId === "string" &&
     typeof candidate.passed === "boolean" &&
     typeof candidate.evaluatedAt === "string" &&
-    score !== undefined &&
-    typeof score.passed === "boolean" &&
-    typeof score.metrics === "object" &&
-    score.metrics !== null &&
-    Array.isArray(score.violations)
+    isLoopScore(candidate.score)
   );
+}
+
+function isLoopScore(value: unknown): value is LoopScore {
+  if (!value || typeof value !== "object") return false;
+  const score = value as Partial<LoopScore>;
+  return typeof score.passed === "boolean" && isLoopScoreMetrics(score.metrics) && isLoopViolations(score.violations);
+}
+
+function isLoopScoreMetrics(value: unknown): value is LoopScoreMetrics {
+  if (!value || typeof value !== "object") return false;
+  const metrics = value as Partial<LoopScoreMetrics>;
+  return (
+    typeof metrics.expectedStages === "number" &&
+    typeof metrics.observedStages === "number" &&
+    Array.isArray(metrics.missingStages) &&
+    metrics.missingStages.every((stage) => typeof stage === "string") &&
+    typeof metrics.replanCount === "number" &&
+    typeof metrics.approvalGateCount === "number" &&
+    LOOP_TERMINAL_STATUSES.has(metrics.terminalStatus as LoopScoreMetrics["terminalStatus"])
+  );
+}
+
+function isLoopViolations(value: unknown): value is LoopScore["violations"] {
+  if (!Array.isArray(value)) return false;
+  return value.every((item) => {
+    if (!item || typeof item !== "object") return false;
+    const violation = item as { kind?: unknown; message?: unknown; stage?: unknown; eventIndex?: unknown };
+    return (
+      typeof violation.kind === "string" &&
+      LOOP_VIOLATION_KINDS.has(violation.kind as LoopViolationKind) &&
+      typeof violation.message === "string" &&
+      (violation.stage === undefined || typeof violation.stage === "string") &&
+      (violation.eventIndex === undefined || typeof violation.eventIndex === "number")
+    );
+  });
 }
 
 export function readLoopBehaviorEvalState(sdlcDir: string): LoopBehaviorEvalState | undefined {
@@ -53,8 +95,10 @@ export function readLoopBehaviorEvalState(sdlcDir: string): LoopBehaviorEvalStat
       return parsed as LoopBehaviorEvalState;
     }
   } catch {
+    process.stderr.write(`Warning: ${path} is unreadable; treating behavior eval as not yet run.\n`);
     return undefined;
   }
+  process.stderr.write(`Warning: ${path} is invalid; treating behavior eval as not yet run.\n`);
   return undefined;
 }
 
