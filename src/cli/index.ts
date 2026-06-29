@@ -16,7 +16,7 @@ import { HostId } from "../schema/index.js";
 const HELP = `aisdlc — internal AI SDLC framework compiler
 
 Usage:
-  aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot]
+  aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot,codex]
 
 Commands:
   compile     Compile the host-neutral base (+ overlay) to host-native config.

@@ -19,5 +19,6 @@ describe("capability matrix", () => {
     const matrix = renderCapabilityMatrix(buildRegistry().all());
     const gateRow = matrix.split("\n").find((l) => l.startsWith("| Hooks / Approved? gate"))!;
     expect(gateRow).toMatch(/Fallback/);
+    expect(matrix).toContain("| codex |");
   });
 });

@@ -17,7 +17,7 @@ const LEVEL_LABEL: Record<CapabilityLevel, string> = {
   none: "None",
 };
 
-const HOST_ORDER: HostId[] = ["cursor", "claude-code", "copilot"];
+const HOST_ORDER: HostId[] = ["cursor", "claude-code", "copilot", "codex"];
 
 function sortAdapters(adapters: Adapter[]): Adapter[] {
   return [...adapters].sort((a, b) => HOST_ORDER.indexOf(a.host) - HOST_ORDER.indexOf(b.host));
