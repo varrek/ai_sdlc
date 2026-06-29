@@ -7,6 +7,7 @@ export type LoopViolationKind =
   | "role-ownership"
   | "approval-gate"
   | "tester-before-reviewer"
+  | "missing-evaluator-verdict"
   | "evaluator-handback"
   | "replan-budget"
   | "terminal";
@@ -110,6 +111,24 @@ export function scoreLoopTrace(
         message: "Tester must verify before Reviewer on standard/full tracks",
       });
     }
+  }
+
+  if (expectation.stages.includes("test") && !trace.some((event) => event.type === "test_run" && event.stage === "test")) {
+    violations.push({
+      kind: "missing-evaluator-verdict",
+      stage: "test",
+      message: "Tester stage must include a test_run verdict",
+    });
+  }
+  if (
+    expectation.stages.includes("reviewer") &&
+    !trace.some((event) => event.type === "review_verdict" && event.stage === "reviewer")
+  ) {
+    violations.push({
+      kind: "missing-evaluator-verdict",
+      stage: "reviewer",
+      message: "Reviewer stage must include a review_verdict",
+    });
   }
 
   trace.forEach((event, index) => {
@@ -235,7 +254,6 @@ function hasDoneWithoutEngineerRework(trace: LoopTraceEvent[], fromIndex: number
     const event = trace[i]!;
     if (event.type === "replan" && event.role === "engineer") return false;
     if (event.type === "plan_created" && event.role === "engineer") return false;
-    if (event.type === "handoff" && event.toRole === "engineer") return false;
     if (event.type === "tool_attempt" && event.role === "engineer") return false;
     if (event.type === "done") return true;
     if (event.type === "stuck") return false;

@@ -123,6 +123,22 @@ describe("loop trace scoring", () => {
     expect(stuck.metrics.terminalStatus).toBe("stuck");
   });
 
+  it("requires evaluator stages to include verdict events", () => {
+    const trace = standardTrace().filter(
+      (event) => event.type !== "test_run" && event.type !== "review_verdict",
+    );
+
+    const score = scoreLoopTrace(trace, { stages: [...standardStages] });
+
+    expect(score.passed).toBe(false);
+    expect(score.violations).toContainEqual(
+      expect.objectContaining({ kind: "missing-evaluator-verdict", stage: "test" }),
+    );
+    expect(score.violations).toContainEqual(
+      expect.objectContaining({ kind: "missing-evaluator-verdict", stage: "reviewer" }),
+    );
+  });
+
   it("requires evaluator failures to hand back to the engineer before done", () => {
     const failedTestTrace = standardTrace();
     failedTestTrace[4] = {
@@ -150,6 +166,31 @@ describe("loop trace scoring", () => {
     expect(scoreLoopTrace(reviewRequestTrace, { stages: [...standardStages] }).violations).toContainEqual(
       expect.objectContaining({ kind: "evaluator-handback", stage: "reviewer" }),
     );
+  });
+
+  it("does not count a bare handoff as Engineer rework after evaluator failure", () => {
+    const trace = standardTrace();
+    trace[4] = {
+      type: "test_run",
+      taskId: "synthetic-loop",
+      role: "tester",
+      stage: "test",
+      command: "npm test",
+      verdict: "fail",
+      failures: ["missing retry coverage"],
+    };
+    trace.splice(5, 0, {
+      type: "handoff",
+      taskId: "synthetic-loop",
+      fromRole: "tester",
+      toRole: "engineer",
+      fromStage: "test",
+      toStage: "engineer",
+    });
+
+    const score = scoreLoopTrace(trace, { stages: [...standardStages] });
+
+    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
   });
 
   it("recognizes Engineer plan-created events as evaluator handback rework", () => {
