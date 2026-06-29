@@ -47,6 +47,7 @@ export interface ApprovalGateEvent extends LoopTraceEventBase {
   type: "approval_gate";
   role?: LoopRole;
   stage?: LoopStage;
+  checkpoint?: string;
   verdict: GateVerdict;
   reason?: string;
 }

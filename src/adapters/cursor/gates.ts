@@ -68,7 +68,8 @@ const scope = process.env.SDLC_SCOPE || "workspace";
 const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
 const sdlcDir = process.env.SDLC_DIR || findSdlcDir();
 const stage = gateStage();
-const checkpoint = process.env.SDLC_CHECKPOINT || stage || scope;
+const checkpoint = process.env.SDLC_CHECKPOINT;
+const label = checkpoint || stage || scope;
 
 const event = JSON.stringify({
   type: "approval_gate",
@@ -76,8 +77,9 @@ const event = JSON.stringify({
   verdict: "approved",
   role,
   stage,
-  reason: \`Human approved via SDLC_APPROVED=1 (\${checkpoint})\`,
-  evidence: [scope, checkpoint].filter(Boolean),
+  checkpoint,
+  reason: \`Human approved via SDLC_APPROVED=1 (\${label})\`,
+  evidence: [scope, label].filter(Boolean),
 });
 
 try {
