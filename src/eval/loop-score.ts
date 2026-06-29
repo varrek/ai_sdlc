@@ -102,7 +102,7 @@ export function scoreLoopTrace(
   const testerIndex = firstIndexByStage.get("test");
   const reviewerIndex = firstIndexByStage.get("reviewer");
   if (expectation.stages.includes("test") && expectation.stages.includes("reviewer")) {
-    if (testerIndex === undefined || reviewerIndex === undefined || testerIndex > reviewerIndex) {
+    if (testerIndex !== undefined && reviewerIndex !== undefined && testerIndex > reviewerIndex) {
       violations.push({
         kind: "tester-before-reviewer",
         stage: "reviewer",

@@ -53,7 +53,9 @@ describe("status", () => {
 
     const report = buildStatus({ repoRoot: work, overlayDir });
 
+    expect(report.roleStates.engineer).toBe("deterministic");
     expect(report.roleStates.tester).toBe("deterministic");
+    expect(formatStatus(report)).toContain("engineer=deterministic");
     expect(formatStatus(report)).toContain("tester=deterministic");
     expect(report.loopQuality.groundedRoles).toBeGreaterThanOrEqual(2);
   });

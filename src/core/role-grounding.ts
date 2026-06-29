@@ -40,9 +40,16 @@ export function hasDeterministicTesterGrounding(input: RoleGroundingInput): bool
   return (input.projectContext?.packages ?? []).some((pkg) => Boolean(pkg.testCommand?.trim()));
 }
 
+export function hasDeterministicEngineerGrounding(input: RoleGroundingInput): boolean {
+  return Boolean(input.projectContext && input.projectContext.map.length > 0);
+}
+
 export function appendRoleGrounding(role: Role, input: RoleGroundingInput): Role {
   if (role.frontmatter.name === "architect") {
     return appendArchitectGrounding(role, input.projectContext);
+  }
+  if (role.frontmatter.name === "engineer") {
+    return appendEngineerGrounding(role, input);
   }
   if (role.frontmatter.name === "tester") {
     return appendTesterGrounding(role, input);
@@ -61,6 +68,23 @@ export function appendArchitectGrounding(role: Role, projectContext: ProjectCont
   ];
   if (projectContext.map.length > 8) {
     lines.push(`- ${projectContext.map.length - 8} additional entries are available in the codebase map.`);
+  }
+  return appendGroundingSection(role, lines.join("\n"));
+}
+
+function appendEngineerGrounding(role: Role, input: RoleGroundingInput): Role {
+  if (role.frontmatter.name !== "engineer" || !hasDeterministicEngineerGrounding(input)) {
+    return role;
+  }
+  const lines = ["Use these mined signals before editing:"];
+  const editAreas = input.projectContext?.map.slice(0, 6) ?? [];
+  if (editAreas.length > 0) {
+    lines.push("- **Likely edit areas:**");
+    lines.push(...editAreas.map((entry) => `  - \`${entry.path}\` — ${entry.role}`));
+  }
+  const rootCommand = input.overlay.interviewAnswers?.["test-command"]?.trim();
+  if (rootCommand) {
+    lines.push(`- **Verification command:** \`${rootCommand}\``);
   }
   return appendGroundingSection(role, lines.join("\n"));
 }

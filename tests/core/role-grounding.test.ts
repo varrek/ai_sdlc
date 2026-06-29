@@ -7,6 +7,7 @@ import type { ProjectContext } from "../../src/core/project-context.js";
 import {
   appendArchitectGrounding,
   appendAcceptedLearnings,
+  hasDeterministicEngineerGrounding,
   hasDeterministicTesterGrounding,
   ROLE_GROUNDING_HEADING,
 } from "../../src/core/role-grounding.js";
@@ -58,6 +59,34 @@ describe("role grounding", () => {
     expect(tester.body).toContain("**Root:** `pytest`");
     expect(tester.body).toContain("provenance: miner");
     expect(tester.body).toContain("Do not infer a test runner");
+  });
+
+  it("appends engineer grounding with likely edit areas and verification command", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({
+      version: 1,
+      interviewAnswers: { "test-command": "pytest" },
+    });
+    const model = mergeOverlay(base, overlay, sampleMap);
+    const engineer = model.roles.find((r) => r.frontmatter.name === "engineer")!;
+
+    expect(hasDeterministicEngineerGrounding({ overlay, projectContext: sampleMap })).toBe(true);
+    expect(engineer.body).toContain(ROLE_GROUNDING_HEADING);
+    expect(engineer.body).toContain("Likely edit areas");
+    expect(engineer.body).toContain("`src`");
+    expect(engineer.body).toContain("Verification command");
+    expect(engineer.body).toContain("`pytest`");
+  });
+
+  it("leaves engineer generic when no project map is known", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({ version: 1 });
+    const emptyContext: ProjectContext = { packages: [], map: [], exclusions: [] };
+    const model = mergeOverlay(base, overlay, emptyContext);
+    const engineer = model.roles.find((r) => r.frontmatter.name === "engineer")!;
+
+    expect(hasDeterministicEngineerGrounding({ overlay, projectContext: emptyContext })).toBe(false);
+    expect(engineer.body).not.toContain(ROLE_GROUNDING_HEADING);
   });
 
   it("appends package-local tester grounding when root test-command gap is open", () => {

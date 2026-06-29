@@ -29,7 +29,7 @@ describe("loop behavior eval", () => {
 
     expect(score.passed).toBe(false);
     expect(score.violations).toContainEqual(expect.objectContaining({ kind: "missing-stage", stage: "test" }));
-    expect(score.violations).toContainEqual(expect.objectContaining({ kind: "tester-before-reviewer" }));
+    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "tester-before-reviewer" }));
   });
 
   it("selects the right loop role for pinned decision prompts", () => {

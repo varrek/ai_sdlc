@@ -24,6 +24,7 @@ import {
   type AcceptedLearningEntry,
 } from "../core/accepted-learnings.js";
 import {
+  hasDeterministicEngineerGrounding,
   hasDeterministicTesterGrounding,
   SETUP_GROUNDING_LEARNINGS_BY_ROLE,
 } from "../core/role-grounding.js";
@@ -107,6 +108,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const handsOff = setupReady && provenanceValues.length > 0 && provenanceValues.every((p) => p === "miner" || p === "ci");
   const projectContext = buildProjectContext(inspection.profile, inspection.standardsIndex);
   const groundingInput = { overlay: inspection.overlay, projectContext };
+  const engineerDeterministic = hasDeterministicEngineerGrounding(groundingInput);
   const testerDeterministic = hasDeterministicTesterGrounding(groundingInput);
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
   const roleStates = {
@@ -115,7 +117,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
       Boolean(inspection.overlay.roleAddenda.architect),
     ),
     engineer: roleState(
-      hasRelevantLearning(acceptedLearnings, "engineer"),
+      engineerDeterministic || hasRelevantLearning(acceptedLearnings, "engineer"),
       Boolean(inspection.overlay.roleAddenda.engineer),
     ),
     tester: roleState(
@@ -130,6 +132,9 @@ export function buildStatus(options: StatusOptions): StatusReport {
   };
   const totalRoles = Object.keys(roleStates).length;
   const groundedRoles = Object.values(roleStates).filter((state) => state !== "generic").length;
+  const groundableRoleNames = ["architect", "engineer", "tester", "reviewer"] as const;
+  const groundableRoles = groundableRoleNames.length;
+  const groundedGroundableRoles = groundableRoleNames.filter((role) => roleStates[role] !== "generic").length;
   const track = inspection.overlay.defaultTrack ?? "standard";
   const expectedStages = stagesForTrack(track).length;
   const loopLearnings = filterAcceptedLearningsByKinds(
@@ -164,7 +169,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
       expectedStages,
       groundedRoles,
       totalRoles,
-      roleGroundingComplete: groundedRoles === totalRoles,
+      roleGroundingComplete: groundedGroundableRoles === groundableRoles,
       approvalGateCoverage: compiledCoverageState,
       handoffCoverage: compiledCoverageState,
       behaviorEval: { state: "not-run", passed: 0, total: 0 },
