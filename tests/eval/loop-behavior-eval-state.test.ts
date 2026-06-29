@@ -78,13 +78,13 @@ describe("loop behavior eval state", () => {
         {
           scenarioId: "s1",
           passed: true,
-          score: {} as LoopScore,
+          score: { passed: true } as LoopScore,
           evaluatedAt: "2026-06-29T12:00:00Z",
         },
         {
           scenarioId: "s2",
           passed: true,
-          score: {} as LoopScore,
+          score: { passed: true } as LoopScore,
           evaluatedAt: "2026-06-29T12:00:00Z",
         },
       ],
@@ -105,13 +105,13 @@ describe("loop behavior eval state", () => {
         {
           scenarioId: "s1",
           passed: false,
-          score: {} as LoopScore,
+          score: { passed: false } as LoopScore,
           evaluatedAt: "2026-06-29T12:00:00Z",
         },
         {
           scenarioId: "s2",
           passed: false,
-          score: {} as LoopScore,
+          score: { passed: false } as LoopScore,
           evaluatedAt: "2026-06-29T12:00:00Z",
         },
       ],
@@ -132,13 +132,13 @@ describe("loop behavior eval state", () => {
         {
           scenarioId: "s1",
           passed: true,
-          score: {} as LoopScore,
+          score: { passed: true } as LoopScore,
           evaluatedAt: "2026-06-29T12:00:00Z",
         },
         {
           scenarioId: "s2",
           passed: false,
-          score: {} as LoopScore,
+          score: { passed: false } as LoopScore,
           evaluatedAt: "2026-06-29T12:00:00Z",
         },
       ],
@@ -149,6 +149,27 @@ describe("loop behavior eval state", () => {
       state: "partial",
       passed: 1,
       total: 2,
+    });
+  });
+
+  it("summarizes from score results when top-level passed is stale", () => {
+    const state = {
+      version: 1 as const,
+      results: [
+        {
+          scenarioId: "s1",
+          passed: true,
+          score: { passed: false } as LoopScore,
+          evaluatedAt: "2026-06-29T12:00:00Z",
+        },
+      ],
+      updatedAt: "2026-06-29T12:00:00Z",
+    };
+
+    expect(summarizeBehaviorEval(state)).toEqual({
+      state: "failed",
+      passed: 0,
+      total: 1,
     });
   });
 });

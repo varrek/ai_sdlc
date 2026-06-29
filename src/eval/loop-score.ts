@@ -132,7 +132,7 @@ export function scoreLoopTrace(
   }
 
   trace.forEach((event, index) => {
-    if (event.type === "test_run" && event.verdict === "fail" && hasDoneWithoutEngineerRework(trace, index)) {
+    if (event.type === "test_run" && event.verdict === "fail" && hasTerminalWithoutEngineerRework(trace, index)) {
       violations.push({
         kind: "evaluator-handback",
         stage: "test",
@@ -143,7 +143,7 @@ export function scoreLoopTrace(
     if (
       event.type === "review_verdict" &&
       event.verdict === "request-changes" &&
-      hasDoneWithoutEngineerRework(trace, index)
+      hasTerminalWithoutEngineerRework(trace, index)
     ) {
       violations.push({
         kind: "evaluator-handback",
@@ -249,14 +249,13 @@ function hasApprovedGateBetween(trace: LoopTraceEvent[], afterIndex: number, bef
   return false;
 }
 
-function hasDoneWithoutEngineerRework(trace: LoopTraceEvent[], fromIndex: number): boolean {
+function hasTerminalWithoutEngineerRework(trace: LoopTraceEvent[], fromIndex: number): boolean {
   for (let i = fromIndex + 1; i < trace.length; i += 1) {
     const event = trace[i]!;
     if (event.type === "replan" && event.role === "engineer") return false;
     if (event.type === "plan_created" && event.role === "engineer") return false;
     if (event.type === "tool_attempt" && event.role === "engineer") return false;
-    if (event.type === "done") return true;
-    if (event.type === "stuck") return false;
+    if (event.type === "done" || event.type === "stuck") return true;
   }
   return false;
 }

@@ -64,7 +64,7 @@ export function summarizeBehaviorEval(evalState: LoopBehaviorEvalState | undefin
     return { state: "not-run", passed: 0, total: 0 };
   }
   const total = evalState.results.length;
-  const passed = evalState.results.filter((r) => r.passed).length;
+  const passed = evalState.results.filter((r) => r.score.passed).length;
   if (passed === total) {
     return { state: "passed", passed, total };
   }
