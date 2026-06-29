@@ -21,6 +21,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+`continue`, `replan`, `escalate`, or `done`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -31,7 +39,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see `wrap-up`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 

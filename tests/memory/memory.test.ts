@@ -2,6 +2,7 @@ import { appendFileSync, mkdtempSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { readAcceptedLearnings } from "../../src/core/accepted-learnings.js";
 import {
   appendGateOutcome,
   readGateHistory,
@@ -62,6 +63,13 @@ describe("compounding memory", () => {
       scope: "src/auth.ts",
       reason: "review passed; tests green",
     });
+    expect(readAcceptedLearnings(dir)).toEqual([
+      expect.objectContaining({
+        key: "gate:T-1:approved:src-auth-ts",
+        kind: "gate-approval",
+        provenance: "gate",
+      }),
+    ]);
   });
 
   it("records a standards delta only behind the gated approval flag", () => {

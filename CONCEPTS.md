@@ -57,6 +57,12 @@ The generated, project-specific treatment of gates, role postures, and review fl
 ### Behavior-Level Eval
 An evaluation that checks whether generated guidance changes an agent's decisions on pinned tasks, such as choosing the right module, test command, risk surface, or review flow. It sits above structural compile and smoke checks.
 
+### Loop Trace
+A structured record of an SDLC role-loop run or synthetic run: stage handoffs, tool attempts, test results, approval gates, review verdicts, replans, and terminal status. In the first implementation it is an offline eval artifact, not a custom runtime orchestrator.
+
+### Loop-Quality Score
+A deterministic score over a Loop Trace that checks role ownership, stage order, approval-gate placement, tester-before-reviewer sequencing, retry budget, and terminal status. It makes loop compliance visible without calling a host LLM.
+
 ### Accepted Learning Ledger
 A derived, typed record of setup facts the project has accepted — test-command corrections, demoted architecture roots, and newly mined standards — stored under `.sdlc/memory/` and surfaced in status and role guidance. It is evidence-linked and reviewable, not free-form chat memory.
 

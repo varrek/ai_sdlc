@@ -111,6 +111,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -121,7 +129,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -282,6 +291,13 @@ is a plan the Engineer can execute without re-deriving your reasoning.
 3. Surface risks, unknowns, and decisions that need human input.
 4. Choose an approach and justify it briefly against the alternatives you rejected.
 
+## Operating loop
+
+Plan the next three to five investigation steps, inspect the repo evidence, then
+choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice; if the
+scope still will not stabilize, escalate with the unresolved decision and the
+evidence behind it.
+
 ## Hand off
 
 Return a compressed plan, not a transcript:
@@ -323,6 +339,13 @@ Engineer to implement.
 3. Identify the root cause — distinguish it from symptoms and coincidences.
 4. Define the smallest fix that addresses the cause.
 
+## Operating loop
+
+Plan the next three to five diagnostic steps, inspect or run one non-mutating
+probe, observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the evidence gap or suspected
+external blocker.
+
 ## Hand off
 
 Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
@@ -356,6 +379,14 @@ modify files. You implement strictly to the Architect's approved plan.
 3. Run the project's test command and fix failures before handing off.
 4. Keep the diff scoped to the plan. If you discover work outside it, note it and
    stop — do not expand scope silently.
+
+## Operating loop
+
+Plan the next three to five implementation steps, make one scoped change, observe
+the test/build/review feedback, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the blocker and evidence.
+When Tester or Reviewer hands back findings, act only on the listed deltas; do
+not broaden the diff during a retry.
 
 ## Hand off
 
@@ -398,12 +429,27 @@ of how it was produced.
 4. Prefer specific, actionable findings over general impressions; cite file and
    line where you can.
 
-## Verdict
+## Operating loop
 
-Return exactly one:
+Plan the next three to five review checks, inspect one risk surface at a time,
+observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the unresolved risk and the evidence
+needed to decide it.
 
-- **Approve** — with a one-line rationale.
-- **Request changes** — with a concrete, ordered list of what must change and why.
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Approve** — the plan is satisfied, tests are adequate, and no blocking risk
+  remains.
+- **Request changes** — list ordered, actionable deltas the Engineer can apply
+  without reinterpreting the review.
+- **Escalate** — use when approval depends on a product, security, or operational
+  decision outside the diff.
+
+## Hand off
+
+Return exactly one evaluator-gate verdict with the evidence that supports it.
 
 Review is a non-negotiable gate. A change does not ship without your approval.
 ",
@@ -444,6 +490,23 @@ single-writer rule.
    happy path.
 3. Distinguish a genuine defect from a flaky or environment-specific failure.
 4. For any gap, specify the missing test case precisely: input and expected output.
+
+## Operating loop
+
+Plan the next three to five verification steps, run or inspect one evidence path,
+observe the real result, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the failing command, environment
+constraint, or missing evidence.
+
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Pass** — command evidence is green and no material coverage gaps remain.
+- **Fail** — include the exact command, reproduction, and the actionable deltas
+  the Engineer must address.
+- **Escalate** — use when the result is blocked by environment, flaky behavior, or
+  missing information after the retry budget.
 
 ## Hand off
 
@@ -590,6 +653,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -600,7 +671,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -754,6 +826,13 @@ is a plan the Engineer can execute without re-deriving your reasoning.
 3. Surface risks, unknowns, and decisions that need human input.
 4. Choose an approach and justify it briefly against the alternatives you rejected.
 
+## Operating loop
+
+Plan the next three to five investigation steps, inspect the repo evidence, then
+choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice; if the
+scope still will not stabilize, escalate with the unresolved decision and the
+evidence behind it.
+
 ## Hand off
 
 Return a compressed plan, not a transcript:
@@ -789,6 +868,13 @@ Engineer to implement.
 3. Identify the root cause — distinguish it from symptoms and coincidences.
 4. Define the smallest fix that addresses the cause.
 
+## Operating loop
+
+Plan the next three to five diagnostic steps, inspect or run one non-mutating
+probe, observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the evidence gap or suspected
+external blocker.
+
 ## Hand off
 
 Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
@@ -816,6 +902,14 @@ modify files. You implement strictly to the Architect's approved plan.
 3. Run the project's test command and fix failures before handing off.
 4. Keep the diff scoped to the plan. If you discover work outside it, note it and
    stop — do not expand scope silently.
+
+## Operating loop
+
+Plan the next three to five implementation steps, make one scoped change, observe
+the test/build/review feedback, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the blocker and evidence.
+When Tester or Reviewer hands back findings, act only on the listed deltas; do
+not broaden the diff during a retry.
 
 ## Hand off
 
@@ -852,12 +946,27 @@ of how it was produced.
 4. Prefer specific, actionable findings over general impressions; cite file and
    line where you can.
 
-## Verdict
+## Operating loop
 
-Return exactly one:
+Plan the next three to five review checks, inspect one risk surface at a time,
+observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the unresolved risk and the evidence
+needed to decide it.
 
-- **Approve** — with a one-line rationale.
-- **Request changes** — with a concrete, ordered list of what must change and why.
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Approve** — the plan is satisfied, tests are adequate, and no blocking risk
+  remains.
+- **Request changes** — list ordered, actionable deltas the Engineer can apply
+  without reinterpreting the review.
+- **Escalate** — use when approval depends on a product, security, or operational
+  decision outside the diff.
+
+## Hand off
+
+Return exactly one evaluator-gate verdict with the evidence that supports it.
 
 Review is a non-negotiable gate. A change does not ship without your approval.
 """
@@ -891,6 +1000,23 @@ single-writer rule.
    happy path.
 3. Distinguish a genuine defect from a flaky or environment-specific failure.
 4. For any gap, specify the missing test case precisely: input and expected output.
+
+## Operating loop
+
+Plan the next three to five verification steps, run or inspect one evidence path,
+observe the real result, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the failing command, environment
+constraint, or missing evidence.
+
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Pass** — command evidence is green and no material coverage gaps remain.
+- **Fail** — include the exact command, reproduction, and the actionable deltas
+  the Engineer must address.
+- **Escalate** — use when the result is blocked by environment, flaky behavior, or
+  missing information after the retry budget.
 
 ## Hand off
 
@@ -1100,6 +1226,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -1110,7 +1244,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -1271,6 +1406,13 @@ is a plan the Engineer can execute without re-deriving your reasoning.
 3. Surface risks, unknowns, and decisions that need human input.
 4. Choose an approach and justify it briefly against the alternatives you rejected.
 
+## Operating loop
+
+Plan the next three to five investigation steps, inspect the repo evidence, then
+choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice; if the
+scope still will not stabilize, escalate with the unresolved decision and the
+evidence behind it.
+
 ## Hand off
 
 Return a compressed plan, not a transcript:
@@ -1312,6 +1454,13 @@ Engineer to implement.
 3. Identify the root cause — distinguish it from symptoms and coincidences.
 4. Define the smallest fix that addresses the cause.
 
+## Operating loop
+
+Plan the next three to five diagnostic steps, inspect or run one non-mutating
+probe, observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the evidence gap or suspected
+external blocker.
+
 ## Hand off
 
 Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
@@ -1345,6 +1494,14 @@ modify files. You implement strictly to the Architect's approved plan.
 3. Run the project's test command and fix failures before handing off.
 4. Keep the diff scoped to the plan. If you discover work outside it, note it and
    stop — do not expand scope silently.
+
+## Operating loop
+
+Plan the next three to five implementation steps, make one scoped change, observe
+the test/build/review feedback, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the blocker and evidence.
+When Tester or Reviewer hands back findings, act only on the listed deltas; do
+not broaden the diff during a retry.
 
 ## Hand off
 
@@ -1387,12 +1544,27 @@ of how it was produced.
 4. Prefer specific, actionable findings over general impressions; cite file and
    line where you can.
 
-## Verdict
+## Operating loop
 
-Return exactly one:
+Plan the next three to five review checks, inspect one risk surface at a time,
+observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the unresolved risk and the evidence
+needed to decide it.
 
-- **Approve** — with a one-line rationale.
-- **Request changes** — with a concrete, ordered list of what must change and why.
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Approve** — the plan is satisfied, tests are adequate, and no blocking risk
+  remains.
+- **Request changes** — list ordered, actionable deltas the Engineer can apply
+  without reinterpreting the review.
+- **Escalate** — use when approval depends on a product, security, or operational
+  decision outside the diff.
+
+## Hand off
+
+Return exactly one evaluator-gate verdict with the evidence that supports it.
 
 Review is a non-negotiable gate. A change does not ship without your approval.
 ",
@@ -1433,6 +1605,23 @@ single-writer rule.
    happy path.
 3. Distinguish a genuine defect from a flaky or environment-specific failure.
 4. For any gap, specify the missing test case precisely: input and expected output.
+
+## Operating loop
+
+Plan the next three to five verification steps, run or inspect one evidence path,
+observe the real result, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the failing command, environment
+constraint, or missing evidence.
+
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Pass** — command evidence is green and no material coverage gaps remain.
+- **Fail** — include the exact command, reproduction, and the actionable deltas
+  the Engineer must address.
+- **Escalate** — use when the result is blocked by environment, flaky behavior, or
+  missing information after the retry budget.
 
 ## Hand off
 
@@ -1640,6 +1829,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -1650,7 +1847,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 
@@ -1820,6 +2018,13 @@ is a plan the Engineer can execute without re-deriving your reasoning.
 3. Surface risks, unknowns, and decisions that need human input.
 4. Choose an approach and justify it briefly against the alternatives you rejected.
 
+## Operating loop
+
+Plan the next three to five investigation steps, inspect the repo evidence, then
+choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice; if the
+scope still will not stabilize, escalate with the unresolved decision and the
+evidence behind it.
+
 ## Hand off
 
 Return a compressed plan, not a transcript:
@@ -1864,6 +2069,13 @@ Engineer to implement.
 2. Form a hypothesis and confirm it against the actual code paths involved.
 3. Identify the root cause — distinguish it from symptoms and coincidences.
 4. Define the smallest fix that addresses the cause.
+
+## Operating loop
+
+Plan the next three to five diagnostic steps, inspect or run one non-mutating
+probe, observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the evidence gap or suspected
+external blocker.
 
 ## Hand off
 
@@ -1910,6 +2122,14 @@ modify files. You implement strictly to the Architect's approved plan.
 3. Run the project's test command and fix failures before handing off.
 4. Keep the diff scoped to the plan. If you discover work outside it, note it and
    stop — do not expand scope silently.
+
+## Operating loop
+
+Plan the next three to five implementation steps, make one scoped change, observe
+the test/build/review feedback, then choose \`continue\`, \`replan\`, \`escalate\`, or
+\`done\`. Replan at most twice before escalating with the blocker and evidence.
+When Tester or Reviewer hands back findings, act only on the listed deltas; do
+not broaden the diff during a retry.
 
 ## Hand off
 
@@ -1988,12 +2208,27 @@ of how it was produced.
 4. Prefer specific, actionable findings over general impressions; cite file and
    line where you can.
 
-## Verdict
+## Operating loop
 
-Return exactly one:
+Plan the next three to five review checks, inspect one risk surface at a time,
+observe the evidence, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the unresolved risk and the evidence
+needed to decide it.
 
-- **Approve** — with a one-line rationale.
-- **Request changes** — with a concrete, ordered list of what must change and why.
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Approve** — the plan is satisfied, tests are adequate, and no blocking risk
+  remains.
+- **Request changes** — list ordered, actionable deltas the Engineer can apply
+  without reinterpreting the review.
+- **Escalate** — use when approval depends on a product, security, or operational
+  decision outside the diff.
+
+## Hand off
+
+Return exactly one evaluator-gate verdict with the evidence that supports it.
 
 Review is a non-negotiable gate. A change does not ship without your approval.
 ",
@@ -2044,6 +2279,23 @@ single-writer rule.
    happy path.
 3. Distinguish a genuine defect from a flaky or environment-specific failure.
 4. For any gap, specify the missing test case precisely: input and expected output.
+
+## Operating loop
+
+Plan the next three to five verification steps, run or inspect one evidence path,
+observe the real result, then choose \`continue\`, \`replan\`, \`escalate\`, or \`done\`.
+Replan at most twice before escalating with the failing command, environment
+constraint, or missing evidence.
+
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Pass** — command evidence is green and no material coverage gaps remain.
+- **Fail** — include the exact command, reproduction, and the actionable deltas
+  the Engineer must address.
+- **Escalate** — use when the result is blocked by environment, flaky behavior, or
+  missing information after the retry budget.
 
 ## Hand off
 
@@ -2210,6 +2462,14 @@ handoffs). This skill encodes the discipline that dispatch must honor.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
+## Bounded operating loop
+
+Each role works in short, inspectable cycles: plan the next three to five steps,
+act, observe real tool/test/review feedback, then choose exactly one of
+\`continue\`, \`replan\`, \`escalate\`, or \`done\`. Replan at most twice before
+escalating with the blocker and evidence. Do not drift into an unbounded
+self-reflection loop.
+
 ## Flow
 
 1. **Architect (read-only)** turns the task into a bounded plan: scope, non-goals,
@@ -2220,7 +2480,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
    pass/fail report with any coverage gaps. On failure it goes back to the
    Engineer; the Tester never writes the fix itself.
 4. **Approved? gate** — human checkpoint before review/wrap-up.
-5. **Reviewer (fresh, read-only)** approves or requests changes with reasons.
+5. **Reviewer (fresh, read-only)** approves or requests changes with ordered,
+   actionable reasons.
 6. On approval, the wrap-up step (see \`wrap-up\`) opens/updates the GitLab MR and
    updates Jira via least-privilege MCP.
 

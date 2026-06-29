@@ -25,6 +25,14 @@ modify files. You implement strictly to the Architect's approved plan.
 4. Keep the diff scoped to the plan. If you discover work outside it, note it and
    stop — do not expand scope silently.
 
+## Operating loop
+
+Plan the next three to five implementation steps, make one scoped change, observe
+the test/build/review feedback, then choose `continue`, `replan`, `escalate`, or
+`done`. Replan at most twice before escalating with the blocker and evidence.
+When Tester or Reviewer hands back findings, act only on the listed deltas; do
+not broaden the diff during a retry.
+
 ## Hand off
 
 Summarize for the Reviewer: what changed and why, which tests cover it, and

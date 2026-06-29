@@ -22,6 +22,13 @@ Engineer to implement.
 3. Identify the root cause — distinguish it from symptoms and coincidences.
 4. Define the smallest fix that addresses the cause.
 
+## Operating loop
+
+Plan the next three to five diagnostic steps, inspect or run one non-mutating
+probe, observe the evidence, then choose `continue`, `replan`, `escalate`, or
+`done`. Replan at most twice before escalating with the evidence gap or suspected
+external blocker.
+
 ## Hand off
 
 Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the

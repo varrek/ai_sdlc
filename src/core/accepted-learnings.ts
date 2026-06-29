@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import type { GateOutcome } from "./memory.js";
 import type { GapClosureProvenance } from "../schema/index.js";
 
 export const ACCEPTED_LEARNINGS_DIR = "memory";
@@ -8,7 +9,20 @@ export const ACCEPTED_LEARNINGS_FILE = "accepted-learnings.jsonl";
 export type AcceptedLearningKind =
   | "test-command"
   | "architecture-demotion"
-  | "standard-added";
+  | "standard-added"
+  | "gate-approval"
+  | "review-finding"
+  | "test-correction"
+  | "bench-residual";
+
+export const LOOP_DERIVED_LEARNING_KINDS = [
+  "review-finding",
+  "test-correction",
+  "bench-residual",
+  "gate-approval",
+] as const satisfies readonly AcceptedLearningKind[];
+
+const MAX_GATE_LEARNING_CLAIM_CHARS = 240;
 
 export interface AcceptedLearningEntry {
   /** Stable dedupe key, e.g. `test-command` or `architecture:docs`. */
@@ -70,6 +84,67 @@ export function summarizeAcceptedLearnings(entries: AcceptedLearningEntry[], lim
   return entries.slice(0, limit).map((entry) => entry.claim);
 }
 
+export function filterAcceptedLearningsByKinds(
+  entries: AcceptedLearningEntry[],
+  kinds: readonly AcceptedLearningKind[],
+): AcceptedLearningEntry[] {
+  return entries.filter((entry) => kinds.includes(entry.kind));
+}
+
+export function acceptedLearningFromGateOutcome(outcome: GateOutcome): AcceptedLearningEntry {
+  const kindByVerdict = {
+    approved: "gate-approval",
+    blocked: "bench-residual",
+    "changes-requested": "review-finding",
+  } as const satisfies Record<GateOutcome["verdict"], AcceptedLearningKind>;
+  const labelByVerdict = {
+    approved: "Approved? gate approved",
+    blocked: "Approved? gate blocked",
+    "changes-requested": "Approved? gate requested changes",
+  } as const satisfies Record<GateOutcome["verdict"], string>;
+  const claim = `${labelByVerdict[outcome.verdict]} for ${outcome.scope}: ${outcome.reason}`.slice(
+    0,
+    MAX_GATE_LEARNING_CLAIM_CHARS,
+  );
+  return {
+    key: `gate:${outcome.taskId}:${outcome.verdict}:${slug(outcome.scope)}`,
+    kind: kindByVerdict[outcome.verdict],
+    claim,
+    sources: [outcome.scope],
+    provenance: "gate",
+  };
+}
+
+export function upsertGateOutcomeLearning(sdlcDir: string, outcome: GateOutcome): string {
+  return upsertAcceptedLearning(sdlcDir, acceptedLearningFromGateOutcome(outcome));
+}
+
+export function acceptedLearningFromTestCorrection(options: {
+  taskId: string;
+  scope: string;
+  reason: string;
+  sources?: string[];
+}): AcceptedLearningEntry {
+  const claim = `Tester correction for ${options.scope}: ${options.reason}`.slice(
+    0,
+    MAX_GATE_LEARNING_CLAIM_CHARS,
+  );
+  return {
+    key: `test-correction:${options.taskId}:${slug(options.scope)}`,
+    kind: "test-correction",
+    claim,
+    sources: options.sources ?? [options.scope],
+    provenance: "gate",
+  };
+}
+
+export function upsertTestCorrectionLearning(
+  sdlcDir: string,
+  options: Parameters<typeof acceptedLearningFromTestCorrection>[0],
+): string {
+  return upsertAcceptedLearning(sdlcDir, acceptedLearningFromTestCorrection(options));
+}
+
 function isAcceptedLearningEntry(value: AcceptedLearningEntry): value is AcceptedLearningEntry {
   return (
     typeof value.key === "string" &&
@@ -92,4 +167,13 @@ function readJsonl<T>(path: string): T[] {
     }
   }
   return out;
+}
+
+function slug(value: string): string {
+  const out = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48);
+  return out.length > 0 ? out : "unknown-scope";
 }

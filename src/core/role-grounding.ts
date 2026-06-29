@@ -1,5 +1,9 @@
 import { assertRoleAddendumWithinContract } from "./role-addenda.js";
-import type { AcceptedLearningEntry, AcceptedLearningKind } from "./accepted-learnings.js";
+import {
+  filterAcceptedLearningsByKinds,
+  type AcceptedLearningEntry,
+  type AcceptedLearningKind,
+} from "./accepted-learnings.js";
 import type { ProjectContext } from "./project-context.js";
 import type { Overlay, Role } from "../schema/index.js";
 
@@ -8,9 +12,17 @@ const MAX_ROLE_GROUNDING_CHARS = 1200;
 const ACCEPTED_LEARNINGS_HEADING = "## Accepted project learnings";
 const MAX_ACCEPTED_LEARNINGS_CHARS = 800;
 
-const LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
+export const LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
+  architect: ["architecture-demotion", "standard-added", "bench-residual"],
+  engineer: ["test-command", "standard-added", "review-finding", "test-correction", "bench-residual"],
+  reviewer: ["review-finding", "bench-residual", "standard-added"],
+  tester: ["test-command", "test-correction", "bench-residual"],
+};
+
+export const SETUP_GROUNDING_LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
   architect: ["architecture-demotion", "standard-added"],
   engineer: ["test-command", "standard-added"],
+  reviewer: ["standard-added"],
   tester: ["test-command"],
 };
 
@@ -94,7 +106,7 @@ export function appendAcceptedLearnings(role: Role, entries: AcceptedLearningEnt
   const kinds = LEARNINGS_BY_ROLE[role.frontmatter.name];
   if (!kinds || entries.length === 0) return role;
 
-  const relevant = entries.filter((entry) => kinds.includes(entry.kind));
+  const relevant = filterAcceptedLearningsByKinds(entries, kinds);
   if (relevant.length === 0) return role;
 
   const lines = [

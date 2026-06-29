@@ -6,6 +6,7 @@ import { mergeOverlay } from "../../src/core/merge.js";
 import type { ProjectContext } from "../../src/core/project-context.js";
 import {
   appendArchitectGrounding,
+  appendAcceptedLearnings,
   hasDeterministicTesterGrounding,
   ROLE_GROUNDING_HEADING,
 } from "../../src/core/role-grounding.js";
@@ -99,5 +100,32 @@ describe("role grounding", () => {
     expect(tester.body).toContain("## Project-specific guidance (generated)");
     expect(tester.body).toContain("Also run lint before merge.");
     expect(tester.body).toContain("**Root:** `npm test`");
+  });
+
+  it("routes loop-derived accepted learnings to reviewer, tester, and engineer", () => {
+    const base = loadBase(baseDir);
+    const reviewer = base.roles.find((r) => r.frontmatter.name === "reviewer")!;
+    const tester = base.roles.find((r) => r.frontmatter.name === "tester")!;
+    const engineer = base.roles.find((r) => r.frontmatter.name === "engineer")!;
+    const architect = base.roles.find((r) => r.frontmatter.name === "architect")!;
+    const reviewFinding = {
+      key: "review:scope",
+      kind: "review-finding" as const,
+      claim: "Reviewer found scope creep in `src/foo.ts`.",
+      sources: ["src/foo.ts"],
+      provenance: "gate" as const,
+    };
+    const testCorrection = {
+      key: "test:scope",
+      kind: "test-correction" as const,
+      claim: "Tester found missing failure coverage for retry paths.",
+      sources: ["tests/foo.test.ts"],
+      provenance: "gate" as const,
+    };
+
+    expect(appendAcceptedLearnings(reviewer, [reviewFinding]).body).toContain(reviewFinding.claim);
+    expect(appendAcceptedLearnings(engineer, [reviewFinding, testCorrection]).body).toContain(testCorrection.claim);
+    expect(appendAcceptedLearnings(tester, [testCorrection]).body).toContain(testCorrection.claim);
+    expect(appendAcceptedLearnings(architect, [reviewFinding]).body).not.toContain(reviewFinding.claim);
   });
 });

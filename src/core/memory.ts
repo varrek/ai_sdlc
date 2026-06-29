@@ -1,5 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { upsertGateOutcomeLearning } from "./accepted-learnings.js";
 
 /**
  * Minimal compounding memory (v1). We capture two things and defer the rest
@@ -27,6 +28,7 @@ const STANDARDS_DELTAS = "standards-deltas.jsonl";
 export function appendGateOutcome(sdlcDir: string, outcome: GateOutcome): string {
   const path = join(sdlcDir, GATE_HISTORY);
   appendLine(path, JSON.stringify(outcome));
+  upsertGateOutcomeLearning(sdlcDir, outcome);
   return path;
 }
 

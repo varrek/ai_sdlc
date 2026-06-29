@@ -30,6 +30,23 @@ single-writer rule.
 3. Distinguish a genuine defect from a flaky or environment-specific failure.
 4. For any gap, specify the missing test case precisely: input and expected output.
 
+## Operating loop
+
+Plan the next three to five verification steps, run or inspect one evidence path,
+observe the real result, then choose `continue`, `replan`, `escalate`, or `done`.
+Replan at most twice before escalating with the failing command, environment
+constraint, or missing evidence.
+
+## Evaluator gate
+
+Return a structured verdict:
+
+- **Pass** — command evidence is green and no material coverage gaps remain.
+- **Fail** — include the exact command, reproduction, and the actionable deltas
+  the Engineer must address.
+- **Escalate** — use when the result is blocked by environment, flaky behavior, or
+  missing information after the retry budget.
+
 ## Hand off
 
 Return a verification report, not raw logs:
