@@ -504,6 +504,11 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     else if (ext === ".ts" || ext === ".tsx") bumpLang("typescript");
     else if (ext === ".js" || ext === ".jsx" || ext === ".mjs") bumpLang("javascript");
     else if (ext === ".go") bumpLang("go");
+    else if (ext === ".rs") bumpLang("rust");
+    else if (ext === ".java") bumpLang("java");
+    else if (ext === ".kt" || ext === ".kts") bumpLang("kotlin");
+    else if (ext === ".rb") bumpLang("ruby");
+    else if (ext === ".cs" || ext === ".fs" || ext === ".vb") bumpLang("csharp");
   }
   const LANG_SHARE_FLOOR = 0.05;
   for (const [lang, count] of extLangCount) {
@@ -512,7 +517,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     }
   }
 
-  const KNOWN_MANIFESTS = [
+  const ROOT_MANIFESTS = [
     "pyproject.toml",
     "requirements.txt",
     "setup.py",
@@ -522,9 +527,24 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     "tsconfig.json",
     "go.mod",
     "Cargo.toml",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle.kts",
+    "Gemfile",
+    "global.json",
   ];
-  for (const m of KNOWN_MANIFESTS) {
+  for (const m of ROOT_MANIFESTS) {
     if (fileSet.has(m)) manifests.push(m);
+  }
+  for (const f of files) {
+    const base = f.slice(f.lastIndexOf("/") + 1);
+    if (
+      (base.endsWith(".csproj") || base.endsWith(".sln") || base.endsWith(".fsproj")) &&
+      !manifests.includes(f)
+    ) {
+      manifests.push(f);
+    }
   }
 
   // ---- Python signals ----
@@ -634,10 +654,166 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     addEvidence(evidence, "typescript", "tsconfig.json");
   }
 
+  // ---- Rust signals ----
+  const cargoToml = read(root, "Cargo.toml");
+  const hasRustIntegrationTests = files.some((f) => /^tests\/[^/]+\.rs$/.test(f));
+  if (fileSet.has("Cargo.toml")) {
+    languages.add("rust");
+    packageManagers.add("cargo");
+    addEvidence(evidence, "rust", "Cargo.toml");
+    if (
+      cargoToml.includes("[[test]]") ||
+      hasRustIntegrationTests ||
+      /\b(mockall|proptest|rstest|tokio-test)\b/.test(cargoToml)
+    ) {
+      testRunner = testRunner ?? "cargo";
+      if (cargoToml.includes("[[test]]")) addEvidence(evidence, "test-runner:cargo", "Cargo.toml");
+      if (hasRustIntegrationTests) {
+        const sample = files.find((f) => /^tests\/[^/]+\.rs$/.test(f))!;
+        addEvidence(evidence, "test-runner:cargo", sample);
+      }
+    }
+    if (cargoToml.includes("[lints.clippy]") || fileSet.has(".clippy.toml")) {
+      linters.add("clippy");
+      addEvidence(
+        evidence,
+        "linter:clippy",
+        fileSet.has(".clippy.toml") ? ".clippy.toml" : "Cargo.toml",
+      );
+    }
+    if (fileSet.has("rustfmt.toml") || fileSet.has(".rustfmt.toml")) {
+      linters.add("rustfmt");
+      addEvidence(
+        evidence,
+        "linter:rustfmt",
+        fileSet.has("rustfmt.toml") ? "rustfmt.toml" : ".rustfmt.toml",
+      );
+    }
+    const cargoRuntime = stripCargoDevDeps(cargoToml);
+    for (const [name, re] of [
+      ["actix-web", /\bactix-web\b/],
+      ["axum", /\baxum\b/],
+      ["rocket", /\brocket\b/],
+    ] as const) {
+      if (re.test(cargoRuntime)) {
+        frameworks.add(name);
+        addEvidence(evidence, `framework:${name}`, "Cargo.toml");
+      }
+    }
+  }
+
+  // ---- JVM signals (Maven / Gradle) ----
+  const pomXml = read(root, "pom.xml");
+  const buildGradle = fileSet.has("build.gradle.kts")
+    ? read(root, "build.gradle.kts")
+    : read(root, "build.gradle");
+  const hasGradlew = fileSet.has("gradlew");
+  if (fileSet.has("pom.xml")) {
+    languages.add("java");
+    packageManagers.add("maven");
+    addEvidence(evidence, "java", "pom.xml");
+    if (/\bjunit\b/i.test(pomXml) || pomXml.includes("maven-surefire-plugin")) {
+      testRunner = testRunner ?? "maven";
+      addEvidence(evidence, "test-runner:maven", "pom.xml");
+    }
+    if (/\bspring-boot\b/i.test(pomXml)) {
+      frameworks.add("spring-boot");
+      addEvidence(evidence, "framework:spring-boot", "pom.xml");
+    }
+  }
+  if (fileSet.has("build.gradle") || fileSet.has("build.gradle.kts")) {
+    const gradleManifest = fileSet.has("build.gradle.kts") ? "build.gradle.kts" : "build.gradle";
+    if (/\bkotlin\b/i.test(buildGradle) || languages.has("kotlin")) {
+      languages.add("kotlin");
+      addEvidence(evidence, "kotlin", gradleManifest);
+    } else {
+      languages.add("java");
+      addEvidence(evidence, "java", gradleManifest);
+    }
+    packageManagers.add("gradle");
+    if (
+      /\bjunit\b/i.test(buildGradle) ||
+      buildGradle.includes("useJUnitPlatform") ||
+      buildGradle.includes("testImplementation")
+    ) {
+      testRunner = testRunner ?? "gradle";
+      addEvidence(evidence, "test-runner:gradle", gradleManifest);
+    }
+    if (/\bspring-boot\b/i.test(buildGradle)) {
+      frameworks.add("spring-boot");
+      addEvidence(evidence, "framework:spring-boot", gradleManifest);
+    }
+  }
+  if (fileSet.has("checkstyle.xml")) {
+    linters.add("checkstyle");
+    addEvidence(evidence, "linter:checkstyle", "checkstyle.xml");
+  }
+
+  // ---- Ruby signals ----
+  const gemfile = read(root, "Gemfile");
+  const rakefile = read(root, "Rakefile");
+  if (fileSet.has("Gemfile")) {
+    languages.add("ruby");
+    packageManagers.add("bundler");
+    addEvidence(evidence, "ruby", "Gemfile");
+    if (/\bgem\s+['"]rails['"]/.test(gemfile)) {
+      frameworks.add("rails");
+      addEvidence(evidence, "framework:rails", "Gemfile");
+    }
+    if (/\bgem\s+['"]rspec/.test(gemfile)) {
+      testRunner = testRunner ?? "rspec";
+      addEvidence(evidence, "test-runner:rspec", "Gemfile");
+    } else if (/\bgem\s+['"]minitest['"]/.test(gemfile) && /task\s+:test\b/.test(rakefile)) {
+      testRunner = testRunner ?? "minitest";
+      addEvidence(evidence, "test-runner:minitest", "Gemfile");
+      addEvidence(evidence, "test-runner:minitest", "Rakefile");
+    }
+    if (/\bgem\s+['"]rubocop['"]/.test(gemfile) || fileSet.has(".rubocop.yml")) {
+      linters.add("rubocop");
+      addEvidence(evidence, "linter:rubocop", fileSet.has(".rubocop.yml") ? ".rubocop.yml" : "Gemfile");
+    }
+  }
+
+  // ---- .NET signals ----
+  const csprojPath = files.find((f) => f.endsWith(".csproj") || f.endsWith(".fsproj"));
+  const csproj = csprojPath ? read(root, csprojPath) : "";
+  if (csprojPath || fileSet.has("global.json")) {
+    languages.add("csharp");
+    packageManagers.add("dotnet");
+    if (csprojPath) addEvidence(evidence, "csharp", csprojPath);
+    else addEvidence(evidence, "csharp", "global.json");
+    if (
+      /\bMicrosoft\.NET\.Test\.Sdk\b/.test(csproj) ||
+      /\bxunit\b/i.test(csproj) ||
+      /\bnunit\b/i.test(csproj) ||
+      /\bMSTest\b/.test(csproj)
+    ) {
+      testRunner = testRunner ?? "dotnet";
+      addEvidence(evidence, "test-runner:dotnet", csprojPath ?? "global.json");
+    }
+  }
+
   // ---- Go signals ----
   if (fileSet.has("go.mod")) {
     languages.add("go");
     addEvidence(evidence, "go", "go.mod");
+    const hasGoTestFiles = files.some((f) => f.endsWith("_test.go"));
+    if (hasGoTestFiles || makefile.includes("go test")) {
+      testRunner = testRunner ?? "go";
+      if (hasGoTestFiles) {
+        const sample = files.find((f) => f.endsWith("_test.go"))!;
+        addEvidence(evidence, "test-runner:go", sample);
+      }
+      if (makefile.includes("go test")) addEvidence(evidence, "test-runner:go", "Makefile");
+    }
+    if (fileSet.has(".golangci.yml") || fileSet.has(".golangci.yaml")) {
+      linters.add("golangci-lint");
+      addEvidence(
+        evidence,
+        "linter:golangci-lint",
+        fileSet.has(".golangci.yml") ? ".golangci.yml" : ".golangci.yaml",
+      );
+    }
   }
 
   // ---- CI, ownership, docs ----
@@ -664,6 +840,8 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     makefile,
     pkgTestScript,
     testRunner,
+    hasGradlew,
+    csprojPath,
     langShares,
     sourceFileTotal,
   });
@@ -711,6 +889,10 @@ const PACKAGE_MANIFESTS = new Set([
   "setup.py",
   "Cargo.toml",
   "go.mod",
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+  "Gemfile",
 ]);
 
 /**
@@ -795,7 +977,7 @@ function manifestDirs(files: string[]): Set<string> {
     const slash = f.lastIndexOf("/");
     const dir = slash === -1 ? "." : f.slice(0, slash);
     const name = slash === -1 ? f : f.slice(slash + 1);
-    if (dir !== "." && PACKAGE_MANIFESTS.has(name)) dirs.add(dir);
+    if (dir !== "." && (PACKAGE_MANIFESTS.has(name) || name.endsWith(".csproj"))) dirs.add(dir);
   }
   return dirs;
 }
@@ -893,6 +1075,20 @@ function minePackage(root: string, pkgDir: string): PackageProfile {
  * the manifest are preserved. A line is skipped while inside an excluded table,
  * resuming at the next table header.
  */
+function stripCargoDevDeps(toml: string): string {
+  const out: string[] = [];
+  let skipping = false;
+  for (const line of toml.split("\n")) {
+    const header = line.match(/^\s*\[+\s*([^\]]+?)\s*\]+/);
+    if (header) {
+      const name = header[1]!;
+      skipping = name === "dev-dependencies" || name.startsWith("dev-dependencies.");
+    }
+    if (!skipping) out.push(line);
+  }
+  return out.join("\n");
+}
+
 function stripOptionalDepSections(toml: string): string {
   const isOptional = (name: string): boolean =>
     name === "project.optional-dependencies" ||
@@ -921,7 +1117,7 @@ function safeJson(text: string): Record<string, unknown> {
 
 /** Matches the runnable invocation of a common test runner inside a shell line. */
 const TEST_TOOL =
-  /(^|\s)(pytest|vitest|jest|tox|mocha)\b|(npm|yarn|pnpm)\s+(run\s+)?test\b|\bgo\s+test\b|\bmake\s+test\b/;
+  /(^|\s)(pytest|vitest|jest|tox|mocha)\b|(npm|yarn|pnpm)\s+(run\s+)?test\b|\bgo\s+test\b|\bcargo\s+test\b|\bmvn\s+test\b|\b(?:\.\/)?gradlew?\s+test\b|\bbundle\s+exec\s+(rspec|rake)\b|\bdotnet\s+test\b|\bmake\s+test\b/;
 
 /** Leading `FOO=bar BAZ="qux" ` environment assignments before the real command. */
 const ENV_ASSIGN_PREFIX = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s+)+/;
@@ -948,6 +1144,8 @@ interface TestCommandSignals {
   makefile: string;
   pkgTestScript: string;
   testRunner: string | undefined;
+  hasGradlew: boolean;
+  csprojPath: string | undefined;
   /** Extension-based language share (0..1), keyed by language. Empty when no source. */
   langShares: Map<string, number>;
   /** Total extension-classified source files; 0 for a manifest-only repo. */
@@ -955,7 +1153,7 @@ interface TestCommandSignals {
 }
 
 /** The language toolchain a test command belongs to, or `undefined` if neutral. */
-type Ecosystem = "js" | "python" | "go" | undefined;
+type Ecosystem = "js" | "python" | "go" | "rust" | "jvm" | "ruby" | "dotnet" | undefined;
 
 /** Below this extension share a language is a minority — its test command can't be the suite. */
 const LANG_PRIMARY_FLOOR = 0.15;
@@ -963,7 +1161,11 @@ const LANG_PRIMARY_FLOOR = 0.15;
 /** Classify a shell test command by toolchain so a minority-language command can be rejected. */
 function commandEcosystem(command: string): Ecosystem {
   const c = command.toLowerCase();
+  if (/\bcargo\s+test\b/.test(c)) return "rust";
   if (/\bgo\s+test\b/.test(c)) return "go";
+  if (/\b(mvn|gradle|gradlew)\b/.test(c)) return "jvm";
+  if (/\b(rspec|minitest|bundle\s+exec)\b/.test(c) || /\brake\s+test\b/.test(c)) return "ruby";
+  if (/\bdotnet\s+test\b/.test(c)) return "dotnet";
   if (/\b(pytest|tox|nox)\b/.test(c) || /\bpython3?\s+-m\b/.test(c) || /\buv\s+run\b/.test(c)) {
     return "python";
   }
@@ -989,6 +1191,14 @@ function ecosystemAllowed(command: string, signals: TestCommandSignals): boolean
       return share("python") >= LANG_PRIMARY_FLOOR;
     case "go":
       return share("go") >= LANG_PRIMARY_FLOOR;
+    case "rust":
+      return share("rust") >= LANG_PRIMARY_FLOOR;
+    case "jvm":
+      return share("java") >= LANG_PRIMARY_FLOOR || share("kotlin") >= LANG_PRIMARY_FLOOR;
+    case "ruby":
+      return share("ruby") >= LANG_PRIMARY_FLOOR;
+    case "dotnet":
+      return share("csharp") >= LANG_PRIMARY_FLOOR;
     default:
       return true;
   }
@@ -1051,19 +1261,36 @@ function resolveTestCommand(
     return { command: trimTrailingSeparator(pickTestSegment(script) ?? script), evidence: "package.json" };
   }
   // 4. Inferred runner default (e.g. a pytest repo with no scripts).
-  const fallback = runnerDefaultCommand(signals.testRunner);
+  const fallback = runnerDefaultCommand(signals.testRunner, signals);
   if (fallback && ecosystemAllowed(fallback, signals)) {
-    const evidence = signals.fileSet.has("pyproject.toml")
-      ? "pyproject.toml"
-      : signals.fileSet.has("package.json")
-        ? "package.json"
-        : "tests/";
+    const evidence = runnerDefaultEvidence(signals);
     return { command: fallback, evidence };
   }
   return undefined;
 }
 
-function runnerDefaultCommand(runner: string | undefined): string | undefined {
+function runnerDefaultEvidence(signals: TestCommandSignals): string {
+  if (signals.testRunner === "cargo" && signals.fileSet.has("Cargo.toml")) return "Cargo.toml";
+  if (signals.testRunner === "maven" && signals.fileSet.has("pom.xml")) return "pom.xml";
+  if (
+    signals.testRunner === "gradle" &&
+    (signals.fileSet.has("build.gradle.kts") || signals.fileSet.has("build.gradle"))
+  ) {
+    return signals.fileSet.has("build.gradle.kts") ? "build.gradle.kts" : "build.gradle";
+  }
+  if (signals.testRunner === "rspec" && signals.fileSet.has("Gemfile")) return "Gemfile";
+  if (signals.testRunner === "minitest" && signals.fileSet.has("Gemfile")) return "Gemfile";
+  if (signals.testRunner === "dotnet" && signals.csprojPath) return signals.csprojPath;
+  if (signals.testRunner === "go" && signals.fileSet.has("go.mod")) return "go.mod";
+  if (signals.fileSet.has("pyproject.toml")) return "pyproject.toml";
+  if (signals.fileSet.has("package.json")) return "package.json";
+  return "tests/";
+}
+
+function runnerDefaultCommand(
+  runner: string | undefined,
+  signals: TestCommandSignals,
+): string | undefined {
   switch (runner) {
     case "pytest":
       return "pytest";
@@ -1071,6 +1298,20 @@ function runnerDefaultCommand(runner: string | undefined): string | undefined {
       return "vitest run";
     case "jest":
       return "jest";
+    case "cargo":
+      return "cargo test";
+    case "go":
+      return "go test ./...";
+    case "maven":
+      return "mvn test";
+    case "gradle":
+      return signals.hasGradlew ? "./gradlew test" : "gradle test";
+    case "rspec":
+      return "bundle exec rspec";
+    case "minitest":
+      return "bundle exec rake test";
+    case "dotnet":
+      return "dotnet test";
     default:
       return undefined;
   }

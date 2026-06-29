@@ -110,8 +110,7 @@ describe("repo miner", () => {
   });
 
   it("suggests Full for a CI repo with a resolved test command but no known runner (Go)", () => {
-    // testRunner is only set for pytest/jest/vitest, so a Go repo's Full track
-    // must hinge on the resolved testCommand, not the runner name.
+    // CI can supply `go test` even when no `_test.go` files exist yet.
     const dir = mkdtempSync(join(tmpdir(), "aisdlc-go-"));
     tmpDirs.push(dir);
     writeFileSync(join(dir, "go.mod"), "module example.com/x\n\ngo 1.22\n", "utf8");
@@ -126,6 +125,90 @@ describe("repo miner", () => {
     expect(p.testRunner).toBeUndefined();
     expect(p.testCommand).toBe("go test ./...");
     expect(suggestTrack(p)).toBe("full");
+  });
+
+  it("detects Rust/Cargo with integration tests, axum, and clippy", () => {
+    const p = mineRepo(repo("rust-cargo"));
+    expect(p.languages).toContain("rust");
+    expect(p.packageManagers).toContain("cargo");
+    expect(p.frameworks).toContain("axum");
+    expect(p.testRunner).toBe("cargo");
+    expect(p.testCommand).toBe("cargo test");
+    expect(p.linters).toContain("clippy");
+    expect(p.evidence["test-runner:cargo"]).toEqual(
+      expect.arrayContaining(["tests/integration.rs"]),
+    );
+  });
+
+  it("does not infer cargo test from Cargo.toml alone without test evidence", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-rust-bare-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "Cargo.toml"), "[package]\nname = \"x\"\nversion = \"0.1.0\"\n", "utf8");
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "lib.rs"), "pub fn x() {}\n", "utf8");
+    mkdirSync(join(dir, "tests"), { recursive: true });
+    writeFileSync(join(dir, "tests", "README.md"), "manual tests\n", "utf8");
+    const p = mineRepo(dir);
+    expect(p.languages).toContain("rust");
+    expect(p.testRunner).toBeUndefined();
+    expect(p.testCommand).toBeUndefined();
+  });
+
+  it("detects Java/Maven with spring-boot and mvn test default", () => {
+    const p = mineRepo(repo("java-maven"));
+    expect(p.languages).toContain("java");
+    expect(p.packageManagers).toContain("maven");
+    expect(p.frameworks).toContain("spring-boot");
+    expect(p.testRunner).toBe("maven");
+    expect(p.testCommand).toBe("mvn test");
+  });
+
+  it("detects Kotlin/Gradle with gradlew test default", () => {
+    const p = mineRepo(repo("kotlin-gradle"));
+    expect(p.languages).toContain("kotlin");
+    expect(p.packageManagers).toContain("gradle");
+    expect(p.testRunner).toBe("gradle");
+    expect(p.testCommand).toBe("./gradlew test");
+  });
+
+  it("detects Ruby/Rails with rspec and rubocop", () => {
+    const p = mineRepo(repo("ruby-rails"));
+    expect(p.languages).toContain("ruby");
+    expect(p.packageManagers).toContain("bundler");
+    expect(p.frameworks).toContain("rails");
+    expect(p.testRunner).toBe("rspec");
+    expect(p.testCommand).toBe("bundle exec rspec");
+    expect(p.linters).toContain("rubocop");
+  });
+
+  it("detects .NET with dotnet test default from test SDK", () => {
+    const p = mineRepo(repo("dotnet-app"));
+    expect(p.languages).toContain("csharp");
+    expect(p.packageManagers).toContain("dotnet");
+    expect(p.testRunner).toBe("dotnet");
+    expect(p.testCommand).toBe("dotnet test");
+    expect(p.evidence["test-runner:dotnet"]).toEqual(["SampleApp.csproj"]);
+  });
+
+  it("detects Go test runner default and golangci-lint from explicit signals", () => {
+    const p = mineRepo(repo("go-app"));
+    expect(p.languages).toContain("go");
+    expect(p.testRunner).toBe("go");
+    expect(p.testCommand).toBe("go test ./...");
+    expect(p.linters).toContain("golangci-lint");
+  });
+
+  it("does not infer minitest from Gemfile alone without a Rakefile test task", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-ruby-minitest-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "Gemfile"), "gem 'minitest'\n", "utf8");
+    writeFileSync(join(dir, "app.rb"), "class App; end\n", "utf8");
+    mkdirSync(join(dir, "test"), { recursive: true });
+    writeFileSync(join(dir, "test", "app_test.rb"), "require 'minitest/autorun'\n", "utf8");
+    const p = mineRepo(dir);
+    expect(p.languages).toContain("ruby");
+    expect(p.testRunner).toBeUndefined();
+    expect(p.testCommand).toBeUndefined();
   });
 
   it("does not mine its own emitted config (mining is stable across an in-repo compile)", () => {
