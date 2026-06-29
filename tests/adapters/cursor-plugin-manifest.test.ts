@@ -29,9 +29,11 @@ describe("cursor plugin manifest", () => {
     expect(doc.skills).toBe(".agents/skills");
     expect(doc.hooks).toBe(".cursor/hooks.json");
     expect(doc.mcpServers).toBe(".cursor/mcp.json");
+    expect(doc.documentation).toBe(".sdlc/lsp-guidance.md");
     expect(doc.displayName).toBe("AI SDLC");
     expect(typeof doc.description).toBe("string");
     expect(doc.version).toBe("0.1.0");
+    expect(files.get(".sdlc/lsp-guidance.md")).toContain("No language-specific LSP recommendations");
   });
 
   it("honors a custom plugin name override", () => {
@@ -43,5 +45,50 @@ describe("cursor plugin manifest", () => {
     const files = byPath(new CursorAdapter().emit(makeModel({ manifest })).files);
     const doc = JSON.parse(files.get(".cursor-plugin/plugin.json")!) as Record<string, unknown>;
     expect(doc.name).toBe("acme-sdlc");
+  });
+
+  it("emits distribution metadata and LSP guidance from project context", () => {
+    const manifest = HostManifest.parse({
+      version: 1,
+      hosts: ["cursor"],
+      options: {
+        cursor: {
+          pluginManifest: true,
+          pluginName: "acme-sdlc",
+          pluginDisplayName: "Acme SDLC",
+          pluginDescription: "Acme agent harness.",
+          pluginVersion: "1.2.3",
+          pluginPublisher: "acme",
+          pluginRepository: "https://github.com/acme/app",
+        },
+      },
+    });
+    const files = byPath(
+      new CursorAdapter().emit(
+        makeModel({
+          manifest,
+          projectContext: {
+            packages: [
+              {
+                path: "packages/api",
+                languages: ["typescript"],
+                instructionBody: "",
+                testCommand: "npm test",
+              },
+            ],
+            map: [],
+            exclusions: [],
+          },
+        }),
+      ).files,
+    );
+
+    const doc = JSON.parse(files.get(".cursor-plugin/plugin.json")!) as Record<string, unknown>;
+    expect(doc.displayName).toBe("Acme SDLC");
+    expect(doc.version).toBe("1.2.3");
+    expect(doc.publisher).toBe("acme");
+    expect(doc.repository).toBe("https://github.com/acme/app");
+    expect(files.get(".sdlc/lsp-guidance.md")).toContain("typescript-language-server");
+    expect(files.get(".sdlc/lsp-guidance.md")).toContain("`packages/api`");
   });
 });

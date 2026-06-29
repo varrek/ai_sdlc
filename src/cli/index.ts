@@ -8,6 +8,7 @@ import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
 import { loadAnswersFile, runCustomize } from "./customize.js";
 import { EXPLAIN_CLAIM_KEYS, explainClaim, explainStandard, isExplainClaimKey } from "./explain.js";
+import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "./garden-docs.js";
 import { buildStatus, formatStatus } from "./status.js";
 import { runSmokeCli } from "./smoke.js";
 import { runUpgrade } from "./upgrade.js";
@@ -28,11 +29,15 @@ Commands:
   status      Report setup freshness, blocking gaps, and evidence coverage.
   bench       Run a reproducible external-repo setup evaluation.
   explain     Show a mined standard (by number) or stable claim key and its evidence.
+  garden-docs Report stale or noisy agent-facing documentation.
 
 Bench flags:
   --seed <n> --count <n> --catalog <file> --cache-dir <dir> --report-dir <dir>
   --base <dir> --mode deterministic|plugin --dry-run --skip-clone --force
   --repo-timeout-ms <n> --fail-on-class <class,class>
+
+Garden-docs flags:
+  --repo <dir> --config <dir> --format text|json --write-report --fail-on warning|error
 `;
 
 function fail(message: string): never {
@@ -315,6 +320,30 @@ function cmdBench(rest: string[]): void {
   process.exit(result.exitCode);
 }
 
+function cmdGardenDocs(rest: string[]): void {
+  const { options, flags } = parseArgs(rest);
+  let format;
+  let failOn;
+  try {
+    format = parseGardenDocsFormat(options.get("format"));
+    failOn = parseGardenDocsFailOn(options.get("fail-on"));
+  } catch (error) {
+    fail(`garden-docs: ${(error as Error).message}`);
+  }
+  const result = runGardenDocs({
+    repoRoot: options.get("repo") ?? process.cwd(),
+    configDir: options.get("config"),
+    format,
+    failOn,
+    writeReport: flags.has("write-report"),
+  });
+  process.stdout.write(`${result.output}\n`);
+  if (result.writtenPaths.length > 0) {
+    process.stdout.write(`Wrote: ${result.writtenPaths.join(", ")}\n`);
+  }
+  process.exit(result.exitCode);
+}
+
 function cmdUpgrade(rest: string[]): void {
   const { options } = parseArgs(rest);
   const oldBaseDir = options.get("old-base");
@@ -367,6 +396,9 @@ function main(): void {
       return;
     case "explain":
       cmdExplain(rest);
+      return;
+    case "garden-docs":
+      cmdGardenDocs(rest);
       return;
     case undefined:
     case "help":
