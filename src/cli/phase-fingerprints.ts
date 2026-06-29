@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { acceptedLearningsPath } from "../core/accepted-learnings.js";
 import { EMITTED_MANIFEST_PATH } from "../core/engine.js";
 import { PROJECT_CONTEXT_FILE } from "../core/loader.js";
 import { readProjectLock } from "../core/overlay.js";
@@ -20,17 +21,19 @@ export function baseFingerprint(baseDir: string, sdlcDir: string, packDirs: stri
 }
 
 /**
- * Content of the overlay file folded with the sibling `project-context.json`, or
- * `""` when neither exists. Including the project context means a change to
- * per-package instructions, the codebase map, or exclusions invalidates the
- * `compiled` phase even when `.customize.yaml` itself is unchanged.
+ * Content of the overlay file folded with the sibling `project-context.json` and
+ * accepted learnings ledger. Including these derived inputs means changes to
+ * role-grounding context invalidate `compiled` even when `.customize.yaml` itself
+ * is unchanged.
  */
-export function overlayFingerprint(overlayPath: string | undefined): string {
-  if (!overlayPath || !existsSync(overlayPath)) return fingerprint(["overlay", ""]);
-  const overlay = readFileSync(overlayPath, "utf8");
-  const ctxPath = join(dirname(overlayPath), PROJECT_CONTEXT_FILE);
-  const ctx = existsSync(ctxPath) ? readFileSync(ctxPath, "utf8") : "";
-  return fingerprint(["overlay", overlay, "project-context", ctx]);
+export function overlayFingerprint(overlayPath: string | undefined, sdlcDir?: string): string {
+  const overlay = overlayPath && existsSync(overlayPath) ? readFileSync(overlayPath, "utf8") : "";
+  const overlayDir = overlayPath ? dirname(overlayPath) : undefined;
+  const ctxPath = overlayDir ? join(overlayDir, PROJECT_CONTEXT_FILE) : undefined;
+  const ctx = ctxPath && existsSync(ctxPath) ? readFileSync(ctxPath, "utf8") : "";
+  const learningsPath = sdlcDir ? acceptedLearningsPath(sdlcDir) : "";
+  const learnings = learningsPath && existsSync(learningsPath) ? readFileSync(learningsPath, "utf8") : "";
+  return fingerprint(["overlay", overlay, "project-context", ctx, "accepted-learnings", learnings]);
 }
 
 /** `compiled` phase fingerprint: overlay content folded with the base hash. */

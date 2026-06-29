@@ -191,7 +191,7 @@ function setupPhaseStatus(options: {
   }
   const stale: SetupPhase[] = [];
   if (options.baseDir && existsSync(options.baseDir)) {
-    const overlayFp = overlayFingerprint(options.overlayPath);
+    const overlayFp = overlayFingerprint(options.overlayPath, options.sdlcDir);
     const baseFp = baseFingerprint(options.baseDir, options.sdlcDir);
     const compiledFp = compiledFingerprint(overlayFp, baseFp);
     const smokeFp = emittedFingerprint(options.outDir, baseFp);

@@ -37,7 +37,7 @@ export interface CompileCliResult {
  */
 export function runCompileCli(options: CompileCliOptions): CompileCliResult {
   const sdlcDir = options.sdlcDir ?? join(options.outDir, ".sdlc");
-  const overlayFp = overlayFingerprint(options.overlayPath);
+  const overlayFp = overlayFingerprint(options.overlayPath, sdlcDir);
   const baseFp = baseFingerprint(options.baseDir, sdlcDir, options.packDirs);
   const compiledFp = compiledFingerprint(overlayFp, baseFp);
 

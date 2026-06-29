@@ -151,8 +151,15 @@ describe("role grounding", () => {
       sources: ["tests/foo.test.ts"],
       provenance: "gate" as const,
     };
+    const gateApproval = {
+      key: "gate:scope",
+      kind: "gate-approval" as const,
+      claim: "Approved? gate approved after tests passed.",
+      sources: ["src/foo.ts"],
+      provenance: "gate" as const,
+    };
 
-    expect(appendAcceptedLearnings(reviewer, [reviewFinding]).body).toContain(reviewFinding.claim);
+    expect(appendAcceptedLearnings(reviewer, [reviewFinding, gateApproval]).body).toContain(gateApproval.claim);
     expect(appendAcceptedLearnings(engineer, [reviewFinding, testCorrection]).body).toContain(testCorrection.claim);
     expect(appendAcceptedLearnings(tester, [testCorrection]).body).toContain(testCorrection.claim);
     expect(appendAcceptedLearnings(architect, [reviewFinding]).body).not.toContain(reviewFinding.claim);
