@@ -29,6 +29,7 @@ import {
   SETUP_GROUNDING_LEARNINGS_BY_ROLE,
 } from "../core/role-grounding.js";
 import type { OperatingMode } from "../schema/index.js";
+import { readLoopBehaviorEvalState, summarizeBehaviorEval } from "../eval/loop-behavior-eval-state.js";
 
 export interface StatusReport {
   /** True once `aisdlc customize` has produced an overlay. */
@@ -141,6 +142,8 @@ export function buildStatus(options: StatusOptions): StatusReport {
     LOOP_DERIVED_LEARNING_KINDS,
   ).length;
   const compiledCoverageState = phaseStatus.stalePhases.includes("compiled") ? "not-run" : "compiled";
+  const evalState = readLoopBehaviorEvalState(sdlcDir);
+  const behaviorEval = summarizeBehaviorEval(evalState);
   return {
     initialized: inspection.initialized,
     operatingMode: inspection.overlay.operatingMode,
@@ -173,7 +176,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
       roleGroundingComplete: groundedGroundableRoles === groundableRoles,
       approvalGateCoverage: compiledCoverageState,
       handoffCoverage: compiledCoverageState,
-      behaviorEval: { state: "not-run", passed: 0, total: 0 },
+      behaviorEval,
       loopLearnings,
     },
   };

@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runCustomize } from "../../src/cli/customize.js";
 import { buildStatus, formatStatus } from "../../src/cli/status.js";
 import { upsertAcceptedLearning } from "../../src/core/accepted-learnings.js";
+import { writeLoopBehaviorEvalState, type LoopBehaviorEvalResult } from "../../src/eval/loop-behavior-eval-state.js";
+import type { LoopScore } from "../../src/eval/loop-score.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repos = resolve(here, "..", "fixtures", "sample-repos");
@@ -90,5 +92,97 @@ describe("status", () => {
     expect(report.loopQuality.loopLearnings).toBe(1);
     expect(formatStatus(report)).toContain("loop learnings=1");
     expect(report.roleStates.reviewer).toBe(before.roleStates.reviewer);
+  });
+
+  it("reports behavior eval results when artifact is present", () => {
+    const work = tmpWork("python-rags");
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+    const mockScore: LoopScore = {
+      passed: true,
+      metrics: {
+        expectedStages: 4,
+        observedStages: 4,
+        missingStages: [],
+        replanCount: 0,
+        approvalGateCount: 2,
+        terminalStatus: "done",
+      },
+      violations: [],
+    };
+    const results: LoopBehaviorEvalResult[] = [
+      {
+        scenarioId: "test-scenario-1",
+        passed: true,
+        score: mockScore,
+        evaluatedAt: "2026-06-29T12:00:00Z",
+      },
+      {
+        scenarioId: "test-scenario-2",
+        passed: true,
+        score: mockScore,
+        evaluatedAt: "2026-06-29T12:00:00Z",
+      },
+    ];
+    writeLoopBehaviorEvalState(join(work, ".sdlc"), results);
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+
+    expect(report.loopQuality.behaviorEval.state).toBe("passed");
+    expect(report.loopQuality.behaviorEval.passed).toBe(2);
+    expect(report.loopQuality.behaviorEval.total).toBe(2);
+    expect(formatStatus(report)).toContain("behavior eval=passed");
+  });
+
+  it("reports partial behavior eval when some scenarios fail", () => {
+    const work = tmpWork("python-rags");
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+    const passingScore: LoopScore = {
+      passed: true,
+      metrics: {
+        expectedStages: 4,
+        observedStages: 4,
+        missingStages: [],
+        replanCount: 0,
+        approvalGateCount: 2,
+        terminalStatus: "done",
+      },
+      violations: [],
+    };
+    const failingScore: LoopScore = {
+      passed: false,
+      metrics: {
+        expectedStages: 4,
+        observedStages: 3,
+        missingStages: ["test"],
+        replanCount: 0,
+        approvalGateCount: 1,
+        terminalStatus: "done",
+      },
+      violations: [{ kind: "missing-stage", stage: "test", message: "Missing loop stage: test" }],
+    };
+    const results: LoopBehaviorEvalResult[] = [
+      {
+        scenarioId: "passing-scenario",
+        passed: true,
+        score: passingScore,
+        evaluatedAt: "2026-06-29T12:00:00Z",
+      },
+      {
+        scenarioId: "failing-scenario",
+        passed: false,
+        score: failingScore,
+        evaluatedAt: "2026-06-29T12:00:00Z",
+      },
+    ];
+    writeLoopBehaviorEvalState(join(work, ".sdlc"), results);
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+
+    expect(report.loopQuality.behaviorEval.state).toBe("partial");
+    expect(report.loopQuality.behaviorEval.passed).toBe(1);
+    expect(report.loopQuality.behaviorEval.total).toBe(2);
+    expect(formatStatus(report)).toContain("behavior eval=partial");
   });
 });
