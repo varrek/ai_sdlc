@@ -6,11 +6,13 @@ instead of overriding base content.
 
 | Pack | Focus | Integrations |
 | --- | --- | --- |
-| [security](./security/) | Threat modeling, security review | `sentry` |
-| [frontend](./frontend/) | UI review, browser smoke | `playwright`, `context7` |
 | [backend-api](./backend-api/) | API contract review | `github`, `database` |
+| [compliance](./compliance/) | Privacy and audit-sensitive review | — |
+| [data-ml](./data-ml/) | Data pipelines, notebooks, ML reproducibility | — |
+| [frontend](./frontend/) | UI review, browser smoke | `playwright`, `context7` |
 | [infra](./infra/) | Deploy readiness | `linear` |
 | [mobile](./mobile/) | Mobile review, simulator smoke | _(none — guidance only)_ |
+| [security](./security/) | Threat modeling, security review | `sentry` |
 
 See [docs/packs.md](../docs/packs.md) for usage, authoring, and safety constraints.
 

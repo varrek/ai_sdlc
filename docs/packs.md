@@ -21,14 +21,16 @@ aisdlc smoke --repo . --config . \
 
 Shipped reference packs live under [`packs/`](../packs/README.md):
 
-- **security** — `security-reviewer`, `threat-model`, Sentry contract
-- **frontend** — `frontend-reviewer`, `ui-smoke-check`, Playwright + Context7
 - **backend-api** — `api-reviewer`, `api-contract-review`, GitHub + database
+- **compliance** — `compliance-reviewer`, `privacy-audit-check`
+- **data-ml** — `data-reviewer`, `data-pipeline-review`
+- **frontend** — `frontend-reviewer`, `ui-smoke-check`, Playwright + Context7
 - **infra** — `infra-reviewer`, `deploy-readiness`, Linear
 - **mobile** — `mobile-reviewer`, `mobile-smoke-check` (no MCP contracts in v1)
+- **security** — `security-reviewer`, `threat-model`, Sentry contract
 
-Pick packs that match the work. Combining all five is valid when names stay
-unique across base + packs.
+Pick packs that match the work. Combining multiple packs is valid when names
+stay unique across base + packs.
 
 ### Binding MCP servers
 
