@@ -261,7 +261,11 @@ function successfulSetup(): SetupChainResult {
       blockingGaps: 0,
       packages: 0,
       gapClosureProvenance: { "test-command": "miner" },
-      roleStates: { architect: "deterministic", engineer: "deterministic", tester: "deterministic" },
+      roleStates: {
+        architect: "deterministic",
+        engineer: "deterministic",
+        tester: "deterministic",
+      },
       phaseStatus: { known: true, stalePhases: [] },
       acceptedLearnings: { count: 0, files: [] },
     },

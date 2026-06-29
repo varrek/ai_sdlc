@@ -23,14 +23,22 @@ describe("doc gardener", () => {
 
   it("reports root bloat, broken links, missing maps, and stale generated docs", () => {
     const root = tmpRepo();
-    writeFileSync(join(root, "AGENTS.md"), `${Array.from({ length: 130 }, () => "line").join("\n")}\n`, "utf8");
+    writeFileSync(
+      join(root, "AGENTS.md"),
+      `${Array.from({ length: 130 }, () => "line").join("\n")}\n`,
+      "utf8",
+    );
     mkdirSync(join(root, "docs"), { recursive: true });
     writeFileSync(join(root, "docs", "guide.md"), "[Missing](missing.md)\n", "utf8");
     writeFileSync(join(root, "docs", "capability-matrix.md"), "# stale\n", "utf8");
     mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
     writeFileSync(
       join(root, ".sdlc", "overlay", "project-context.json"),
-      JSON.stringify({ packages: [], map: [{ path: "src", role: "Source", sources: ["src"] }], exclusions: [] }),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src", role: "Source", sources: ["src"] }],
+        exclusions: [],
+      }),
       "utf8",
     );
 
@@ -52,7 +60,11 @@ describe("doc gardener", () => {
     mkdirSync(join(config, ".sdlc", "overlay"), { recursive: true });
     writeFileSync(
       join(config, ".sdlc", "overlay", "project-context.json"),
-      JSON.stringify({ packages: [], map: [{ path: "src", role: "Source", sources: ["src"] }], exclusions: [] }),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src", role: "Source", sources: ["src"] }],
+        exclusions: [],
+      }),
       "utf8",
     );
 
@@ -66,7 +78,11 @@ describe("doc gardener", () => {
     writeFileSync(join(root, "CLAUDE.md"), "# Claude\n", "utf8");
     writeFileSync(
       join(overlayDir, "project-context.json"),
-      JSON.stringify({ packages: [], map: [{ path: "src", role: "Source", sources: ["src"] }], exclusions: [] }),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src", role: "Source", sources: ["src"] }],
+        exclusions: [],
+      }),
       "utf8",
     );
 
@@ -85,11 +101,19 @@ describe("doc gardener", () => {
 
   it("accepts codebase-map pointers in any root instruction doc", () => {
     const root = tmpRepo();
-    writeFileSync(join(root, "CLAUDE.md"), "# Claude\n\nSee the codebase map in AGENTS.md.\n", "utf8");
+    writeFileSync(
+      join(root, "CLAUDE.md"),
+      "# Claude\n\nSee the codebase map in AGENTS.md.\n",
+      "utf8",
+    );
     mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
     writeFileSync(
       join(root, ".sdlc", "overlay", "project-context.json"),
-      JSON.stringify({ packages: [], map: [{ path: "src", role: "Source", sources: ["src"] }], exclusions: [] }),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src", role: "Source", sources: ["src"] }],
+        exclusions: [],
+      }),
       "utf8",
     );
 
@@ -100,11 +124,52 @@ describe("doc gardener", () => {
   it("checks reference-style markdown links", () => {
     const root = tmpRepo();
     mkdirSync(join(root, "docs"), { recursive: true });
-    writeFileSync(join(root, "docs", "guide.md"), "[Missing][target]\n\n[target]: missing.md\n", "utf8");
+    writeFileSync(
+      join(root, "docs", "guide.md"),
+      "[Missing][target]\n\n[target]: missing.md\n",
+      "utf8",
+    );
 
     const report = analyzeDocGarden({ repoRoot: root });
     expect(report.findings.map((finding) => finding.id)).toEqual(["broken-local-link"]);
     expect(report.findings[0]?.message).toContain("missing.md");
+  });
+
+  it("ignores markdown-looking links inside code spans and fenced code blocks", () => {
+    const root = tmpRepo();
+    mkdirSync(join(root, "docs"), { recursive: true });
+    writeFileSync(
+      join(root, "docs", "guide.md"),
+      [
+        "Pack names match `^[a-z][a-z0-9-]*$`.",
+        "",
+        "```md",
+        "[Missing][target]",
+        "[target]: missing.md",
+        "```",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root });
+
+    expect(report.findings.some((finding) => finding.id === "broken-local-link")).toBe(false);
+  });
+
+  it("still reports missing reference links outside code", () => {
+    const root = tmpRepo();
+    mkdirSync(join(root, "docs"), { recursive: true });
+    writeFileSync(
+      join(root, "docs", "guide.md"),
+      "`[Fine][target]`\n\n[Missing][target]\n",
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root });
+
+    expect(report.findings.map((finding) => finding.id)).toEqual(["broken-local-link"]);
+    expect(report.findings[0]?.message).toContain("[Missing][target]");
   });
 
   it("reports invalid percent-encoded link targets without throwing", () => {
@@ -122,7 +187,11 @@ describe("doc gardener", () => {
     mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
     writeFileSync(
       join(root, ".sdlc", "overlay", "project-context.json"),
-      JSON.stringify({ packages: [], map: [{ path: "src", role: "Source", sources: ["src"] }], exclusions: [] }),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src", role: "Source", sources: ["src"] }],
+        exclusions: [],
+      }),
       "utf8",
     );
 

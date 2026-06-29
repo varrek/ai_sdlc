@@ -32,7 +32,8 @@ export function overlayFingerprint(overlayPath: string | undefined, sdlcDir?: st
   const ctxPath = overlayDir ? join(overlayDir, PROJECT_CONTEXT_FILE) : undefined;
   const ctx = ctxPath && existsSync(ctxPath) ? readFileSync(ctxPath, "utf8") : "";
   const learningsPath = sdlcDir ? acceptedLearningsPath(sdlcDir) : "";
-  const learnings = learningsPath && existsSync(learningsPath) ? readFileSync(learningsPath, "utf8") : "";
+  const learnings =
+    learningsPath && existsSync(learningsPath) ? readFileSync(learningsPath, "utf8") : "";
   return fingerprint(["overlay", overlay, "project-context", ctx, "accepted-learnings", learnings]);
 }
 

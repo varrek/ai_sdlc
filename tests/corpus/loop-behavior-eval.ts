@@ -1,5 +1,5 @@
-import { stagesForTrack, STAGE_ROLE, type LoopStage } from "../../src/core/loop.js";
-import { scoreLoopTrace, type LoopScore } from "../../src/eval/loop-score.js";
+import { type LoopStage, STAGE_ROLE, stagesForTrack } from "../../src/core/loop.js";
+import { type LoopScore, scoreLoopTrace } from "../../src/eval/loop-score.js";
 import type { LoopRole, LoopTraceEvent } from "../../src/eval/loop-trace.js";
 import type { CeremonyTrack } from "../../src/schema/index.js";
 import type { AgentGuidanceBundle } from "./behavior-eval-v2.js";

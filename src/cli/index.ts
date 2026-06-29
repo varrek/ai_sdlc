@@ -1,21 +1,31 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs } from "./args.js";
-import { DEFAULT_CACHE_DIR, DEFAULT_CATALOG, DEFAULT_REPORT_DIR, parseFailOnClasses, runBench } from "./bench.js";
-import { runCompileCli } from "./compile.js";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
+import { appendLoopEvent, readLoopEvents } from "../core/memory.js";
+import { buildStandardsIndex, evidenceCoverage } from "../customize/emitters.js";
+import type { LoopTraceEvent } from "../eval/loop-trace.js";
+import {
+  HostId,
+  OperatingMode,
+  type OperatingMode as OperatingModeValue,
+} from "../schema/index.js";
+import { parseArgs } from "./args.js";
+import {
+  DEFAULT_CACHE_DIR,
+  DEFAULT_CATALOG,
+  DEFAULT_REPORT_DIR,
+  parseFailOnClasses,
+  runBench,
+} from "./bench.js";
+import { runCompileCli } from "./compile.js";
 import { loadAnswersFile, runCustomize } from "./customize.js";
 import { EXPLAIN_CLAIM_KEYS, explainClaim, explainStandard, isExplainClaimKey } from "./explain.js";
 import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "./garden-docs.js";
-import { buildStatus, formatStatus } from "./status.js";
 import { runSmokeCli } from "./smoke.js";
+import { buildStatus, formatStatus } from "./status.js";
 import { runUpgrade } from "./upgrade.js";
-import { buildStandardsIndex, evidenceCoverage } from "../customize/emitters.js";
-import { HostId, OperatingMode, type OperatingMode as OperatingModeValue } from "../schema/index.js";
-import { appendLoopEvent, readLoopEvents } from "../core/memory.js";
-import type { LoopTraceEvent } from "../eval/loop-trace.js";
 
 const HELP = `aisdlc — internal AI SDLC framework compiler
 
@@ -111,9 +121,7 @@ function cmdCompile(rest: string[]): void {
   if (!outDir) fail("compile: --out <dir> is required");
 
   const hostsRaw = options.get("hosts");
-  const hosts = hostsRaw
-    ? hostsRaw.split(",").map((h) => HostId.parse(h.trim()))
-    : undefined;
+  const hosts = hostsRaw ? hostsRaw.split(",").map((h) => HostId.parse(h.trim())) : undefined;
 
   const { result, freshnessSkipped } = runCompileCli({
     baseDir,
@@ -186,7 +194,9 @@ function cmdCustomize(rest: string[]): void {
   }
   if (!result.freshnessSkipped && result.firstRun) {
     if (result.standardsCount > 0) {
-      process.stdout.write(`Established ${result.standardsCount} standard(s) from repo evidence.\n`);
+      process.stdout.write(
+        `Established ${result.standardsCount} standard(s) from repo evidence.\n`,
+      );
     }
   } else if (result.drift.changed) {
     process.stdout.write(
@@ -327,7 +337,9 @@ function cmdBench(rest: string[]): void {
   }
   const seed = Number(options.get("seed") ?? "42");
   const count = Number(options.get("count") ?? "5");
-  const repoTimeoutMs = options.get("repo-timeout-ms") ? Number(options.get("repo-timeout-ms")) : undefined;
+  const repoTimeoutMs = options.get("repo-timeout-ms")
+    ? Number(options.get("repo-timeout-ms"))
+    : undefined;
   if (!Number.isInteger(seed)) fail("bench: --seed must be an integer");
   if (!Number.isInteger(count) || count < 1) fail("bench: --count must be a positive integer");
   if (repoTimeoutMs !== undefined && (!Number.isFinite(repoTimeoutMs) || repoTimeoutMs < 1)) {
@@ -426,7 +438,9 @@ function cmdRecordEvent(rest: string[]): void {
 
   const approvalKey = approvalEventKey(event);
   if (approvalKey) {
-    const alreadyRecorded = readLoopEvents(sdlcDir).some((recorded) => approvalEventKey(recorded) === approvalKey);
+    const alreadyRecorded = readLoopEvents(sdlcDir).some(
+      (recorded) => approvalEventKey(recorded) === approvalKey,
+    );
     if (alreadyRecorded) {
       process.stdout.write(`Skipped duplicate ${event.type} event in ${sdlcDir}\n`);
       return;

@@ -1,10 +1,10 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { Overlay } from "../../src/schema/index.js";
+import type { AcceptedLearningEntry } from "../../src/core/accepted-learnings.js";
 import { loadBase } from "../../src/core/loader.js";
 import { mergeOverlay } from "../../src/core/merge.js";
-import type { AcceptedLearningEntry } from "../../src/core/accepted-learnings.js";
+import { Overlay } from "../../src/schema/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const baseDir = join(resolve(here, "../.."), "sdlc-base");

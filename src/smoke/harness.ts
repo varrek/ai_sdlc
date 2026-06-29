@@ -124,7 +124,9 @@ function writeLog(sdlcDir: string, passed: boolean, checks: SmokeCheck[]): strin
   }
   if (!passed) {
     lines.push("");
-    lines.push("Fix the FAIL items above and re-run `aisdlc smoke`. customize is not ready until this passes.");
+    lines.push(
+      "Fix the FAIL items above and re-run `aisdlc smoke`. customize is not ready until this passes.",
+    );
   }
   const logPath = join(sdlcDir, "validation.log");
   mkdirSync(dirname(logPath), { recursive: true });

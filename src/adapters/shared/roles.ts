@@ -1,5 +1,5 @@
-import type { Overlay, Role, ToolPosture } from "../../schema/index.js";
 import type { NeutralModel } from "../../core/types.js";
+import type { Overlay, Role, ToolPosture } from "../../schema/index.js";
 
 /**
  * Claude-style tool allowlists per posture. Read-only roles (Architect,

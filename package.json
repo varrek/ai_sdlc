@@ -3,6 +3,25 @@
   "version": "0.1.0",
   "description": "Cross-host AI SDLC framework: host-neutral base + /customize compiler for Cursor, Claude Code, GitHub Copilot, and OpenAI Codex.",
   "type": "module",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/varrek/ai_sdlc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/varrek/ai_sdlc/issues"
+  },
+  "homepage": "https://github.com/varrek/ai_sdlc#readme",
+  "files": [
+    "dist",
+    "sdlc-base",
+    "packs",
+    "templates",
+    "docs/capability-matrix.md",
+    "docs/eval/external-repo-workflow.md",
+    "docs/packs.md",
+    "SECURITY.md"
+  ],
   "engines": {
     "node": ">=20"
   },
@@ -11,10 +30,13 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "check": "biome ci .",
+    "check:fix": "biome check --write .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "bench": "node dist/cli/index.js bench --seed 42 --count 5"
+    "bench": "node dist/cli/index.js bench --seed 42 --count 5",
+    "verify:pack": "node scripts/verify-pack.mjs"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",
@@ -22,6 +44,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.1",
     "@types/node": "^22.7.4",
     "typescript": "^5.6.2",
     "vitest": "^2.1.2"

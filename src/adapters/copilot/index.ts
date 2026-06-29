@@ -1,10 +1,4 @@
-import type {
-  Adapter,
-  EmitResult,
-  Gap,
-  HostCapabilities,
-  NeutralModel,
-} from "../../core/types.js";
+import type { Adapter, EmitResult, Gap, HostCapabilities, NeutralModel } from "../../core/types.js";
 import { emitAgents } from "./agents.js";
 import { emitGates } from "./gates.js";
 import { emitHandoffs } from "./handoffs.js";

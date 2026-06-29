@@ -68,7 +68,11 @@ export function writeSetupPhases(
   const path = statePath(sdlcDir);
   mkdirSync(sdlcDir, { recursive: true });
   const tmp = `${path}.tmp`;
-  writeFileSync(tmp, stringify({ version: 1, phases: state.phases }, { sortMapEntries: false }), "utf8");
+  writeFileSync(
+    tmp,
+    stringify({ version: 1, phases: state.phases }, { sortMapEntries: false }),
+    "utf8",
+  );
   renameSync(tmp, path);
   return state;
 }

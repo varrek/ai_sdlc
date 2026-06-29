@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { repoId, type ExternalRepoEntry } from "../../src/eval/catalog.js";
+import { type ExternalRepoEntry, repoId } from "../../src/eval/catalog.js";
 import {
   buildEvalRunReport,
   hasFailingClass,
@@ -68,7 +68,11 @@ describe("eval report", () => {
             gapClosureProvenance: { "test-command": "miner" },
             evidenceCoverage: { covered: 1, total: 1 },
             architectureConfidence: "high",
-            roleStates: { architect: "deterministic", engineer: "deterministic", tester: "deterministic" },
+            roleStates: {
+              architect: "deterministic",
+              engineer: "deterministic",
+              tester: "deterministic",
+            },
             smokePassed: true,
             smokeFresh: false,
             customizeFresh: false,
@@ -96,8 +100,14 @@ describe("eval report", () => {
   });
 
   it("classifies setup-chain throws by likely failing phase", () => {
-    expect(resultFromSetupError(repo, new Error("compile failed")).failureClass).toBe("emitter-bug");
-    expect(resultFromSetupError(repo, new Error("smoke failed")).failureClass).toBe("workflow-error");
-    expect(resultFromSetupError(repo, new Error("customize failed")).failureClass).toBe("miner-bug");
+    expect(resultFromSetupError(repo, new Error("compile failed")).failureClass).toBe(
+      "emitter-bug",
+    );
+    expect(resultFromSetupError(repo, new Error("smoke failed")).failureClass).toBe(
+      "workflow-error",
+    );
+    expect(resultFromSetupError(repo, new Error("customize failed")).failureClass).toBe(
+      "miner-bug",
+    );
   });
 });

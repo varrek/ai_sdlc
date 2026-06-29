@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { GateOutcome } from "./memory.js";
 import type { GapClosureProvenance } from "../schema/index.js";
+import type { GateOutcome } from "./memory.js";
 
 export const ACCEPTED_LEARNINGS_DIR = "memory";
 export const ACCEPTED_LEARNINGS_FILE = "accepted-learnings.jsonl";
@@ -59,7 +59,11 @@ export function upsertAcceptedLearning(sdlcDir: string, entry: AcceptedLearningE
   next.push(entry);
   next.sort((a, b) => a.key.localeCompare(b.key));
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, next.map((item) => JSON.stringify(item)).join("\n") + (next.length > 0 ? "\n" : ""), "utf8");
+  writeFileSync(
+    path,
+    next.map((item) => JSON.stringify(item)).join("\n") + (next.length > 0 ? "\n" : ""),
+    "utf8",
+  );
   return path;
 }
 

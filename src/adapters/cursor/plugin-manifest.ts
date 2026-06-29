@@ -1,10 +1,11 @@
-import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { LSP_GUIDANCE_PATH } from "../../core/lsp-guidance.js";
+import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { stableJson } from "../shared/roles.js";
 
 const DEFAULT_PLUGIN_NAME = "ai-sdlc";
 const DEFAULT_PLUGIN_DISPLAY_NAME = "AI SDLC";
-const DEFAULT_PLUGIN_DESCRIPTION = "Evidence-backed AI SDLC configuration compiled for this repository.";
+const DEFAULT_PLUGIN_DESCRIPTION =
+  "Evidence-backed AI SDLC configuration compiled for this repository.";
 const DEFAULT_PLUGIN_VERSION = "0.1.0";
 
 /**

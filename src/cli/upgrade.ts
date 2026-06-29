@@ -1,12 +1,12 @@
-import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { loadBase, loadOverlay } from "../core/loader.js";
 import {
   detectConflicts,
-  serializeConflictReport,
-  serializeProjectLock,
   type OverlayConflict,
   type ProjectLock,
+  serializeConflictReport,
+  serializeProjectLock,
 } from "../core/overlay.js";
 
 export interface UpgradeOptions {

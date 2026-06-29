@@ -4,10 +4,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildRegistry } from "../../src/adapters/registry.js";
-import { compile } from "../../src/core/engine.js";
 import { runSmokeCli } from "../../src/cli/smoke.js";
-import { evaluateReadiness, runSmoke, smokeExitCode } from "../../src/smoke/harness.js";
+import { compile } from "../../src/core/engine.js";
 import { Overlay } from "../../src/schema/index.js";
+import { evaluateReadiness, runSmoke, smokeExitCode } from "../../src/smoke/harness.js";
 import { makeContract, makeModel, makeRole, makeSkill } from "../helpers/model.js";
 
 const tmpDirs: string[] = [];
@@ -85,7 +85,12 @@ describe("runSmokeCli chain gate", () => {
 
   it("reports setup-ready when the base gates pass and the repo has a mined test command", () => {
     const out = freshOut();
-    const cli = runSmokeCli({ baseDir, configDir: out, compileFirst: true, repoRoot: repo("python-rags") });
+    const cli = runSmokeCli({
+      baseDir,
+      configDir: out,
+      compileFirst: true,
+      repoRoot: repo("python-rags"),
+    });
     expect(cli.result.passed).toBe(true);
     expect(cli.blockingGapCount).toBe(0);
     expect(cli.setupReady).toBe(true);
@@ -95,7 +100,12 @@ describe("runSmokeCli chain gate", () => {
 
   it("is not setup-ready when the repo has no runnable test command, even though smoke passes", () => {
     const out = freshOut();
-    const cli = runSmokeCli({ baseDir, configDir: out, compileFirst: true, repoRoot: repo("thin-poc") });
+    const cli = runSmokeCli({
+      baseDir,
+      configDir: out,
+      compileFirst: true,
+      repoRoot: repo("thin-poc"),
+    });
     expect(cli.result.passed).toBe(true);
     expect(cli.blockingGapCount).toBeGreaterThan(0);
     expect(cli.setupReady).toBe(false);

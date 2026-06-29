@@ -1,4 +1,4 @@
-import { rmSync, mkdtempSync, cpSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runCustomize } from "../../src/cli/customize.js";
 import { buildStatus, formatStatus } from "../../src/cli/status.js";
 import { upsertAcceptedLearning } from "../../src/core/accepted-learnings.js";
-import { writeLoopBehaviorEvalState, type LoopBehaviorEvalResult } from "../../src/eval/loop-behavior-eval-state.js";
+import {
+  type LoopBehaviorEvalResult,
+  writeLoopBehaviorEvalState,
+} from "../../src/eval/loop-behavior-eval-state.js";
 import type { LoopScore } from "../../src/eval/loop-score.js";
 
 const here = dirname(fileURLToPath(import.meta.url));

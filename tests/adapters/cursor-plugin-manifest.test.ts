@@ -33,7 +33,9 @@ describe("cursor plugin manifest", () => {
     expect(doc.displayName).toBe("AI SDLC");
     expect(typeof doc.description).toBe("string");
     expect(doc.version).toBe("0.1.0");
-    expect(files.get(".sdlc/lsp-guidance.md")).toContain("No language-specific LSP recommendations");
+    expect(files.get(".sdlc/lsp-guidance.md")).toContain(
+      "No language-specific LSP recommendations",
+    );
   });
 
   it("honors a custom plugin name override", () => {

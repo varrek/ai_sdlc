@@ -64,7 +64,9 @@ export function renderDocGardenText(report: DocGardenReport): string {
     `Doc gardening: ${report.summary.total} finding(s), ${report.summary.warnings} warning(s), ${report.summary.errors} error(s).`,
   ];
   for (const finding of report.findings) {
-    lines.push(`${finding.severity.toUpperCase()} ${finding.id} ${finding.path}: ${finding.message}`);
+    lines.push(
+      `${finding.severity.toUpperCase()} ${finding.id} ${finding.path}: ${finding.message}`,
+    );
     lines.push(`  Next: ${finding.suggestion}`);
   }
   return lines.join("\n");
@@ -112,7 +114,8 @@ function findRootBloat(repoRoot: string): DocGardenFinding[] {
         severity: "warning",
         path,
         message: `root agent doc is ${lines} line(s) and ${contents.length} character(s)`,
-        suggestion: "Move package- or task-specific guidance into layered docs or skills and keep the root file as a map.",
+        suggestion:
+          "Move package- or task-specific guidance into layered docs or skills and keep the root file as a map.",
       });
     }
   }
@@ -137,7 +140,8 @@ function findBrokenLinks(repoRoot: string): DocGardenFinding[] {
           severity: "error",
           path,
           message: `reference-style link has no definition: ${link.raw}`,
-          suggestion: "Add the missing reference definition or convert the link to an inline local target.",
+          suggestion:
+            "Add the missing reference definition or convert the link to an inline local target.",
         });
         continue;
       }
@@ -153,7 +157,8 @@ function findBrokenLinks(repoRoot: string): DocGardenFinding[] {
           severity: "error",
           path,
           message: `local link target has invalid percent-encoding: ${target}`,
-          suggestion: "Fix the markdown link encoding so doc gardening can resolve the target path.",
+          suggestion:
+            "Fix the markdown link encoding so doc gardening can resolve the target path.",
         });
         continue;
       }
@@ -164,7 +169,8 @@ function findBrokenLinks(repoRoot: string): DocGardenFinding[] {
           severity: "error",
           path,
           message: `local link target does not exist: ${target}`,
-          suggestion: "Update the link or restore the referenced doc so agents can follow the table of contents.",
+          suggestion:
+            "Update the link or restore the referenced doc so agents can follow the table of contents.",
         });
       }
     }
@@ -172,7 +178,10 @@ function findBrokenLinks(repoRoot: string): DocGardenFinding[] {
   return findings;
 }
 
-function findMissingCodebaseMap(repoRoot: string, options: AnalyzeDocGardenOptions): DocGardenFinding[] {
+function findMissingCodebaseMap(
+  repoRoot: string,
+  options: AnalyzeDocGardenOptions,
+): DocGardenFinding[] {
   const context = loadProjectContext(resolveProjectContextPath(options));
   if (!context || context.map.length === 0) return [];
   let firstRootDoc: string | undefined;
@@ -187,7 +196,8 @@ function findMissingCodebaseMap(repoRoot: string, options: AnalyzeDocGardenOptio
       id: "missing-codebase-map",
       severity: "warning",
       path: firstRootDoc ?? "AGENTS.md",
-      message: "project context has map entries, but the root instructions do not mention a codebase map",
+      message:
+        "project context has map entries, but the root instructions do not mention a codebase map",
       suggestion: "Re-run compile or add a root pointer to the generated codebase map.",
     },
   ];
@@ -226,7 +236,8 @@ function markdownFiles(repoRoot: string): MarkdownInventory {
         severity: "warning",
         path: "docs",
         message: `doc scan stopped after ${DOC_WALK_LIMIT} markdown file(s) or ${DOC_DIR_WALK_LIMIT} directories`,
-        suggestion: "Narrow docs, remove generated/vendor trees, or raise the scan limit before relying on complete link coverage.",
+        suggestion:
+          "Narrow docs, remove generated/vendor trees, or raise the scan limit before relying on complete link coverage.",
       });
     }
   }
@@ -240,7 +251,9 @@ function walkMarkdown(repoRoot: string, root: string, limit: number): MarkdownWa
   while (stack.length > 0 && files.length < limit && visitedDirs < DOC_DIR_WALK_LIMIT) {
     const current = stack.pop()!;
     visitedDirs++;
-    for (const entry of readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const entry of readdirSync(current, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
       if (files.length >= limit) break;
       if (entry.name.startsWith(".")) continue;
       const path = join(current, entry.name);
@@ -259,21 +272,35 @@ function walkMarkdown(repoRoot: string, root: string, limit: number): MarkdownWa
 }
 
 function markdownLinks(contents: string): MarkdownLink[] {
+  const linkable = maskMarkdownCode(contents);
   const links: MarkdownLink[] = [];
   const definitions = new Map<string, string>();
   const definitionRegex = /^\s*\[([^\]]+)\]:\s+(\S+)/gm;
-  for (const match of contents.matchAll(definitionRegex)) {
+  for (const match of linkable.matchAll(definitionRegex)) {
     definitions.set(match[1]!.trim().toLowerCase(), match[2]!);
     links.push({ target: match[2]!, raw: match[0]! });
   }
   const regex = /\[[^\]]+\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
-  for (const match of contents.matchAll(regex)) links.push({ target: match[1]!, raw: match[0]! });
+  for (const match of linkable.matchAll(regex)) links.push({ target: match[1]!, raw: match[0]! });
   const referenceRegex = /\[[^\]]+\]\[([^\]]+)\]/g;
-  for (const match of contents.matchAll(referenceRegex)) {
+  for (const match of linkable.matchAll(referenceRegex)) {
     const key = match[1]!.trim().toLowerCase();
     links.push({ target: definitions.get(key) ?? "", raw: match[0]! });
   }
   return links;
+}
+
+function maskMarkdownCode(contents: string): string {
+  if (!contents.includes("`") && !contents.includes("~~~")) return contents;
+  return contents
+    .replace(/(^|\n)(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:\n\2[^\n]*(?=\n|$)|$)/g, (match) =>
+      blankMarkdown(match),
+    )
+    .replace(/`[^`\n]+`/g, (match) => blankMarkdown(match));
+}
+
+function blankMarkdown(value: string): string {
+  return value.replace(/[^\n]/g, " ");
 }
 
 function isLocalFileLink(target: string): boolean {

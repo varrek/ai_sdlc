@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CACHE_DIR, DEFAULT_CATALOG, DEFAULT_REPORT_DIR, runBench } from "../../src/cli/bench.js";
+import {
+  DEFAULT_CACHE_DIR,
+  DEFAULT_CATALOG,
+  DEFAULT_REPORT_DIR,
+  runBench,
+} from "../../src/cli/bench.js";
 
 describe("external corpus bench", () => {
   it.skipIf(process.env.AISDLC_EXTERNAL_CORPUS !== "1")(

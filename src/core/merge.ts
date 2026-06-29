@@ -1,10 +1,14 @@
 import type { Overlay, Role } from "../schema/index.js";
+import type { AcceptedLearningEntry } from "./accepted-learnings.js";
 import type { LoadedBase } from "./loader.js";
 import { skillsForTrack } from "./loop.js";
-import { renderCodebaseMap, type ProjectContext } from "./project-context.js";
+import { type ProjectContext, renderCodebaseMap } from "./project-context.js";
 import { appendAddendum, assertRoleAddendumWithinContract } from "./role-addenda.js";
-import type { AcceptedLearningEntry } from "./accepted-learnings.js";
-import { appendAcceptedLearnings, appendRoleGrounding, type RoleGroundingInput } from "./role-grounding.js";
+import {
+  appendAcceptedLearnings,
+  appendRoleGrounding,
+  type RoleGroundingInput,
+} from "./role-grounding.js";
 import type { NeutralModel } from "./types.js";
 
 /**

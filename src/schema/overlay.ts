@@ -15,7 +15,14 @@ export type CeremonyTrack = z.infer<typeof CeremonyTrack>;
 export const OperatingMode = z.enum(["deterministic", "plugin"]);
 export type OperatingMode = z.infer<typeof OperatingMode>;
 
-export const GapClosureProvenance = z.enum(["miner", "ci", "interview", "seeded", "manual", "unknown"]);
+export const GapClosureProvenance = z.enum([
+  "miner",
+  "ci",
+  "interview",
+  "seeded",
+  "manual",
+  "unknown",
+]);
 export type GapClosureProvenance = z.infer<typeof GapClosureProvenance>;
 
 /**

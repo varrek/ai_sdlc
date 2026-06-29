@@ -2,7 +2,13 @@ import type { SetupArtifacts } from "./corpus-harness.js";
 import { architectPrimaryGuidance } from "./corpus-harness.js";
 
 /** Surfaces where generated guidance should carry actionable agent signals. */
-export type GuidanceSurface = "constitution" | "architect" | "tester" | "standards" | "map" | "packages";
+export type GuidanceSurface =
+  | "constitution"
+  | "architect"
+  | "tester"
+  | "standards"
+  | "map"
+  | "packages";
 
 export interface BehaviorScenario {
   id: string;
@@ -209,7 +215,11 @@ export function evaluateBehaviorScenario(
   );
   const missing: string[] = [];
   for (const signal of signals) {
-    if (surfaceRequiresModule(signal.surface) && scenario.preferredModule && !signal.modulePresent) {
+    if (
+      surfaceRequiresModule(signal.surface) &&
+      scenario.preferredModule &&
+      !signal.modulePresent
+    ) {
       missing.push(`${signal.surface}: missing module \`${scenario.preferredModule}\``);
     }
     if (surfaceRequiresTestCommand(signal.surface) && !signal.commandPresent) {

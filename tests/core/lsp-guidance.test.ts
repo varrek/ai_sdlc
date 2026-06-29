@@ -45,9 +45,11 @@ describe("LSP guidance", () => {
       exclusions: [],
     });
 
-    expect(guidance.recommendations.find((rec) => rec.language === "go")?.packagePaths).toEqual(["."]);
-    expect(guidance.recommendations.find((rec) => rec.language === "typescript")?.packagePaths).toEqual([
-      "packages/web",
+    expect(guidance.recommendations.find((rec) => rec.language === "go")?.packagePaths).toEqual([
+      ".",
     ]);
+    expect(
+      guidance.recommendations.find((rec) => rec.language === "typescript")?.packagePaths,
+    ).toEqual(["packages/web"]);
   });
 });

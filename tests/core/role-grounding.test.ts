@@ -5,8 +5,8 @@ import { loadBase } from "../../src/core/loader.js";
 import { mergeOverlay } from "../../src/core/merge.js";
 import type { ProjectContext } from "../../src/core/project-context.js";
 import {
-  appendArchitectGrounding,
   appendAcceptedLearnings,
+  appendArchitectGrounding,
   hasDeterministicEngineerGrounding,
   hasDeterministicTesterGrounding,
   ROLE_GROUNDING_HEADING,
@@ -89,7 +89,9 @@ describe("role grounding", () => {
     const model = mergeOverlay(base, overlay, emptyContext);
     const engineer = model.roles.find((r) => r.frontmatter.name === "engineer")!;
 
-    expect(hasDeterministicEngineerGrounding({ overlay, projectContext: emptyContext })).toBe(false);
+    expect(hasDeterministicEngineerGrounding({ overlay, projectContext: emptyContext })).toBe(
+      false,
+    );
     expect(engineer.body).not.toContain(ROLE_GROUNDING_HEADING);
   });
 
@@ -132,7 +134,11 @@ describe("role grounding", () => {
   it("preserves architect behavior when project map is empty", () => {
     const base = loadBase(baseDir);
     const architect = base.roles.find((r) => r.frontmatter.name === "architect")!;
-    const unchanged = appendArchitectGrounding(architect, { packages: [], map: [], exclusions: [] });
+    const unchanged = appendArchitectGrounding(architect, {
+      packages: [],
+      map: [],
+      exclusions: [],
+    });
     expect(unchanged.body).toBe(architect.body);
   });
 
@@ -179,9 +185,15 @@ describe("role grounding", () => {
       provenance: "gate" as const,
     };
 
-    expect(appendAcceptedLearnings(reviewer, [reviewFinding, gateApproval]).body).toContain(gateApproval.claim);
-    expect(appendAcceptedLearnings(engineer, [reviewFinding, testCorrection]).body).toContain(testCorrection.claim);
+    expect(appendAcceptedLearnings(reviewer, [reviewFinding, gateApproval]).body).toContain(
+      gateApproval.claim,
+    );
+    expect(appendAcceptedLearnings(engineer, [reviewFinding, testCorrection]).body).toContain(
+      testCorrection.claim,
+    );
     expect(appendAcceptedLearnings(tester, [testCorrection]).body).toContain(testCorrection.claim);
-    expect(appendAcceptedLearnings(architect, [reviewFinding]).body).not.toContain(reviewFinding.claim);
+    expect(appendAcceptedLearnings(architect, [reviewFinding]).body).not.toContain(
+      reviewFinding.claim,
+    );
   });
 });

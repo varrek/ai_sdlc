@@ -17,7 +17,10 @@ export function readProjectLock(lockPath: string): ProjectLock | undefined {
 }
 
 export function serializeProjectLock(lock: ProjectLock): string {
-  return stringify({ version: lock.version, baseVersion: lock.baseVersion }, { sortMapEntries: false });
+  return stringify(
+    { version: lock.version, baseVersion: lock.baseVersion },
+    { sortMapEntries: false },
+  );
 }
 
 export interface OverlayConflict {

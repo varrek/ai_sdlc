@@ -48,7 +48,9 @@ describe("accepted learnings sync", () => {
       answers: { "test-command": "pytest -q custom" },
     });
 
-    const testCommand = readAcceptedLearnings(sdlcDir).find((entry) => entry.key === "test-command");
+    const testCommand = readAcceptedLearnings(sdlcDir).find(
+      (entry) => entry.key === "test-command",
+    );
     expect(testCommand?.provenance).toBe("interview");
     expect(testCommand?.claim).toContain("pytest -q custom");
   });

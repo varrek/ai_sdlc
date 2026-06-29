@@ -62,6 +62,9 @@ export function writeLoopBehaviorEvalState(
   sdlcDir: string,
   results: LoopBehaviorEvalResult[],
 ): LoopBehaviorEvalState {
+  if (!results.every(isEvalResult)) {
+    throw new Error("loop behavior eval results must match the persisted result schema");
+  }
   const state: LoopBehaviorEvalState = {
     version: 1,
     results,
@@ -91,7 +94,9 @@ export interface BehaviorEvalSummary {
   total: number;
 }
 
-export function summarizeBehaviorEval(evalState: LoopBehaviorEvalState | undefined): BehaviorEvalSummary {
+export function summarizeBehaviorEval(
+  evalState: LoopBehaviorEvalState | undefined,
+): BehaviorEvalSummary {
   if (!evalState || evalState.results.length === 0) {
     return { state: "not-run", passed: 0, total: 0 };
   }

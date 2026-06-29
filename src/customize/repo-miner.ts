@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse as parseYaml } from "yaml";
 
@@ -157,7 +157,9 @@ const LOW_VALUE_ROOTS = new Set([
 const MAX_ARCHITECTURE_MODULES = 12;
 
 function isLowValueRoot(seg: string): boolean {
-  return LOW_VALUE_ROOTS.has(seg) || /^docs?[_-]/.test(seg) || /[_-](demo|example|fixture)s?$/.test(seg);
+  return (
+    LOW_VALUE_ROOTS.has(seg) || /^docs?[_-]/.test(seg) || /[_-](demo|example|fixture)s?$/.test(seg)
+  );
 }
 
 function walk(root: string, excluded: ReadonlySet<string>): string[] {
@@ -212,7 +214,8 @@ function walk(root: string, excluded: ReadonlySet<string>): string[] {
 function isGeneratedArtifact(rel: string): boolean {
   const base = rel.slice(rel.lastIndexOf("/") + 1);
   if (base === "AGENTS.md" || base === "CLAUDE.md") return true;
-  if (rel === ".mcp.json" || rel === ".vscode/mcp.json" || rel === "portability.gap.yml") return true;
+  if (rel === ".mcp.json" || rel === ".vscode/mcp.json" || rel === "portability.gap.yml")
+    return true;
   if (rel === ".github/copilot-instructions.md") return true;
   if (rel === ".github/workflows/sdlc-gate.yml") return true;
   return (
@@ -326,7 +329,10 @@ function mineArchitecture(
   const jvmRoot = jvmSourceRoot(files, "src/main/java") ?? jvmSourceRoot(files, "src/main/kotlin");
   if (jvmRoot) {
     const modules = immediateSubdirs(files, jvmRoot);
-    const boundedModules = (modules.length > 0 ? modules : ["."]).slice(0, MAX_ARCHITECTURE_MODULES);
+    const boundedModules = (modules.length > 0 ? modules : ["."]).slice(
+      0,
+      MAX_ARCHITECTURE_MODULES,
+    );
     for (const m of boundedModules) {
       const path = m === "." ? jvmRoot : `${jvmRoot}/${m}`;
       addEvidence(evidence, `architecture:module:${m}`, path);
@@ -372,7 +378,10 @@ function mineArchitecture(
         score: count + (product ? 10_000 : 0) - (demoted ? 10_000 : 0),
       };
     })
-    .sort((a, b) => b.score - a.score || b.count - a.count || (a.seg < b.seg ? -1 : a.seg > b.seg ? 1 : 0));
+    .sort(
+      (a, b) =>
+        b.score - a.score || b.count - a.count || (a.seg < b.seg ? -1 : a.seg > b.seg ? 1 : 0),
+    );
 
   // Prefer repo-declared product hints over raw file count. A demoted/tutorial
   // tree may contain the most files, but it must not become authoritative
@@ -380,7 +389,12 @@ function mineArchitecture(
   let sourceRoot = candidates[0]?.seg;
   let modules: string[] = [];
   if (sourceRoot) modules = immediateSubdirs(files, sourceRoot);
-  if (sourceRoot && modules.length === 0 && productHints.has(sourceRoot) && !isLowValueRoot(sourceRoot)) {
+  if (
+    sourceRoot &&
+    modules.length === 0 &&
+    productHints.has(sourceRoot) &&
+    !isLowValueRoot(sourceRoot)
+  ) {
     modules = ["."];
   }
 
@@ -399,7 +413,8 @@ function mineArchitecture(
   if (sourceRoot === ".") reasons.push("root-level source directories");
   if (selected?.product) reasons.push("product evidence");
   if (selected?.demoted) reasons.push("selected root is demoted");
-  if (runnerUp && selected && runnerUp.score === selected.score) reasons.push("tied root candidates");
+  if (runnerUp && selected && runnerUp.score === selected.score)
+    reasons.push("tied root candidates");
   if (demotedRoots.length > 0) reasons.push(`demoted roots: ${demotedRoots.join(", ")}`);
 
   const confidence =
@@ -494,7 +509,10 @@ function sampleCommitSubjects(root: string): string[] {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
-    return out.split("\n").map((s) => s.trim()).filter(Boolean);
+    return out
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
   } catch {
     return [];
   }
@@ -525,7 +543,9 @@ function mineConventions(
     }
   }
 
-  const coLocated = files.filter((f) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(f) || /_test\.py$/.test(f));
+  const coLocated = files.filter(
+    (f) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(f) || /_test\.py$/.test(f),
+  );
   const separate = files.filter(
     (f) => f.startsWith("tests/") || f.startsWith("test/") || f.startsWith("spec/"),
   );
@@ -634,7 +654,11 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
   }
   if (pyproject.includes("[tool.ruff]") || fileSet.has("ruff.toml") || fileSet.has(".ruff.toml")) {
     linters.add("ruff");
-    addEvidence(evidence, "linter:ruff", fileSet.has("pyproject.toml") ? "pyproject.toml" : "ruff.toml");
+    addEvidence(
+      evidence,
+      "linter:ruff",
+      fileSet.has("pyproject.toml") ? "pyproject.toml" : "ruff.toml",
+    );
   }
   if (pyproject.includes("[tool.black]")) {
     linters.add("black");
@@ -687,7 +711,9 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
 
   // ---- JS/TS signals ----
   if (fileSet.has("package.json")) {
-    packageManagers.add(fileSet.has("pnpm-lock.yaml") ? "pnpm" : fileSet.has("yarn.lock") ? "yarn" : "npm");
+    packageManagers.add(
+      fileSet.has("pnpm-lock.yaml") ? "pnpm" : fileSet.has("yarn.lock") ? "yarn" : "npm",
+    );
     // A package.json is itself a language signal: classify as TypeScript when a
     // tsconfig is present (handled below), otherwise JavaScript — so a
     // manifest-only repo (no source files yet) isn't reported as "Languages: none".
@@ -698,7 +724,10 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     const pkg = safeJson(read(root, "package.json"));
     const scripts = (pkg.scripts ?? {}) as Record<string, string>;
     pkgScripts = scripts;
-    const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) } as Record<string, string>;
+    const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) } as Record<
+      string,
+      string
+    >;
     const testScript = scripts.test ?? "";
     pkgTestScript = testScript;
     if (/vitest/.test(testScript) || "vitest" in deps) {
@@ -858,7 +887,11 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     }
     if (/\bgem\s+['"]rubocop['"]/.test(gemfile) || fileSet.has(".rubocop.yml")) {
       linters.add("rubocop");
-      addEvidence(evidence, "linter:rubocop", fileSet.has(".rubocop.yml") ? ".rubocop.yml" : "Gemfile");
+      addEvidence(
+        evidence,
+        "linter:rubocop",
+        fileSet.has(".rubocop.yml") ? ".rubocop.yml" : "Gemfile",
+      );
     }
   }
 
@@ -911,7 +944,8 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
 
   // ---- CI, ownership, docs ----
   for (const f of files) {
-    if (f.startsWith(".github/workflows/") && (f.endsWith(".yml") || f.endsWith(".yaml"))) ciFiles.push(f);
+    if (f.startsWith(".github/workflows/") && (f.endsWith(".yml") || f.endsWith(".yaml")))
+      ciFiles.push(f);
     if (f === ".gitlab-ci.yml") ciFiles.push(f);
     if (f === ".circleci/config.yml") ciFiles.push(f);
     if (f.endsWith("CODEOWNERS")) codeowners = f;
@@ -926,7 +960,8 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
   // for asset builds — its `npm test` must not hijack the Python suite).
   const sourceFileTotal = [...extLangCount.values()].reduce((a, b) => a + b, 0);
   const langShares = new Map<string, number>();
-  for (const [lang, count] of extLangCount) langShares.set(lang, count / Math.max(sourceFileTotal, 1));
+  for (const [lang, count] of extLangCount)
+    langShares.set(lang, count / Math.max(sourceFileTotal, 1));
   const testCommand = resolveTestCommand(root, {
     ciFiles,
     fileSet,
@@ -1096,7 +1131,8 @@ function declaredWorkspaceGlobs(root: string, fileSet: Set<string>): string[] {
     if (Array.isArray(ws)) globs.push(...ws.filter((w): w is string => typeof w === "string"));
     else if (ws && typeof ws === "object") {
       const pkgs = (ws as { packages?: unknown }).packages;
-      if (Array.isArray(pkgs)) globs.push(...pkgs.filter((w): w is string => typeof w === "string"));
+      if (Array.isArray(pkgs))
+        globs.push(...pkgs.filter((w): w is string => typeof w === "string"));
     }
   }
   if (fileSet.has("pnpm-workspace.yaml")) {
@@ -1239,7 +1275,8 @@ function configBasename(path: string): string {
 const ENV_ASSIGN_PREFIX = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s+)+/;
 
 /** Run-wrappers that precede the real program; stripped only to find the leading token. */
-const RUN_WRAPPER = /^(?:python3?\s+-m\s+|uv\s+run\s+(?:--\S+\s+)*|npx\s+|poetry\s+run\s+|pdm\s+run\s+|hatch\s+run\s+)/;
+const RUN_WRAPPER =
+  /^(?:python3?\s+-m\s+|uv\s+run\s+(?:--\S+\s+)*|npx\s+|poetry\s+run\s+|pdm\s+run\s+|hatch\s+run\s+)/;
 
 /**
  * A dependency-install / setup command, never a test invocation — even when it
@@ -1286,7 +1323,10 @@ function commandEcosystem(command: string): Ecosystem {
   if (/\b(pytest|tox|nox)\b/.test(c) || /\bpython3?\s+-m\b/.test(c) || /\buv\s+run\b/.test(c)) {
     return "python";
   }
-  if (/\b(npm|yarn|pnpm|npx|node)\b/.test(c) || /\b(jest|vitest|mocha|playwright|cypress)\b/.test(c)) {
+  if (
+    /\b(npm|yarn|pnpm|npx|node)\b/.test(c) ||
+    /\b(jest|vitest|mocha|playwright|cypress)\b/.test(c)
+  ) {
     return "js";
   }
   return undefined;
@@ -1334,16 +1374,26 @@ function jsTsPrimary(signals: TestCommandSignals): boolean {
 }
 
 /**
- * Rank a workflow filename so the project's primary test/CI workflow is consulted
- * before incidental ones (a scheduled job, a narrow regression workflow). Lower
- * is better; ties fall back to lexicographic order.
+ * Rank a CI workflow filename or job name so primary test/CI jobs are consulted
+ * before incidental ones. Lower is better; ties fall back to lexicographic order.
  */
 function workflowRank(path: string): number {
-  const base = path.slice(path.lastIndexOf("/") + 1).replace(/\.(ya?ml)$/, "").toLowerCase();
+  const base = workflowBasename(path);
   if (base === "test" || base === "tests" || base === "ci" || base === "main") return 0;
   if (/(^|[-_.])(tests?|ci)([-_.]|$)/.test(base)) return 1;
   if (base.includes("test") || base.includes("ci")) return 2;
   return 3;
+}
+
+function workflowBasename(path: string): string {
+  return path
+    .slice(path.lastIndexOf("/") + 1)
+    .replace(/\.(ya?ml)$/, "")
+    .toLowerCase();
+}
+
+function compareNames(a: string, b: string): number {
+  return a.localeCompare(b);
 }
 
 /** Drop a trailing bare `--` (a CI argument separator left dangling), e.g. `… --headless --`. */
@@ -1383,7 +1433,7 @@ function resolveTestCommand(
   //    a JS asset suite via `npm test`; that is not the project's test command).
   const workflows = signals.ciFiles
     .filter((f) => f.startsWith(".github/workflows/"))
-    .sort((a, b) => workflowRank(a) - workflowRank(b) || (a < b ? -1 : a > b ? 1 : 0));
+    .sort((a, b) => workflowRank(a) - workflowRank(b) || compareNames(a, b));
   for (const wf of workflows) {
     const command = testCommandFromWorkflow(read(root, wf));
     if (command && ecosystemAllowed(command, signals)) {
@@ -1399,12 +1449,16 @@ function resolveTestCommand(
   }
   // 2. Makefile `test:` target recipe.
   const mk = testCommandFromMakefile(signals.makefile);
-  if (mk && ecosystemAllowed(mk, signals)) return { command: trimTrailingSeparator(mk), evidence: "Makefile" };
+  if (mk && ecosystemAllowed(mk, signals))
+    return { command: trimTrailingSeparator(mk), evidence: "Makefile" };
   // 3. package.json scripts.test — a JS/TS command by definition, so only trust
   //    it when JS/TS is a primary language (else it's an asset/lint helper).
   const script = signals.pkgTestScript.trim();
   if (script && !/no test specified/i.test(script) && jsTsPrimary(signals)) {
-    return { command: trimTrailingSeparator(pickTestSegment(script) ?? script), evidence: "package.json" };
+    return {
+      command: trimTrailingSeparator(pickTestSegment(script) ?? script),
+      evidence: "package.json",
+    };
   }
   // 4. Inferred runner default (e.g. a pytest repo with no scripts).
   const fallback = runnerDefaultCommand(signals.testRunner, signals);
@@ -1426,7 +1480,7 @@ interface E2eCommandSignals {
 
 /** Rank CI workflow files so E2E-named jobs are consulted before generic test workflows. */
 function e2eWorkflowRank(path: string): number {
-  const base = path.slice(path.lastIndexOf("/") + 1).replace(/\.(ya?ml)$/, "").toLowerCase();
+  const base = workflowBasename(path);
   if (base === "e2e" || base.includes("e2e")) return 0;
   if (base.includes("playwright") || base.includes("cypress")) return 1;
   return 2;
@@ -1453,7 +1507,7 @@ function resolveE2eTestCommand(
 
   const workflows = signals.ciFiles
     .filter((f) => f.startsWith(".github/workflows/"))
-    .sort((a, b) => e2eWorkflowRank(a) - e2eWorkflowRank(b) || (a < b ? -1 : a > b ? 1 : 0));
+    .sort((a, b) => e2eWorkflowRank(a) - e2eWorkflowRank(b) || compareNames(a, b));
   for (const wf of workflows) {
     const command = e2eCommandFromWorkflow(read(root, wf));
     if (command && ecosystemAllowed(command, signals)) {
@@ -1504,12 +1558,14 @@ function e2eCommandFromWorkflow(text: string): string | undefined {
   const jobs = (doc as { jobs?: Record<string, unknown> } | null)?.jobs;
   if (!jobs || typeof jobs !== "object") return undefined;
 
-  const ranked = Object.entries(jobs).sort(([a], [b]) => e2eJobRank(a) - e2eJobRank(b));
+  const ranked = Object.entries(jobs).sort(
+    ([a], [b]) => e2eJobRank(a) - e2eJobRank(b) || compareNames(a, b),
+  );
   for (const [, job] of ranked) {
     const steps = (job as { steps?: unknown })?.steps;
     if (!Array.isArray(steps)) continue;
     for (const step of steps) {
-      const run = typeof (step as { run?: unknown })?.run === "string" ? (step as { run: string }).run : undefined;
+      const run = workflowStepRun(step);
       if (!run) continue;
       const command = pickE2eSegment(run);
       if (command) return command;
@@ -1527,11 +1583,7 @@ function e2eJobRank(name: string): number {
 
 /** Like {@link pickTestSegment} but only returns browser E2E invocations. */
 function pickE2eSegment(run: string): string | undefined {
-  const segments = run
-    .split(/\n|&&|;/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  for (const raw of segments) {
+  for (const raw of splitShellSegments(run)) {
     if (raw.includes("${{")) continue;
     const segment = raw.replace(ENV_ASSIGN_PREFIX, "").trim();
     if (!segment || isInstallCommand(segment)) continue;
@@ -1553,7 +1605,8 @@ function runnerDefaultEvidence(signals: TestCommandSignals): string {
   if (signals.testRunner === "rspec" && signals.fileSet.has("Gemfile")) return "Gemfile";
   if (signals.testRunner === "minitest" && signals.fileSet.has("Gemfile")) return "Gemfile";
   if (signals.testRunner === "dotnet" && signals.csprojPath) return signals.csprojPath;
-  if (signals.testRunner === "dotnet" && signals.dotnetBuildScript) return signals.dotnetBuildScript.evidence;
+  if (signals.testRunner === "dotnet" && signals.dotnetBuildScript)
+    return signals.dotnetBuildScript.evidence;
   if (signals.testRunner === "go" && signals.fileSet.has("go.mod")) return "go.mod";
   if (signals.fileSet.has("pyproject.toml")) return "pyproject.toml";
   if (signals.fileSet.has("package.json")) return "package.json";
@@ -1609,11 +1662,7 @@ function runnerDefaultCommand(
  * leaks `pip install --upgrade tox` as the test command.
  */
 function pickTestSegment(run: string): string | undefined {
-  const segments = run
-    .split(/\n|&&|;/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  for (const raw of segments) {
+  for (const raw of splitShellSegments(run)) {
     if (raw.includes("${{")) continue; // CI expression — not a local command
     if (raw.includes("[@]}")) continue; // unexpanded shell array (e.g. "${PYTEST_ARGS[@]}")
     if (raw.startsWith("#")) continue; // shell comment (e.g. `# build pytest args …`)
@@ -1622,6 +1671,13 @@ function pickTestSegment(run: string): string | undefined {
     if (TEST_TOOL.test(segment)) return segment;
   }
   return undefined;
+}
+
+function splitShellSegments(run: string): string[] {
+  return run
+    .split(/\n|&&|;/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function testCommandFromWorkflow(text: string): string | undefined {
@@ -1633,17 +1689,26 @@ function testCommandFromWorkflow(text: string): string | undefined {
   }
   const jobs = (doc as { jobs?: Record<string, unknown> } | null)?.jobs;
   if (!jobs || typeof jobs !== "object") return undefined;
-  for (const job of Object.values(jobs)) {
+  const ranked = Object.entries(jobs).sort(
+    ([a], [b]) => workflowRank(a) - workflowRank(b) || compareNames(a, b),
+  );
+  for (const [, job] of ranked) {
     const steps = (job as { steps?: unknown })?.steps;
     if (!Array.isArray(steps)) continue;
     for (const step of steps) {
-      const run = typeof (step as { run?: unknown })?.run === "string" ? (step as { run: string }).run : undefined;
+      const run = workflowStepRun(step);
       if (!run) continue;
       const command = pickTestSegment(run);
       if (command) return command;
     }
   }
   return undefined;
+}
+
+function workflowStepRun(step: unknown): string | undefined {
+  return typeof (step as { run?: unknown })?.run === "string"
+    ? (step as { run: string }).run
+    : undefined;
 }
 
 function isGitLabCiJob(name: string, value: unknown): value is { script?: unknown } {
@@ -1672,10 +1737,7 @@ function testCommandFromGitLabCi(text: string): string | undefined {
   for (const [name, value] of Object.entries(doc as Record<string, unknown>)) {
     if (isGitLabCiJob(name, value)) jobs.push([name, value]);
   }
-  jobs.sort(
-    ([a], [b]) =>
-      workflowRank(`.gitlab-ci.yml/${a}`) - workflowRank(`.gitlab-ci.yml/${b}`) || (a < b ? -1 : a > b ? 1 : 0),
-  );
+  jobs.sort(([a], [b]) => workflowRank(a) - workflowRank(b) || compareNames(a, b));
   for (const [, job] of jobs) {
     for (const line of gitLabCiScriptLines(job)) {
       const command = pickTestSegment(line);
@@ -1694,8 +1756,12 @@ function testCommandFromMakefile(makefile: string): string | undefined {
     for (let j = i + 1; j < lines.length; j++) {
       const line = lines[j]!;
       if (!/^\t/.test(line)) break;
-      const recipe = line.replace(/^\t/, "").replace(/^[@-]+/, "").trim();
-      if (recipe) return recipe;
+      const recipe = line
+        .replace(/^\t/, "")
+        .replace(/^[@-]+/, "")
+        .trim();
+      const command = pickTestSegment(recipe);
+      if (command) return command;
     }
   }
   return undefined;

@@ -1,12 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import {
+  type LoopBehaviorEvalResult,
   readLoopBehaviorEvalState,
   summarizeBehaviorEval,
   writeLoopBehaviorEvalState,
-  type LoopBehaviorEvalResult,
 } from "../../src/eval/loop-behavior-eval-state.js";
 import type { LoopScore } from "../../src/eval/loop-score.js";
 
@@ -65,7 +65,9 @@ describe("loop behavior eval state", () => {
   it("validates result structure before accepting", () => {
     const dir = makeTempDir();
     const invalidResults = [{ scenarioId: "test", passed: true }];
-    writeLoopBehaviorEvalState(dir, invalidResults as LoopBehaviorEvalResult[]);
+    expect(() =>
+      writeLoopBehaviorEvalState(dir, invalidResults as LoopBehaviorEvalResult[]),
+    ).toThrow(/persisted result schema/);
     const state = readLoopBehaviorEvalState(dir);
     expect(state).toBeUndefined();
   });

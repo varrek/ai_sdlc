@@ -1,4 +1,4 @@
-import { loopStagesForTrack, STAGE_ROLE, type LoopStage } from "../../core/loop.js";
+import { type LoopStage, loopStagesForTrack, STAGE_ROLE } from "../../core/loop.js";
 import type { NeutralModel } from "../../core/types.js";
 
 /** Native Copilot custom-agent handoff entry (frontmatter `handoffs` array). */
@@ -42,7 +42,10 @@ function nextStage(stage: LoopStage, order: LoopStage[]): LoopStage | undefined 
  * track. Returns undefined when the role is outside the loop or is the terminal
  * stage (unless wrap-up follows reviewer on the full track).
  */
-export function handoffsForRole(roleName: string, model: NeutralModel): CopilotAgentHandoff[] | undefined {
+export function handoffsForRole(
+  roleName: string,
+  model: NeutralModel,
+): CopilotAgentHandoff[] | undefined {
   const order = loopStagesForTrack(model);
   const stage = order.find((s) => STAGE_ROLE[s] === roleName);
   if (!stage) return undefined;

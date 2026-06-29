@@ -1,16 +1,16 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   HostManifest,
   IntegrationContract,
+  loadMarkdown,
+  loadYaml,
   Overlay,
   PackManifest,
   Role,
   Skill,
-  loadMarkdown,
-  loadYaml,
 } from "../schema/index.js";
-import { parseProjectContext, type ProjectContext } from "./project-context.js";
+import { type ProjectContext, parseProjectContext } from "./project-context.js";
 import type { NeutralModel } from "./types.js";
 
 /** Filename of the persisted ProjectContext, written beside the overlay. */
@@ -78,8 +78,16 @@ export function loadBase(baseDir: string, packDirs: string[] = []): LoadedBase {
   return {
     manifest,
     constitution: appendPackConstitutions(constitution, packs),
-    roles: assertUniqueByName("role", [...roles, ...packs.flatMap((pack) => pack.roles)], (role) => role.frontmatter.name),
-    skills: assertUniqueByName("skill", [...skills, ...packs.flatMap((pack) => pack.skills)], (skill) => skill.frontmatter.name),
+    roles: assertUniqueByName(
+      "role",
+      [...roles, ...packs.flatMap((pack) => pack.roles)],
+      (role) => role.frontmatter.name,
+    ),
+    skills: assertUniqueByName(
+      "skill",
+      [...skills, ...packs.flatMap((pack) => pack.skills)],
+      (skill) => skill.frontmatter.name,
+    ),
     integrations: assertUniqueByName(
       "integration",
       [...integrations, ...packs.flatMap((pack) => pack.integrations)],
@@ -145,5 +153,5 @@ export function loadProjectContext(path: string | undefined): ProjectContext | u
   return parseProjectContext(readFileSync(path, "utf8"));
 }
 
-export { EMPTY_OVERLAY };
 export type { NeutralModel };
+export { EMPTY_OVERLAY };

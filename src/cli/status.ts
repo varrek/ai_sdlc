@@ -1,35 +1,38 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  type AcceptedLearningEntry,
+  filterAcceptedLearningsByKinds,
+  LOOP_DERIVED_LEARNING_KINDS,
+  readAcceptedLearnings,
+  summarizeAcceptedLearnings,
+} from "../core/accepted-learnings.js";
+import { stagesForTrack } from "../core/loop.js";
+import {
+  hasDeterministicEngineerGrounding,
+  hasDeterministicTesterGrounding,
+  SETUP_GROUNDING_LEARNINGS_BY_ROLE,
+} from "../core/role-grounding.js";
+import {
   buildProjectContext,
-  evidenceCoverage,
-  evidenceQuality,
   type EvidenceCoverage,
   type EvidenceQuality,
+  evidenceCoverage,
+  evidenceQuality,
 } from "../customize/emitters.js";
 import { readSetupState, type SetupPhase } from "../customize/setup-state.js";
-import { stagesForTrack } from "../core/loop.js";
+import {
+  readLoopBehaviorEvalState,
+  summarizeBehaviorEval,
+} from "../eval/loop-behavior-eval-state.js";
+import type { OperatingMode } from "../schema/index.js";
+import { inspectRepo } from "./customize.js";
 import {
   baseFingerprint,
   compiledFingerprint,
   emittedFingerprint,
   overlayFingerprint,
 } from "./phase-fingerprints.js";
-import { inspectRepo } from "./customize.js";
-import {
-  filterAcceptedLearningsByKinds,
-  LOOP_DERIVED_LEARNING_KINDS,
-  readAcceptedLearnings,
-  summarizeAcceptedLearnings,
-  type AcceptedLearningEntry,
-} from "../core/accepted-learnings.js";
-import {
-  hasDeterministicEngineerGrounding,
-  hasDeterministicTesterGrounding,
-  SETUP_GROUNDING_LEARNINGS_BY_ROLE,
-} from "../core/role-grounding.js";
-import type { OperatingMode } from "../schema/index.js";
-import { readLoopBehaviorEvalState, summarizeBehaviorEval } from "../eval/loop-behavior-eval-state.js";
 
 export interface StatusReport {
   /** True once `aisdlc customize` has produced an overlay. */
@@ -102,13 +105,18 @@ export function buildStatus(options: StatusOptions): StatusReport {
     outDir: options.outDir ?? options.repoRoot,
   });
   const setupReady =
-    inspection.gaps.length === 0 && phaseStatus.known && !phaseStatus.stalePhases.includes("smoke-passed");
+    inspection.gaps.length === 0 &&
+    phaseStatus.known &&
+    !phaseStatus.stalePhases.includes("smoke-passed");
   const quality = evidenceQuality(inspection.profile, inspection.standardsIndex);
   const archConfidence = inspection.profile.architecture?.confidence;
   const validButNeedsAttention = archConfidence === "low" || quality.lowValueSources.length > 0;
   const provenance = inspection.overlay.gapClosureProvenance;
   const provenanceValues = Object.values(provenance);
-  const handsOff = setupReady && provenanceValues.length > 0 && provenanceValues.every((p) => p === "miner" || p === "ci");
+  const handsOff =
+    setupReady &&
+    provenanceValues.length > 0 &&
+    provenanceValues.every((p) => p === "miner" || p === "ci");
   const projectContext = buildProjectContext(inspection.profile, inspection.standardsIndex);
   const groundingInput = { overlay: inspection.overlay, projectContext };
   const engineerDeterministic = hasDeterministicEngineerGrounding(groundingInput);
@@ -134,14 +142,18 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const groundedRoles = Object.values(roleStates).filter((state) => state !== "generic").length;
   const groundableRoleNames = ["architect", "engineer", "tester", "reviewer"] as const;
   const groundableRoles = groundableRoleNames.length;
-  const groundedGroundableRoles = groundableRoleNames.filter((role) => roleStates[role] !== "generic").length;
+  const groundedGroundableRoles = groundableRoleNames.filter(
+    (role) => roleStates[role] !== "generic",
+  ).length;
   const track = inspection.overlay.defaultTrack ?? "standard";
   const expectedStages = stagesForTrack(track).length;
   const loopLearnings = filterAcceptedLearningsByKinds(
     acceptedLearnings,
     LOOP_DERIVED_LEARNING_KINDS,
   ).length;
-  const compiledCoverageState = phaseStatus.stalePhases.includes("compiled") ? "not-run" : "compiled";
+  const compiledCoverageState = phaseStatus.stalePhases.includes("compiled")
+    ? "not-run"
+    : "compiled";
   const evalState = readLoopBehaviorEvalState(sdlcDir);
   const behaviorEval = summarizeBehaviorEval(evalState);
   return {
@@ -191,7 +203,11 @@ function setupPhaseStatus(options: {
   outDir: string;
 }): { stalePhases: SetupPhase[]; nextAction?: StatusReport["nextAction"]; known: boolean } {
   if (!options.upToDate) {
-    return { stalePhases: ["mined", "overlay-written", "compiled", "smoke-passed"], nextAction: "customize", known: true };
+    return {
+      stalePhases: ["mined", "overlay-written", "compiled", "smoke-passed"],
+      nextAction: "customize",
+      known: true,
+    };
   }
   const stale: SetupPhase[] = [];
   if (options.baseDir && existsSync(options.baseDir)) {
@@ -207,7 +223,8 @@ function setupPhaseStatus(options: {
     return { stalePhases: ["compiled", "smoke-passed"], nextAction: "compile", known: false };
   }
   const first = stale[0];
-  const nextAction = first === "compiled" ? "compile" : first === "smoke-passed" ? "smoke" : undefined;
+  const nextAction =
+    first === "compiled" ? "compile" : first === "smoke-passed" ? "smoke" : undefined;
   return { stalePhases: stale, nextAction, known: true };
 }
 
@@ -225,7 +242,10 @@ function hasRelevantLearning(
   entries: AcceptedLearningEntry[],
   role: keyof typeof SETUP_GROUNDING_LEARNINGS_BY_ROLE,
 ): boolean {
-  return filterAcceptedLearningsByKinds(entries, SETUP_GROUNDING_LEARNINGS_BY_ROLE[role] ?? []).length > 0;
+  return (
+    filterAcceptedLearningsByKinds(entries, SETUP_GROUNDING_LEARNINGS_BY_ROLE[role] ?? []).length >
+    0
+  );
 }
 
 function pct(covered: number, total: number): string {
@@ -246,7 +266,9 @@ export function formatStatus(report: StatusReport): string {
   lines.push("Setup: initialized");
   lines.push(`Operating mode: ${report.operatingMode}`);
   lines.push(`Setup-ready: ${report.setupReady ? "yes" : "no"}`);
-  lines.push(`Alignment-ready: ${report.alignmentReady ? "yes" : report.validButNeedsAttention ? "needs attention" : "no"}`);
+  lines.push(
+    `Alignment-ready: ${report.alignmentReady ? "yes" : report.validButNeedsAttention ? "needs attention" : "no"}`,
+  );
   lines.push(
     report.upToDate
       ? "Freshness: up to date (a re-run would be a no-op)"
@@ -263,7 +285,8 @@ export function formatStatus(report: StatusReport): string {
   }
   if (report.architectureConfidence) {
     lines.push(`Architecture confidence: ${report.architectureConfidence}`);
-    if (report.architectureReasons.length > 0) lines.push(`Architecture reasons: ${report.architectureReasons.join("; ")}`);
+    if (report.architectureReasons.length > 0)
+      lines.push(`Architecture reasons: ${report.architectureReasons.join("; ")}`);
   }
   if (report.packages > 0) {
     lines.push(`Workspace packages: ${report.packages} (per-package instructions emitted)`);

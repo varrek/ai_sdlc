@@ -1,5 +1,5 @@
-import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { LSP_GUIDANCE_PATH, renderLspGuidance } from "../../core/lsp-guidance.js";
+import type { EmittedFile, NeutralModel } from "../../core/types.js";
 
 export function emitLspGuidance(model: NeutralModel): EmittedFile {
   return {

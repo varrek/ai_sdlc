@@ -1,4 +1,4 @@
-import { STAGE_ROLE, type LoopStage } from "../core/loop.js";
+import { type LoopStage, STAGE_ROLE } from "../core/loop.js";
 import { isLoopTerminalEvent, type LoopTraceEvent } from "./loop-trace.js";
 
 export type LoopViolationKind =
@@ -48,7 +48,9 @@ export function scoreLoopTrace(
 ): LoopScore {
   const violations: LoopViolation[] = [];
   const firstIndexByStage = firstStageIndexes(trace);
-  const missingStages = expectation.stages.filter((stage) => firstIndexByStage.get(stage) === undefined);
+  const missingStages = expectation.stages.filter(
+    (stage) => firstIndexByStage.get(stage) === undefined,
+  );
 
   for (const stage of missingStages) {
     violations.push({ kind: "missing-stage", stage, message: `Missing loop stage: ${stage}` });
@@ -85,7 +87,8 @@ export function scoreLoopTrace(
     }
   });
 
-  const approvalStages = expectation.approvalBeforeStages ?? defaultApprovalStages(expectation.stages);
+  const approvalStages =
+    expectation.approvalBeforeStages ?? defaultApprovalStages(expectation.stages);
   for (const stage of approvalStages.filter((s) => expectation.stages.includes(s))) {
     const stageIndex = firstIndexByStage.get(stage);
     if (stageIndex === undefined) continue;
@@ -114,7 +117,10 @@ export function scoreLoopTrace(
     }
   }
 
-  if (expectation.stages.includes("test") && !trace.some((event) => event.type === "test_run" && event.stage === "test")) {
+  if (
+    expectation.stages.includes("test") &&
+    !trace.some((event) => event.type === "test_run" && event.stage === "test")
+  ) {
     violations.push({
       kind: "missing-evaluator-verdict",
       stage: "test",
@@ -133,7 +139,11 @@ export function scoreLoopTrace(
   }
 
   trace.forEach((event, index) => {
-    if (event.type === "test_run" && event.verdict === "fail" && hasTerminalWithoutEngineerRework(trace, index)) {
+    if (
+      event.type === "test_run" &&
+      event.verdict === "fail" &&
+      hasTerminalWithoutEngineerRework(trace, index)
+    ) {
       violations.push({
         kind: "evaluator-handback",
         stage: "test",
@@ -240,10 +250,16 @@ function previousExpectedStage(stages: LoopStage[], stage: LoopStage): LoopStage
 }
 
 function defaultApprovalStages(stages: LoopStage[]): LoopStage[] {
-  return stages.includes("architect") ? ["engineer", "reviewer", "wrap-up"] : ["reviewer", "wrap-up"];
+  return stages.includes("architect")
+    ? ["engineer", "reviewer", "wrap-up"]
+    : ["reviewer", "wrap-up"];
 }
 
-function hasApprovedGateBetween(trace: LoopTraceEvent[], afterIndex: number, beforeIndex: number): boolean {
+function hasApprovedGateBetween(
+  trace: LoopTraceEvent[],
+  afterIndex: number,
+  beforeIndex: number,
+): boolean {
   for (let i = afterIndex + 1; i < beforeIndex; i += 1) {
     const event = trace[i]!;
     if (event.type === "approval_gate" && event.verdict === "approved") return true;
