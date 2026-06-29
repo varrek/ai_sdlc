@@ -1,0 +1,15 @@
+---
+description: Require Bugbot review before merging LFG work
+alwaysApply: true
+---
+
+# LFG Bugbot Merge Gate
+
+When running `/lfg` or coordinating LFG-produced worktrees/branches in this repo:
+
+- After the LFG branch is pushed and a PR exists, run Bugbot review on the PR or branch changes before merging.
+- Treat Bugbot findings as review findings: apply valid fixes in the branch, commit them, push them, and rerun relevant tests.
+- Do not merge the branch until Bugbot findings are fixed or durably recorded as residuals, and CI/local validation is green or residual failures are documented.
+- If Bugbot cannot run, record the blocker in the PR body or a tracked residual-review document before merge.
+- Merge to `main` only after fixes have landed on the branch being merged.
+
