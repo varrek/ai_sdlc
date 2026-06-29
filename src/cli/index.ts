@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "./args.js";
 import { runCompileCli } from "./compile.js";
@@ -12,6 +12,8 @@ import { runSmokeCli } from "./smoke.js";
 import { runUpgrade } from "./upgrade.js";
 import { buildStandardsIndex, evidenceCoverage } from "../customize/emitters.js";
 import { HostId, OperatingMode, type OperatingMode as OperatingModeValue } from "../schema/index.js";
+import { appendLoopEvent } from "../core/memory.js";
+import type { LoopTraceEvent } from "../eval/loop-trace.js";
 
 const HELP = `aisdlc — internal AI SDLC framework compiler
 
@@ -19,13 +21,14 @@ Usage:
   aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot,codex]
 
 Commands:
-  compile     Compile the host-neutral base (+ overlay) to host-native config.
-  gen-matrix  Regenerate docs/capability-matrix.md from adapter capabilities.
-  customize   Adapt the base to the current repository (Plugin Mode by default; use --mode deterministic to opt out).
-  upgrade     Re-pin the base and replay compile, flagging overlay conflicts (U5).
-  smoke       Run the smoke validation gate (U7).
-  status      Report setup freshness, blocking gaps, and evidence coverage.
-  explain     Show a mined standard (by number) or stable claim key and its evidence.
+  compile      Compile the host-neutral base (+ overlay) to host-native config.
+  gen-matrix   Regenerate docs/capability-matrix.md from adapter capabilities.
+  customize    Adapt the base to the current repository (Plugin Mode by default; use --mode deterministic to opt out).
+  upgrade      Re-pin the base and replay compile, flagging overlay conflicts (U5).
+  smoke        Run the smoke validation gate (U7).
+  status       Report setup freshness, blocking gaps, and evidence coverage.
+  explain      Show a mined standard (by number) or stable claim key and its evidence.
+  record-event Record a loop trace event to .sdlc/loop_history/events.jsonl (for hooks/skills).
 `;
 
 function fail(message: string): never {
@@ -293,6 +296,26 @@ function cmdUpgrade(rest: string[]): void {
   process.stdout.write(`Upgraded base to ${result.lock!.baseVersion}.\n`);
 }
 
+function cmdRecordEvent(rest: string[]): void {
+  const { options } = parseArgs(rest);
+  const eventJson = options.get("event");
+  const sdlcDir = options.get("sdlc-dir") ?? join(process.cwd(), ".sdlc");
+
+  if (!eventJson) {
+    fail("record-event: --event <json> is required");
+  }
+
+  let event: LoopTraceEvent;
+  try {
+    event = JSON.parse(eventJson!) as LoopTraceEvent;
+  } catch (err) {
+    fail(`record-event: invalid JSON in --event: ${err}`);
+  }
+
+  const path = appendLoopEvent(sdlcDir, event);
+  process.stdout.write(`Recorded ${event.type} event to ${path}\n`);
+}
+
 function main(): void {
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
@@ -316,6 +339,9 @@ function main(): void {
       return;
     case "explain":
       cmdExplain(rest);
+      return;
+    case "record-event":
+      cmdRecordEvent(rest);
       return;
     case undefined:
     case "help":

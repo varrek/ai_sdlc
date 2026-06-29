@@ -15,10 +15,36 @@ const CLOUD_HOOK = {
 
 const APPROVED_GATE_SCRIPT = `#!/usr/bin/env node
 // Copilot CLI/cloud Approved? gate (no IDE equivalent — see CI backstop).
-if (process.env.SDLC_APPROVED !== "1") {
+import { execSync } from "node:child_process";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  reason: "Human approved via SDLC_APPROVED=1",
+  evidence: scope ? [scope] : undefined,
+});
+
+try {
+  execSync(\`npx --yes aisdlc record-event --event '\${event}'\`, { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  console.warn("Warning: failed to record approval event:", err.message);
+}
+
 process.exit(0);
 `;
 

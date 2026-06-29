@@ -141,6 +141,30 @@ If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
 
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks.
+
 ## Per-host notes
 
 - **Cursor / Claude Code:** full depth — subagents with enforced postures and a
@@ -522,10 +546,36 @@ for root-cause analysis of a stubborn failure, to the Debugger.
   ".claude/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Claude Code PreToolUse Approved? gate. Blocks Write/Edit/MCP tool use until
 // the orchestration loop sets SDLC_APPROVED=1 (after human approval).
-if (process.env.SDLC_APPROVED !== "1") {
+import { execSync } from "node:child_process";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet. Halting before write/MCP.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  reason: "Human approved via SDLC_APPROVED=1",
+  evidence: scope ? [scope] : undefined,
+});
+
+try {
+  execSync(\`npx --yes aisdlc record-event --event '\${event}'\`, { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  console.warn("Warning: failed to record approval event:", err.message);
+}
+
 process.exit(0);
 ",
   ".claude/settings.json": "{
@@ -682,6 +732,30 @@ the Engineer's own test run. See \`track-select\` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks.
 
 ## Per-host notes
 
@@ -1057,10 +1131,36 @@ statusMessage = "Checking MCP least-privilege"
 ",
   ".codex/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Codex PreToolUse Approved? gate. Blocks apply_patch/Bash/MCP until SDLC_APPROVED=1.
-if (process.env.SDLC_APPROVED !== "1") {
+import { execSync } from "node:child_process";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet. Halting before write/MCP.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  reason: "Human approved via SDLC_APPROVED=1",
+  evidence: scope ? [scope] : undefined,
+});
+
+try {
+  execSync(\`npx --yes aisdlc record-event --event '\${event}'\`, { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  console.warn("Warning: failed to record approval event:", err.message);
+}
+
 process.exit(0);
 ",
   ".codex/hooks/mcp-gate.mjs": "#!/usr/bin/env node
@@ -1255,6 +1355,30 @@ the Engineer's own test run. See \`track-select\` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks.
 
 ## Per-host notes
 
@@ -1653,10 +1777,36 @@ for root-cause analysis of a stubborn failure, to the Debugger.
   ".cursor/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Cursor Approved? gate: block writes leaving the workspace until approval.
 // The orchestration loop sets SDLC_APPROVED=1 only after the human approves.
-if (process.env.SDLC_APPROVED !== "1") {
+import { execSync } from "node:child_process";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet. Halting before write-out.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  reason: "Human approved via SDLC_APPROVED=1",
+  evidence: scope ? [scope] : undefined,
+});
+
+try {
+  execSync(\`npx --yes aisdlc record-event --event '\${event}'\`, { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  console.warn("Warning: failed to record approval event:", err.message);
+}
+
 process.exit(0);
 ",
   ".cursor/hooks/mcp-gate.mjs": "#!/usr/bin/env node
@@ -1858,6 +2008,30 @@ the Engineer's own test run. See \`track-select\` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks.
 
 ## Per-host notes
 
@@ -2347,10 +2521,36 @@ changes that skip review or fail tests.
 ",
   ".github/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Copilot CLI/cloud Approved? gate (no IDE equivalent — see CI backstop).
-if (process.env.SDLC_APPROVED !== "1") {
+import { execSync } from "node:child_process";
+
+const approved = process.env.SDLC_APPROVED === "1";
+
+if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet.");
   process.exit(2);
 }
+
+// Record the approval event to loop trace history.
+const taskId = process.env.SDLC_TASK_ID || "unknown";
+const scope = process.env.SDLC_SCOPE || "workspace";
+const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+
+const event = JSON.stringify({
+  type: "approval_gate",
+  taskId,
+  verdict: "approved",
+  role,
+  reason: "Human approved via SDLC_APPROVED=1",
+  evidence: scope ? [scope] : undefined,
+});
+
+try {
+  execSync(\`npx --yes aisdlc record-event --event '\${event}'\`, { stdio: "ignore" });
+} catch (err) {
+  // Best-effort: log recording failures but don't block the gate.
+  console.warn("Warning: failed to record approval event:", err.message);
+}
+
 process.exit(0);
 ",
   ".github/skills/customize/SKILL.md": "---
@@ -2491,6 +2691,30 @@ the Engineer's own test run. See \`track-select\` for the per-track stage chain.
 If a failure needs investigation, the **Debugger (read-only)** produces a
 root-cause + fix approach and hands it back to the Engineer — preserving the
 single-writer rule.
+
+## Recording loop events
+
+To support loop quality scoring and behavior evaluation, agents should record
+key loop events when practical:
+
+- **Plan created**: After Architect or Engineer produces a plan
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  \`\`\`
+- **Handoff**: When transitioning between roles
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  \`\`\`
+- **Test run**: After running tests (Tester or Engineer)
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  \`\`\`
+- **Review verdict**: After Reviewer completes their assessment
+  \`\`\`bash
+  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  \`\`\`
+
+Approval gate events are recorded automatically by the gate hooks.
 
 ## Per-host notes
 
