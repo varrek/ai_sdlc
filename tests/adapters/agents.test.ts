@@ -73,4 +73,47 @@ describe("agent emit (least-privilege)", () => {
     expect(engineer).toContain("[mcp_servers.gitlab-mcp]");
     expect(engineer).toContain("enabled = true");
   });
+
+  it("copilot agent profiles are vscode-targeted with posture tools and MCP scoping", () => {
+    const files = byPath(new CopilotAdapter().emit(loopModel()).files);
+    const engineer = matter(files.get(".github/agents/engineer.agent.md")!);
+    const reviewer = matter(files.get(".github/agents/reviewer.agent.md")!);
+
+    expect(engineer.data.target).toBe("vscode");
+    expect(reviewer.data.target).toBe("vscode");
+
+    const engineerTools = engineer.data.tools as string[];
+    expect(engineerTools).toEqual(
+      expect.arrayContaining(["Write", "Edit", "Bash", "gitlab-mcp/*"]),
+    );
+
+    const reviewerTools = reviewer.data.tools as string[];
+    expect(reviewerTools).not.toContain("Write");
+    expect(reviewerTools).not.toContain("Edit");
+    expect(reviewerTools.some((t) => String(t).includes("gitlab-mcp"))).toBe(false);
+  });
+
+  it("copilot loop roles emit native handoffs frontmatter", () => {
+    const m = makeModel({
+      roles: [
+        makeRole("architect", "read-only", []),
+        makeRole("engineer", "write", ["gitlab"]),
+        makeRole("tester", "read-run", []),
+        makeRole("reviewer", "read-only", []),
+      ],
+      integrations: [makeContract("gitlab")],
+      overlay,
+    });
+    const files = byPath(new CopilotAdapter().emit(m).files);
+    const architect = matter(files.get(".github/agents/architect.agent.md")!);
+    expect(architect.data.handoffs).toEqual([
+      {
+        label: "Hand off to Engineer",
+        agent: "engineer",
+        prompt: "Implement the plan outlined above.",
+        send: false,
+      },
+    ]);
+    expect(matter(files.get(".github/agents/reviewer.agent.md")!).data.handoffs).toBeUndefined();
+  });
 });

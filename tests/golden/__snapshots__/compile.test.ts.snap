@@ -1725,10 +1725,16 @@ description: Use this agent at the start of a task, before any code is written,
   and weighing design trade-offs or risks before implementation. Read-only --
   produces the approach and hands it to the Engineer; never edits files. See
   "When to invoke" in the body for worked scenarios.
+target: vscode
 tools:
   - Read
   - Grep
   - Glob
+handoffs:
+  - label: Hand off to Engineer
+    agent: engineer
+    prompt: Implement the plan outlined above.
+    send: false
 ---
 
 You are the **Architect** in the AI SDLC loop. You turn a task into a clear,
@@ -1774,6 +1780,7 @@ description: Use this agent to investigate a failure read-only and hand a
   reproducible bug that needs diagnosis before a fix. Finds the cause; never
   edits code itself, preserving the single-writer rule. See "When to invoke" in
   the body for worked scenarios.
+target: vscode
 tools:
   - Read
   - Grep
@@ -1811,6 +1818,7 @@ description: Use this agent to implement an approved plan -- it is the only role
   from the Debugger, and preparing the change for review. Stops at the Approved?
   gate before anything leaves the workspace. See "When to invoke" in the body
   for worked scenarios.
+target: vscode
 tools:
   - Read
   - Grep
@@ -1818,6 +1826,11 @@ tools:
   - Bash
   - Write
   - Edit
+handoffs:
+  - label: Hand off to Tester
+    agent: tester
+    prompt: Run the project test suite on this change.
+    send: false
 ---
 
 You are the **Engineer** in the AI SDLC loop — and the **only** role permitted to
@@ -1851,7 +1864,7 @@ bypass review.
   ".github/agents/handoffs.json": "{
   "version": 1,
   "track": "standard",
-  "note": "Copilot IDE has no pre-tool gate hook. The Approved? gate is enforced via .github/copilot-instructions.md (checklist) + .github/workflows/sdlc-gate.yml (CI). Roles run as sequential handoffs; autonomous wrap-up routes through the Copilot cloud agent.",
+  "note": "Copilot IDE has no pre-tool gate hook. The Approved? gate is enforced via .github/copilot-instructions.md (checklist) + .github/workflows/sdlc-gate.yml (CI). Loop stages use native handoffs in each agent profile's frontmatter; this file documents the full chain. Autonomous wrap-up routes through the Copilot cloud agent.",
   "order": [
     "architect",
     "engineer",
@@ -1888,6 +1901,7 @@ description: Use this agent to review the Engineer's change in a fresh,
   security pass, and confirming a change matches its approved plan. Returns
   approve or request-changes with specific reasons; never edits the code it
   reviews. See "When to invoke" in the body for worked scenarios.
+target: vscode
 tools:
   - Read
   - Grep
@@ -1932,11 +1946,17 @@ description: Use this agent to independently verify a change by running the test
   confirm it before a fix. Read-run -- it executes tests and commands but never
   modifies files, so the single-writer rule holds. See "When to invoke" in the
   body for worked scenarios.
+target: vscode
 tools:
   - Read
   - Grep
   - Glob
   - Bash
+handoffs:
+  - label: Hand off to Reviewer
+    agent: reviewer
+    prompt: Review the change for quality, security, and plan adherence.
+    send: false
 ---
 
 You are the **Tester** in the AI SDLC loop. You independently verify that a change
@@ -2409,7 +2429,12 @@ gaps:
   - host: copilot
     capability: approved-gate-hook
     reason: Copilot IDE has no PreToolUse hook; the Approved? gate degrades to an
-      instruction checklist + branch-protection/CI enforcement.
+      instruction checklist + branch-protection/CI enforcement (cloud/CLI hook
+      when available).
+  - host: copilot
+    capability: per-role-mcp-hook
+    reason: Copilot IDE has no beforeMCPExecution hook; per-role MCP reach is
+      declared in custom-agent tools (server/*) with partial enforcement only.
 ",
 }
 `;

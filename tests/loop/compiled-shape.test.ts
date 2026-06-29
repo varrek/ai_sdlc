@@ -104,7 +104,12 @@ describe("compiled loop shape", () => {
       { from: "test", to: "reviewer" },
     ]);
     expect(handoffs.note).toMatch(/no pre-tool gate hook/i);
+    expect(handoffs.note).toMatch(/native handoffs/i);
     expect(copilot.get(".github/copilot-instructions.md")).toMatch(/no pre-tool gate hook/i);
+
+    const architect = matter(copilot.get(".github/agents/architect.agent.md")!);
+    expect(architect.data.target).toBe("vscode");
+    expect(architect.data.handoffs).toBeDefined();
   });
 
   it("copilot handoffs honor the overlay ceremony track (quick drops architect)", () => {

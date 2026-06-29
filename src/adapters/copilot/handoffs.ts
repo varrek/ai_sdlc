@@ -3,14 +3,13 @@ import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { stableJson } from "../shared/roles.js";
 
 /**
- * Copilot orchestrates via sequential handoffs between custom agents (no
- * parallel subagent dispatch, no IDE gate). We emit an explicit handoff chain
- * for the SDLC loop plus the documented gate fallback, so the degradation is a
- * first-class artifact rather than an implicit gap. The chain is the per-track
- * stage sequence (quick drops the Architect; full appends the integration
- * wrap-up), and `stageAgents` maps each stage to the agent that performs it —
- * wrap-up is performed by the Engineer (sole holder of the gitlab/jira
- * integrations), so least-privilege is preserved.
+ * Copilot orchestrates via sequential handoffs between custom agents (native
+ * `handoffs` frontmatter on each profile, plus this machine-readable chain).
+ * Copilot IDE has no pre-tool gate hook, so the Approved? gate degrades to the
+ * instruction checklist + CI backstop documented here and in instructions.ts.
+ * Wrap-up on the full track routes through the Copilot cloud agent; the chain
+ * maps each stage to the performing agent — wrap-up runs as the Engineer (sole
+ * holder of gitlab/jira integrations), preserving least-privilege.
  */
 export function emitHandoffs(model: NeutralModel): EmittedFile[] {
   const order = loopStagesForTrack(model);
@@ -26,7 +25,8 @@ export function emitHandoffs(model: NeutralModel): EmittedFile[] {
     note:
       "Copilot IDE has no pre-tool gate hook. The Approved? gate is enforced via " +
       ".github/copilot-instructions.md (checklist) + .github/workflows/sdlc-gate.yml (CI). " +
-      "Roles run as sequential handoffs; autonomous wrap-up routes through the Copilot cloud agent." +
+      "Loop stages use native handoffs in each agent profile's frontmatter; this file " +
+      "documents the full chain. Autonomous wrap-up routes through the Copilot cloud agent." +
       (hasWrapUp
         ? " The wrap-up stage runs as the Engineer and requires bound gitlab + jira integrations."
         : ""),

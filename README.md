@@ -125,8 +125,10 @@ Compilation produces native config for each enabled host (plus a host-neutral
   `.cursor/permissions.json`, and hooks that enforce the Approved? gate and
   per-role MCP least-privilege (`.cursor/hooks/`, `.cursor/sdlc/role-policy.json`).
 - **GitHub Copilot** — `.github/copilot-instructions.md` (gates + project
-  standards), `.github/agents/`, a sequential handoff chain, and a CI backstop
-  (`.github/workflows/sdlc-gate.yml`) that runs the mined test command.
+  standards), `.github/agents/` (custom-agent profiles with `target`, posture
+  `tools`, MCP `server/*` scoping, and native handoffs), a sequential handoff
+  chain doc, and a CI backstop (`.github/workflows/sdlc-gate.yml`) that runs the
+  mined test command.
 - **OpenAI Codex** — `AGENTS.md`, `.codex/agents/` (role subagents),
   `.codex/skills/`, `.codex/config.toml` (MCP + `PreToolUse` Approved? gate),
   and `.codex/hooks/` for least-privilege enforcement.
