@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -60,6 +60,17 @@ describe("loop behavior eval state", () => {
     expect(state?.results).toHaveLength(1);
     expect(state?.results[0]?.scenarioId).toBe("test-scenario");
     expect(state?.results[0]?.passed).toBe(true);
+  });
+
+  it("returns undefined for malformed result rows", () => {
+    const dir = makeTempDir();
+    writeFileSync(
+      join(dir, "loop-behavior-eval.yaml"),
+      "version: 1\nresults:\n  - {}\nupdatedAt: 2026-06-29T12:00:00Z\n",
+      "utf8",
+    );
+
+    expect(readLoopBehaviorEvalState(dir)).toBeUndefined();
   });
 
   it("summarizes not-run when state is undefined", () => {

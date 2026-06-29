@@ -250,4 +250,29 @@ describe("loop trace scoring", () => {
 
     expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
   });
+
+  it("recognizes Engineer test runs as evaluator handback rework", () => {
+    const trace = standardTrace();
+    trace[4] = {
+      type: "test_run",
+      taskId: "synthetic-loop",
+      role: "tester",
+      stage: "test",
+      command: "npm test",
+      verdict: "fail",
+      failures: ["missing retry coverage"],
+    };
+    trace.splice(5, 0, {
+      type: "test_run",
+      taskId: "synthetic-loop",
+      role: "engineer",
+      stage: "engineer",
+      command: "npm test",
+      verdict: "pass",
+    });
+
+    const score = scoreLoopTrace(trace, { stages: [...standardStages] });
+
+    expect(score.violations).not.toContainEqual(expect.objectContaining({ kind: "evaluator-handback" }));
+  });
 });

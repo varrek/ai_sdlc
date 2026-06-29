@@ -27,13 +27,26 @@ export function readLoopBehaviorEvalState(sdlcDir: string): LoopBehaviorEvalStat
   if (!existsSync(path)) return undefined;
   try {
     const parsed = parseYaml(readFileSync(path, "utf8")) as Partial<LoopBehaviorEvalState> | null;
-    if (parsed && parsed.version === 1 && Array.isArray(parsed.results)) {
+    if (parsed && parsed.version === 1 && Array.isArray(parsed.results) && parsed.results.every(isEvalResult)) {
       return parsed as LoopBehaviorEvalState;
     }
   } catch {
     return undefined;
   }
   return undefined;
+}
+
+function isEvalResult(value: unknown): value is LoopBehaviorEvalResult {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<LoopBehaviorEvalResult>;
+  const score = candidate.score;
+  return (
+    typeof candidate.scenarioId === "string" &&
+    typeof candidate.passed === "boolean" &&
+    typeof candidate.evaluatedAt === "string" &&
+    score !== undefined &&
+    typeof score.passed === "boolean"
+  );
 }
 
 export function writeLoopBehaviorEvalState(
