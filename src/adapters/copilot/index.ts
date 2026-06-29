@@ -15,9 +15,9 @@ import { emitSkills } from "./skills.js";
 const CAPABILITIES: HostCapabilities = {
   instructions: "native",
   skills: "native",
-  roleSubagents: "partial", // runSubagent / handoffs; cloud agent for autonomous
-  perRoleToolRestriction: "partial", // custom-agent tools; no MCP-by-role hook in IDE
-  gates: "fallback", // no IDE hook → instruction checklist + CI
+  roleSubagents: "partial", // custom agents + native handoffs; no parallel subagent dispatch
+  perRoleToolRestriction: "partial", // agent `tools` + server/* MCP scoping; partial enforcement
+  gates: "fallback", // no IDE PreToolUse hook → instruction checklist + CI + cloud hook
   mcp: "native",
 };
 
@@ -25,13 +25,25 @@ const CAPABILITIES: HostCapabilities = {
  * Copilot's IDE has no `PreToolUse`-style hook, so the `Approved?` gate cannot
  * be enforced inline the way it can on Cursor/Claude. This is a real, permanent
  * capability gap we declare up front (honest degradation); gates.ts emits the
- * instruction-checklist + CI fallback that backs it.
+ * instruction-checklist + CI + cloud-hook fallback that backs it.
  */
 const COPILOT_GATE_GAP: Gap = {
   host: "copilot",
   capability: "approved-gate-hook",
   reason:
-    "Copilot IDE has no PreToolUse hook; the Approved? gate degrades to an instruction checklist + branch-protection/CI enforcement.",
+    "Copilot IDE has no PreToolUse hook; the Approved? gate degrades to an instruction checklist + branch-protection/CI enforcement (cloud/CLI hook when available).",
+};
+
+/**
+ * Per-role MCP least-privilege is declared in custom-agent `tools` (`server/*`)
+ * but the IDE has no `beforeMCPExecution` hook. Workspace `.vscode/mcp.json`
+ * still exposes all configured servers — enforcement is partial, not fail-closed.
+ */
+const COPILOT_MCP_GAP: Gap = {
+  host: "copilot",
+  capability: "per-role-mcp-hook",
+  reason:
+    "Copilot IDE has no beforeMCPExecution hook; per-role MCP reach is declared in custom-agent tools (server/*) with partial enforcement only.",
 };
 
 export class CopilotAdapter implements Adapter {
@@ -48,7 +60,7 @@ export class CopilotAdapter implements Adapter {
         ...emitGates(model),
         ...emitMcp(model),
       ],
-      gaps: [COPILOT_GATE_GAP],
+      gaps: [COPILOT_GATE_GAP, COPILOT_MCP_GAP],
     };
   }
 }

@@ -41,8 +41,10 @@ describe("gate emit", () => {
     const files = byPath(result.files);
     expect(files.has(".github/workflows/sdlc-gate.yml")).toBe(true);
     expect(files.has(".github/copilot-instructions.md")).toBe(true);
-    const gap = result.gaps.find((g) => g.capability === "approved-gate-hook");
-    expect(gap?.host).toBe("copilot");
+    const gateGap = result.gaps.find((g) => g.capability === "approved-gate-hook");
+    expect(gateGap?.host).toBe("copilot");
+    const mcpGap = result.gaps.find((g) => g.capability === "per-role-mcp-hook");
+    expect(mcpGap?.host).toBe("copilot");
   });
 
   it("copilot CI runs the mined test command (not a placeholder echo)", () => {

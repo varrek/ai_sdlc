@@ -57,10 +57,14 @@ describe("compile engine", () => {
     const report = parseYaml(readFileSync(join(out, GAP_REPORT_PATH), "utf8")) as {
       gaps: { host: string; capability: string; reason: string }[];
     };
-    const copilotGap = report.gaps.find((g) => g.host === "copilot");
-    expect(copilotGap).toBeDefined();
-    expect(copilotGap!.capability).toBe("approved-gate-hook");
-    expect(copilotGap!.reason).toMatch(/no PreToolUse hook/i);
+    const copilotGaps = report.gaps.filter((g) => g.host === "copilot");
+    expect(copilotGaps.length).toBeGreaterThanOrEqual(2);
+    const gateGap = copilotGaps.find((g) => g.capability === "approved-gate-hook");
+    expect(gateGap).toBeDefined();
+    expect(gateGap!.reason).toMatch(/no PreToolUse hook/i);
+    const mcpGap = copilotGaps.find((g) => g.capability === "per-role-mcp-hook");
+    expect(mcpGap).toBeDefined();
+    expect(mcpGap!.reason).toMatch(/partial enforcement/i);
   });
 
   it("dispatches only to hosts requested", () => {
