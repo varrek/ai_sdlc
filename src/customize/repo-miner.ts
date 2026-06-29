@@ -1229,11 +1229,28 @@ function trimTrailingSeparator(command: string): string {
   return command.replace(/\s+--\s*$/, "").trim();
 }
 
+/** Top-level GitLab CI keys that are never runnable jobs. */
+const GITLAB_CI_RESERVED_KEYS = new Set([
+  "stages",
+  "variables",
+  "before_script",
+  "after_script",
+  "default",
+  "include",
+  "workflow",
+  "image",
+  "services",
+  "cache",
+  "pages",
+  "spec",
+]);
+
 /**
  * Pick a runnable test command by fixed source priority **CI > Makefile >
  * package.json/pyproject**. CI is most authoritative because it gates merges.
  * Never prompts on conflict; an inferred runner yields a sensible default so a
- * runner-only repo still resolves a command. CI mining is GitHub Actions only in v1.
+ * runner-only repo still resolves a command. CI mining covers GitHub Actions
+ * and GitLab CI in v1.
  */
 function resolveTestCommand(
   root: string,
@@ -1249,6 +1266,13 @@ function resolveTestCommand(
     const command = testCommandFromWorkflow(read(root, wf));
     if (command && ecosystemAllowed(command, signals)) {
       return { command: trimTrailingSeparator(command), evidence: wf };
+    }
+  }
+  // GitLab CI — same gating rules; consulted after ranked GitHub workflows.
+  for (const gf of signals.ciFiles.filter((f) => f === ".gitlab-ci.yml").sort()) {
+    const command = testCommandFromGitLabCi(read(root, gf));
+    if (command && ecosystemAllowed(command, signals)) {
+      return { command: trimTrailingSeparator(command), evidence: gf };
     }
   }
   // 2. Makefile `test:` target recipe.
@@ -1357,6 +1381,43 @@ function testCommandFromWorkflow(text: string): string | undefined {
       const run = typeof (step as { run?: unknown })?.run === "string" ? (step as { run: string }).run : undefined;
       if (!run) continue;
       const command = pickTestSegment(run);
+      if (command) return command;
+    }
+  }
+  return undefined;
+}
+
+function isGitLabCiJob(name: string, value: unknown): value is { script?: unknown } {
+  if (name.startsWith(".") || GITLAB_CI_RESERVED_KEYS.has(name)) return false;
+  if (!value || typeof value !== "object") return false;
+  const script = (value as { script?: unknown }).script;
+  return typeof script === "string" || (Array.isArray(script) && script.length > 0);
+}
+
+function gitLabCiScriptLines(job: { script?: unknown }): string[] {
+  const { script } = job;
+  if (typeof script === "string") return [script];
+  if (!Array.isArray(script)) return [];
+  return script.filter((line): line is string => typeof line === "string");
+}
+
+function testCommandFromGitLabCi(text: string): string | undefined {
+  let doc: unknown;
+  try {
+    doc = parseYaml(text);
+  } catch {
+    return undefined;
+  }
+  if (!doc || typeof doc !== "object") return undefined;
+  const jobs = Object.entries(doc as Record<string, unknown>)
+    .filter(([name, value]) => isGitLabCiJob(name, value))
+    .sort(
+      ([a], [b]) =>
+        workflowRank(`.gitlab-ci.yml/${a}`) - workflowRank(`.gitlab-ci.yml/${b}`) || (a < b ? -1 : a > b ? 1 : 0),
+    );
+  for (const [, job] of jobs) {
+    for (const line of gitLabCiScriptLines(job)) {
+      const command = pickTestSegment(line);
       if (command) return command;
     }
   }
