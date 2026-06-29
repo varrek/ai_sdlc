@@ -105,6 +105,7 @@ hood.
 | `aisdlc smoke` | Run the smoke validation gate and report setup-readiness. |
 | `aisdlc upgrade` | Re-pin the base and replay compile, flagging overlay conflicts. |
 | `aisdlc gen-matrix` | Regenerate `docs/capability-matrix.md` from adapter capabilities. |
+| `aisdlc bench` | Run a reproducible external-repo setup evaluation from the pinned catalog. |
 | `aisdlc help` | Show usage. |
 
 Common flags:
@@ -116,6 +117,15 @@ Common flags:
   `--hosts cursor,claude-code,copilot,codex`, `--force`
 - `smoke`: `--repo <dir>`, `--config <dir>`, `--packs <dir,dir>`,
   `--overlay <file>`, `--compile`
+- `bench`: `--seed <n>`, `--count <n>`, `--catalog <file>`,
+  `--cache-dir <dir>`, `--report-dir <dir>`, `--base <dir>`,
+  `--mode deterministic|plugin`, `--dry-run`, `--skip-clone`, `--force`,
+  `--repo-timeout-ms <n>`, `--fail-on-class <class,class>`
+
+`bench` clones only pinned public repos into `.verify/repos/` and writes reports
+under `.verify/reports/`. It is opt-in and does not run external project package
+managers, build scripts, or tests. It requires `git` on `PATH`. See
+[`docs/eval/external-repo-workflow.md`](./docs/eval/external-repo-workflow.md).
 
 ## What gets emitted
 
