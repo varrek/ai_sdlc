@@ -28,7 +28,9 @@ const event = JSON.stringify({
 });
 
 try {
-  execSync(\`npx --yes aisdlc record-event --event '\${event}'\`, { stdio: "ignore" });
+  // Use double quotes and escape backslashes and double quotes in the JSON
+  const escapedEvent = event.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"');
+  execSync(\`npx --yes aisdlc record-event --event "\${escapedEvent}"\`, { stdio: "ignore" });
 } catch (err) {
   // Best-effort: log recording failures but don't block the gate.
   console.warn("Warning: failed to record approval event:", err.message);
