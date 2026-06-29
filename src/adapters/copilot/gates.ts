@@ -16,8 +16,21 @@ const CLOUD_HOOK = {
 const APPROVED_GATE_SCRIPT = `#!/usr/bin/env node
 // Copilot CLI/cloud Approved? gate (no IDE equivalent — see CI backstop).
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 const approved = process.env.SDLC_APPROVED === "1";
+
+function findSdlcDir() {
+  let dir = process.cwd();
+  while (true) {
+    const candidate = join(dir, ".sdlc");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return join(process.cwd(), ".sdlc");
+    dir = parent;
+  }
+}
 
 if (!approved) {
   console.error("SDLC gate: changes are not Approved? yet.");
@@ -28,6 +41,7 @@ if (!approved) {
 const taskId = process.env.SDLC_TASK_ID || "unknown";
 const scope = process.env.SDLC_SCOPE || "workspace";
 const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
+const sdlcDir = process.env.SDLC_DIR || findSdlcDir();
 
 const event = JSON.stringify({
   type: "approval_gate",
@@ -39,10 +53,11 @@ const event = JSON.stringify({
 });
 
 try {
-  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event], { stdio: "ignore" });
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
 } catch (err) {
   // Best-effort: log recording failures but don't block the gate.
-  console.warn("Warning: failed to record approval event:", err.message);
+  const message = err instanceof Error ? err.message : String(err);
+  console.warn("Warning: failed to record approval event:", message);
 }
 
 process.exit(0);

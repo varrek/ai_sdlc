@@ -12,7 +12,7 @@ import { runSmokeCli } from "./smoke.js";
 import { runUpgrade } from "./upgrade.js";
 import { buildStandardsIndex, evidenceCoverage } from "../customize/emitters.js";
 import { HostId, OperatingMode, type OperatingMode as OperatingModeValue } from "../schema/index.js";
-import { appendLoopEvent } from "../core/memory.js";
+import { appendLoopEvent, readLoopEvents } from "../core/memory.js";
 import type { LoopTraceEvent } from "../eval/loop-trace.js";
 
 const HELP = `aisdlc — internal AI SDLC framework compiler
@@ -53,6 +53,12 @@ function isLoopTraceEvent(value: unknown): value is LoopTraceEvent {
     default:
       return false;
   }
+}
+
+function approvalEventKey(event: LoopTraceEvent): string | undefined {
+  if (event.type !== "approval_gate" || event.verdict !== "approved") return undefined;
+  const evidence = [...(event.evidence ?? [])].sort().join("\0");
+  return [event.taskId, event.role ?? "", evidence].join("\0");
 }
 
 /** Where `customize` writes the project overlay. */
@@ -333,6 +339,15 @@ function cmdRecordEvent(rest: string[]): void {
     event = parsed;
   } catch (err) {
     fail(`record-event: invalid JSON in --event: ${err}`);
+  }
+
+  const approvalKey = approvalEventKey(event);
+  if (approvalKey) {
+    const alreadyRecorded = readLoopEvents(sdlcDir).some((recorded) => approvalEventKey(recorded) === approvalKey);
+    if (alreadyRecorded) {
+      process.stdout.write(`Skipped duplicate ${event.type} event in ${sdlcDir}\n`);
+      return;
+    }
   }
 
   const path = appendLoopEvent(sdlcDir, event);
