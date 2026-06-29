@@ -70,6 +70,7 @@ export function scoreLoopTrace(
   }
 
   trace.forEach((event, index) => {
+    if (event.type === "approval_gate") return;
     const stage = eventStage(event);
     const role = eventRole(event);
     if (!stage || !role) return;
