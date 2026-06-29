@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,4 +76,35 @@ export function runSetup(root: string): SetupArtifacts {
     gapClosureProvenance: overlayRaw.gapClosureProvenance ?? {},
   };
   return { smoke, status, projectContext, standardsIndex, architect, tester, constitution, overlay };
+}
+
+const EMPTY_PROJECT_CONTEXT: ProjectContext = { packages: [], map: [], exclusions: [] };
+
+function readOptionalUtf8(path: string): string {
+  return existsSync(path) ? readFileSync(path, "utf8") : "";
+}
+
+/**
+ * Generic baseline: compile the base SDLC into a fixture copy without running
+ * `/customize`, so guidance lacks mined map rows, standards, and grounding.
+ */
+export function runGenericSetup(root: string): SetupArtifacts {
+  const sdlcDir = join(root, ".sdlc");
+  runCompileCli({ baseDir, outDir: root, sdlcDir });
+  const smoke = runSmokeCli({ baseDir, configDir: root, sdlcDir, repoRoot: root });
+  const overlayDir = join(sdlcDir, "overlay");
+  const status = buildStatus({ repoRoot: root, overlayDir, sdlcDir, baseDir, outDir: root });
+  const projectContextPath = join(overlayDir, "project-context.json");
+  const projectContext = existsSync(projectContextPath)
+    ? (JSON.parse(readFileSync(projectContextPath, "utf8")) as ProjectContext)
+    : EMPTY_PROJECT_CONTEXT;
+  return {
+    smoke,
+    status,
+    projectContext,
+    standardsIndex: readOptionalUtf8(join(overlayDir, "standards-index.yaml")),
+    architect: readFileSync(join(root, ".cursor", "agents", "architect.md"), "utf8"),
+    constitution: readFileSync(join(root, "AGENTS.md"), "utf8"),
+    overlay: { interviewAnswers: {}, gapClosureProvenance: {} },
+  };
 }
