@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseYaml, stringify } from "yaml";
 import type { LoopScore } from "./loop-score.js";
@@ -25,13 +25,16 @@ function evalStatePath(sdlcDir: string): string {
 function isEvalResult(value: unknown): value is LoopBehaviorEvalResult {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<LoopBehaviorEvalResult>;
-  const score = candidate.score;
+  const score = candidate.score as Partial<LoopScore> | undefined;
   return (
     typeof candidate.scenarioId === "string" &&
     typeof candidate.passed === "boolean" &&
     typeof candidate.evaluatedAt === "string" &&
     score !== undefined &&
-    typeof score.passed === "boolean"
+    typeof score.passed === "boolean" &&
+    typeof score.metrics === "object" &&
+    score.metrics !== null &&
+    Array.isArray(score.violations)
   );
 }
 
@@ -67,8 +70,18 @@ export function writeLoopBehaviorEvalState(
   const path = evalStatePath(sdlcDir);
   mkdirSync(sdlcDir, { recursive: true });
   const tmp = `${path}.tmp`;
-  writeFileSync(tmp, stringify(state, { sortMapEntries: false }), "utf8");
-  renameSync(tmp, path);
+  try {
+    writeFileSync(tmp, stringify(state, { sortMapEntries: false }), "utf8");
+    renameSync(tmp, path);
+  } finally {
+    if (existsSync(tmp)) {
+      try {
+        rmSync(tmp);
+      } catch {
+        // Best effort cleanup; ignore if removal fails
+      }
+    }
+  }
   return state;
 }
 
