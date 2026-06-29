@@ -122,8 +122,9 @@ Common flags:
   `--cache-dir <dir>`, `--report-dir <dir>`, `--base <dir>`,
   `--mode deterministic|plugin`, `--dry-run`, `--skip-clone`, `--force`,
   `--repo-timeout-ms <n>`, `--fail-on-class <class,class>`
-- `garden-docs`: `--repo <dir>`, `--config <dir>`, `--format text|json`,
-  `--write-report`, `--fail-on warning|error`
+- `garden-docs`: `--repo <dir>`, `--config <dir>`, `--overlay <file>`,
+  `--overlay-dir <dir>`, `--format text|json`, `--write-report`,
+  `--fail-on warning|error`
 
 `bench` clones only pinned public repos into `.verify/repos/` and writes reports
 under `.verify/reports/`. It is opt-in and does not run external project package

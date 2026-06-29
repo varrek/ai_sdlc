@@ -41,6 +41,20 @@ describe("garden-docs command", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("passes custom overlay directories to the analyzer", () => {
+    const root = tmpRepo();
+    const overlayDir = tmpRepo();
+    writeFileSync(join(root, "CLAUDE.md"), "# Claude\n", "utf8");
+    writeFileSync(
+      join(overlayDir, "project-context.json"),
+      JSON.stringify({ packages: [], map: [{ path: "src", role: "Source", sources: ["src"] }], exclusions: [] }),
+      "utf8",
+    );
+
+    const result = runGardenDocs({ repoRoot: root, overlayDir });
+    expect(result.report.findings.find((finding) => finding.id === "missing-codebase-map")?.path).toBe("CLAUDE.md");
+  });
+
   it("rejects invalid option values", () => {
     expect(() => parseGardenDocsFormat("xml")).toThrow("--format");
     expect(() => parseGardenDocsFailOn("info")).toThrow("--fail-on");

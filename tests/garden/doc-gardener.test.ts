@@ -60,6 +60,21 @@ describe("doc gardener", () => {
     expect(report.findings.some((finding) => finding.id === "missing-codebase-map")).toBe(false);
   });
 
+  it("loads project context from a custom overlay directory", () => {
+    const root = tmpRepo();
+    const overlayDir = tmpRepo();
+    writeFileSync(join(root, "CLAUDE.md"), "# Claude\n", "utf8");
+    writeFileSync(
+      join(overlayDir, "project-context.json"),
+      JSON.stringify({ packages: [], map: [{ path: "src", role: "Source", sources: ["src"] }], exclusions: [] }),
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root, overlayDir });
+    const finding = report.findings.find((item) => item.id === "missing-codebase-map");
+    expect(finding?.path).toBe("CLAUDE.md");
+  });
+
   it("redacts secrets in broken link findings", () => {
     const root = tmpRepo();
     writeFileSync(join(root, "AGENTS.md"), "[Secret](missing.md?token=abc123)\n", "utf8");
@@ -118,10 +133,10 @@ describe("doc gardener", () => {
 
   it("warns when docs traversal hits the scan limit", () => {
     const root = tmpRepo();
+    const docs = join(root, "docs");
+    mkdirSync(docs, { recursive: true });
     for (let i = 0; i < 1001; i++) {
-      const dir = join(root, "docs", `section-${i}`);
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, "index.md"), "# Section\n", "utf8");
+      writeFileSync(join(docs, `section-${i}.md`), "# Section\n", "utf8");
     }
 
     const report = analyzeDocGarden({ repoRoot: root });

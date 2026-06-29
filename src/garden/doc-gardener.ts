@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
-import { loadProjectContext, projectContextPathFor } from "../core/loader.js";
+import { loadProjectContext, PROJECT_CONTEXT_FILE, projectContextPathFor } from "../core/loader.js";
 import { DEFAULT_EXCLUSIONS } from "../core/project-context.js";
 import { redactUntrustedText } from "../eval/redact.js";
 import type { DocGardenFinding, DocGardenReport, DocGardenSeverity } from "./types.js";
@@ -10,6 +10,8 @@ import type { DocGardenFinding, DocGardenReport, DocGardenSeverity } from "./typ
 export interface AnalyzeDocGardenOptions {
   repoRoot: string;
   configDir?: string;
+  overlayPath?: string;
+  overlayDir?: string;
 }
 
 const ROOT_DOCS = ["AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"];
@@ -35,12 +37,11 @@ interface MarkdownWalkResult {
 
 export function analyzeDocGarden(options: AnalyzeDocGardenOptions): DocGardenReport {
   const repoRoot = resolve(options.repoRoot);
-  const configDir = resolve(options.configDir ?? options.repoRoot);
   const findings: DocGardenFinding[] = [];
 
   findings.push(...findRootBloat(repoRoot));
   findings.push(...findBrokenLinks(repoRoot));
-  findings.push(...findMissingCodebaseMap(repoRoot, configDir));
+  findings.push(...findMissingCodebaseMap(repoRoot, options));
   findings.push(...findStaleCapabilityMatrix(repoRoot));
 
   const sorted = findings.map(redactFinding).sort((a, b) => {
@@ -171,9 +172,8 @@ function findBrokenLinks(repoRoot: string): DocGardenFinding[] {
   return findings;
 }
 
-function findMissingCodebaseMap(repoRoot: string, configDir: string): DocGardenFinding[] {
-  const overlayPath = join(configDir, ".sdlc", "overlay", ".customize.yaml");
-  const context = loadProjectContext(projectContextPathFor(overlayPath));
+function findMissingCodebaseMap(repoRoot: string, options: AnalyzeDocGardenOptions): DocGardenFinding[] {
+  const context = loadProjectContext(resolveProjectContextPath(options));
   if (!context || context.map.length === 0) return [];
   let firstRootDoc: string | undefined;
   for (const path of ROOT_DOCS) {
@@ -241,6 +241,7 @@ function walkMarkdown(repoRoot: string, root: string, limit: number): MarkdownWa
     const current = stack.pop()!;
     visitedDirs++;
     for (const entry of readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (files.length >= limit) break;
       if (entry.name.startsWith(".")) continue;
       const path = join(current, entry.name);
       if (entry.isDirectory()) {
@@ -298,6 +299,13 @@ function toPosix(path: string): string {
 
 function getExpectedCapabilityMatrix(): string {
   return renderCapabilityMatrix(buildRegistry().all());
+}
+
+function resolveProjectContextPath(options: AnalyzeDocGardenOptions): string | undefined {
+  if (options.overlayPath) return projectContextPathFor(resolve(options.overlayPath));
+  if (options.overlayDir) return join(resolve(options.overlayDir), PROJECT_CONTEXT_FILE);
+  const configDir = resolve(options.configDir ?? options.repoRoot);
+  return projectContextPathFor(join(configDir, ".sdlc", "overlay", ".customize.yaml"));
 }
 
 function redactFinding(finding: DocGardenFinding): DocGardenFinding {

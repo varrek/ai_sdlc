@@ -12,6 +12,8 @@ import type { DocGardenReport, DocGardenSeverity } from "../garden/types.js";
 export interface GardenDocsOptions {
   repoRoot: string;
   configDir?: string;
+  overlayPath?: string;
+  overlayDir?: string;
   format?: "text" | "json";
   writeReport?: boolean;
   failOn?: DocGardenSeverity;
@@ -25,7 +27,12 @@ export interface GardenDocsResult {
 }
 
 export function runGardenDocs(options: GardenDocsOptions): GardenDocsResult {
-  const report = analyzeDocGarden({ repoRoot: options.repoRoot, configDir: options.configDir });
+  const report = analyzeDocGarden({
+    repoRoot: options.repoRoot,
+    configDir: options.configDir,
+    overlayPath: options.overlayPath,
+    overlayDir: options.overlayDir,
+  });
   const serializedJson = serializeDocGardenReport(report);
   const writtenPaths: string[] = [];
   if (options.writeReport) {

@@ -37,7 +37,8 @@ Bench flags:
   --repo-timeout-ms <n> --fail-on-class <class,class>
 
 Garden-docs flags:
-  --repo <dir> --config <dir> --format text|json --write-report --fail-on warning|error
+  --repo <dir> --config <dir> --overlay <file> --overlay-dir <dir>
+  --format text|json --write-report --fail-on warning|error
 `;
 
 function fail(message: string): never {
@@ -333,6 +334,8 @@ function cmdGardenDocs(rest: string[]): void {
   const result = runGardenDocs({
     repoRoot: options.get("repo") ?? process.cwd(),
     configDir: options.get("config"),
+    overlayPath: options.get("overlay"),
+    overlayDir: options.get("overlay-dir"),
     format,
     failOn,
     writeReport: flags.has("write-report"),
