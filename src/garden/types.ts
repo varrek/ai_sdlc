@@ -1,5 +1,6 @@
 export const DOC_GARDEN_FINDING_IDS = [
   "broken-local-link",
+  "doc-scan-truncated",
   "missing-codebase-map",
   "root-doc-bloat",
   "stale-capability-matrix",

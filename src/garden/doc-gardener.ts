@@ -24,6 +24,16 @@ interface MarkdownLink {
   raw: string;
 }
 
+interface MarkdownInventory {
+  files: string[];
+  findings: DocGardenFinding[];
+}
+
+interface MarkdownWalkResult {
+  files: string[];
+  truncated: boolean;
+}
+
 export function analyzeDocGarden(options: AnalyzeDocGardenOptions): DocGardenReport {
   const repoRoot = resolve(options.repoRoot);
   const configDir = resolve(options.configDir ?? options.repoRoot);
@@ -111,7 +121,9 @@ function findRootBloat(repoRoot: string): DocGardenFinding[] {
 
 function findBrokenLinks(repoRoot: string): DocGardenFinding[] {
   const findings: DocGardenFinding[] = [];
-  for (const path of markdownFiles(repoRoot)) {
+  const inventory = markdownFiles(repoRoot);
+  findings.push(...inventory.findings);
+  for (const path of inventory.files) {
     const absolute = join(repoRoot, path);
     const contents = readFileSync(absolute, "utf8");
     const seenTargets = new Set<string>();
@@ -134,7 +146,18 @@ function findBrokenLinks(repoRoot: string): DocGardenFinding[] {
       if (seenTargets.has(target)) continue;
       seenTargets.add(target);
       const targetPath = target.split("#")[0]!;
-      const resolved = resolve(dirname(absolute), decodeURIComponent(targetPath));
+      const decoded = decodeLinkPath(targetPath);
+      if (!decoded.ok) {
+        findings.push({
+          id: "broken-local-link",
+          severity: "error",
+          path,
+          message: `local link target has invalid percent-encoding: ${target}`,
+          suggestion: "Fix the markdown link encoding so doc gardening can resolve the target path.",
+        });
+        continue;
+      }
+      const resolved = resolve(dirname(absolute), decoded.value);
       if (!isWithin(repoRoot, resolved) || !existsSync(resolved)) {
         findings.push({
           id: "broken-local-link",
@@ -153,15 +176,18 @@ function findMissingCodebaseMap(repoRoot: string, configDir: string): DocGardenF
   const overlayPath = join(configDir, ".sdlc", "overlay", ".customize.yaml");
   const context = loadProjectContext(projectContextPathFor(overlayPath));
   if (!context || context.map.length === 0) return [];
+  let firstRootDoc: string | undefined;
   for (const path of ROOT_DOCS) {
     const absolute = join(repoRoot, path);
-    if (existsSync(absolute) && /codebase map/i.test(readFileSync(absolute, "utf8"))) return [];
+    if (!existsSync(absolute)) continue;
+    firstRootDoc ??= path;
+    if (/codebase map/i.test(readFileSync(absolute, "utf8"))) return [];
   }
   return [
     {
       id: "missing-codebase-map",
       severity: "warning",
-      path: "AGENTS.md",
+      path: firstRootDoc ?? "AGENTS.md",
       message: "project context has map entries, but the root instructions do not mention a codebase map",
       suggestion: "Re-run compile or add a root pointer to the generated codebase map.",
     },
@@ -185,19 +211,30 @@ function findStaleCapabilityMatrix(repoRoot: string): DocGardenFinding[] {
   ];
 }
 
-function markdownFiles(repoRoot: string): string[] {
+function markdownFiles(repoRoot: string): MarkdownInventory {
   const files = new Set<string>();
+  const findings: DocGardenFinding[] = [];
   for (const path of ROOT_DOCS) {
     if (existsSync(join(repoRoot, path))) files.add(path);
   }
   const docsRoot = join(repoRoot, "docs");
   if (existsSync(docsRoot)) {
-    for (const file of walkMarkdown(repoRoot, docsRoot, DOC_WALK_LIMIT)) files.add(file);
+    const walked = walkMarkdown(repoRoot, docsRoot, DOC_WALK_LIMIT);
+    for (const file of walked.files) files.add(file);
+    if (walked.truncated) {
+      findings.push({
+        id: "doc-scan-truncated",
+        severity: "warning",
+        path: "docs",
+        message: `doc scan stopped after ${DOC_WALK_LIMIT} markdown file(s) or ${DOC_DIR_WALK_LIMIT} directories`,
+        suggestion: "Narrow docs, remove generated/vendor trees, or raise the scan limit before relying on complete link coverage.",
+      });
+    }
   }
-  return [...files].sort();
+  return { files: [...files].sort(), findings };
 }
 
-function walkMarkdown(repoRoot: string, root: string, limit: number): string[] {
+function walkMarkdown(repoRoot: string, root: string, limit: number): MarkdownWalkResult {
   const files: string[] = [];
   const stack = [root];
   let visitedDirs = 0;
@@ -215,7 +252,10 @@ function walkMarkdown(repoRoot: string, root: string, limit: number): string[] {
       }
     }
   }
-  return files;
+  return {
+    files,
+    truncated: stack.length > 0 || files.length >= limit || visitedDirs >= DOC_DIR_WALK_LIMIT,
+  };
 }
 
 function markdownLinks(contents: string): MarkdownLink[] {
@@ -238,6 +278,14 @@ function markdownLinks(contents: string): MarkdownLink[] {
 
 function isLocalFileLink(target: string): boolean {
   return !/^(https?:|mailto:|#|cursor:)/.test(target) && target.trim().length > 0;
+}
+
+function decodeLinkPath(targetPath: string): { ok: true; value: string } | { ok: false } {
+  try {
+    return { ok: true, value: decodeURIComponent(targetPath) };
+  } catch {
+    return { ok: false };
+  }
 }
 
 function isWithin(root: string, child: string): boolean {

@@ -91,6 +91,42 @@ describe("doc gardener", () => {
     expect(report.findings.map((finding) => finding.id)).toEqual(["broken-local-link"]);
     expect(report.findings[0]?.message).toContain("missing.md");
   });
+
+  it("reports invalid percent-encoded link targets without throwing", () => {
+    const root = tmpRepo();
+    writeFileSync(join(root, "AGENTS.md"), "[Bad](bad%ZZ.md)\n", "utf8");
+
+    const report = analyzeDocGarden({ repoRoot: root });
+    expect(report.findings.map((finding) => finding.id)).toEqual(["broken-local-link"]);
+    expect(report.findings[0]?.message).toContain("invalid percent-encoding");
+  });
+
+  it("reports missing codebase-map warnings against the root doc that exists", () => {
+    const root = tmpRepo();
+    writeFileSync(join(root, "CLAUDE.md"), "# Claude\n", "utf8");
+    mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
+    writeFileSync(
+      join(root, ".sdlc", "overlay", "project-context.json"),
+      JSON.stringify({ packages: [], map: [{ path: "src", role: "Source", sources: ["src"] }], exclusions: [] }),
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root });
+    const finding = report.findings.find((item) => item.id === "missing-codebase-map");
+    expect(finding?.path).toBe("CLAUDE.md");
+  });
+
+  it("warns when docs traversal hits the scan limit", () => {
+    const root = tmpRepo();
+    for (let i = 0; i < 1001; i++) {
+      const dir = join(root, "docs", `section-${i}`);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "index.md"), "# Section\n", "utf8");
+    }
+
+    const report = analyzeDocGarden({ repoRoot: root });
+    expect(report.findings.some((finding) => finding.id === "doc-scan-truncated")).toBe(true);
+  });
 });
 
 function tmpRepo(): string {
