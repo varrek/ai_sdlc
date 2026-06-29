@@ -4,7 +4,7 @@ import { stableJson } from "../shared/roles.js";
 const APPROVED_GATE_SCRIPT = `#!/usr/bin/env node
 // Claude Code PreToolUse Approved? gate. Blocks Write/Edit/MCP tool use until
 // the orchestration loop sets SDLC_APPROVED=1 (after human approval).
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const approved = process.env.SDLC_APPROVED === "1";
 
@@ -28,9 +28,7 @@ const event = JSON.stringify({
 });
 
 try {
-  // Use double quotes and escape backslashes and double quotes in the JSON
-  const escapedEvent = event.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"');
-  execSync(\`npx --yes aisdlc record-event --event "\${escapedEvent}"\`, { stdio: "ignore" });
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event], { stdio: "ignore" });
 } catch (err) {
   // Best-effort: log recording failures but don't block the gate.
   console.warn("Warning: failed to record approval event:", err.message);

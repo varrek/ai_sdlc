@@ -546,7 +546,7 @@ for root-cause analysis of a stubborn failure, to the Debugger.
   ".claude/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Claude Code PreToolUse Approved? gate. Blocks Write/Edit/MCP tool use until
 // the orchestration loop sets SDLC_APPROVED=1 (after human approval).
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const approved = process.env.SDLC_APPROVED === "1";
 
@@ -570,9 +570,7 @@ const event = JSON.stringify({
 });
 
 try {
-  // Use double quotes and escape backslashes and double quotes in the JSON
-  const escapedEvent = event.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"');
-  execSync(\`npx --yes aisdlc record-event --event "\${escapedEvent}"\`, { stdio: "ignore" });
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event], { stdio: "ignore" });
 } catch (err) {
   // Best-effort: log recording failures but don't block the gate.
   console.warn("Warning: failed to record approval event:", err.message);
@@ -1133,7 +1131,7 @@ statusMessage = "Checking MCP least-privilege"
 ",
   ".codex/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Codex PreToolUse Approved? gate. Blocks apply_patch/Bash/MCP until SDLC_APPROVED=1.
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const approved = process.env.SDLC_APPROVED === "1";
 
@@ -1157,9 +1155,7 @@ const event = JSON.stringify({
 });
 
 try {
-  // Use double quotes and escape backslashes and double quotes in the JSON
-  const escapedEvent = event.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"');
-  execSync(\`npx --yes aisdlc record-event --event "\${escapedEvent}"\`, { stdio: "ignore" });
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event], { stdio: "ignore" });
 } catch (err) {
   // Best-effort: log recording failures but don't block the gate.
   console.warn("Warning: failed to record approval event:", err.message);
@@ -1781,7 +1777,7 @@ for root-cause analysis of a stubborn failure, to the Debugger.
   ".cursor/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Cursor Approved? gate: block writes leaving the workspace until approval.
 // The orchestration loop sets SDLC_APPROVED=1 only after the human approves.
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const approved = process.env.SDLC_APPROVED === "1";
 
@@ -1805,9 +1801,7 @@ const event = JSON.stringify({
 });
 
 try {
-  // Use double quotes and escape backslashes and double quotes in the JSON
-  const escapedEvent = event.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"');
-  execSync(\`npx --yes aisdlc record-event --event "\${escapedEvent}"\`, { stdio: "ignore" });
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event], { stdio: "ignore" });
 } catch (err) {
   // Best-effort: log recording failures but don't block the gate.
   console.warn("Warning: failed to record approval event:", err.message);
@@ -2527,7 +2521,7 @@ changes that skip review or fail tests.
 ",
   ".github/hooks/approved-gate.mjs": "#!/usr/bin/env node
 // Copilot CLI/cloud Approved? gate (no IDE equivalent — see CI backstop).
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const approved = process.env.SDLC_APPROVED === "1";
 
@@ -2551,9 +2545,7 @@ const event = JSON.stringify({
 });
 
 try {
-  // Use double quotes and escape backslashes and double quotes in the JSON
-  const escapedEvent = event.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"');
-  execSync(\`npx --yes aisdlc record-event --event "\${escapedEvent}"\`, { stdio: "ignore" });
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event], { stdio: "ignore" });
 } catch (err) {
   // Best-effort: log recording failures but don't block the gate.
   console.warn("Warning: failed to record approval event:", err.message);

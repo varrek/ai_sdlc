@@ -73,6 +73,39 @@ describe("loop behavior eval state", () => {
     expect(readLoopBehaviorEvalState(dir)).toBeUndefined();
   });
 
+  it("skips malformed rows while keeping valid eval results", () => {
+    const dir = makeTempDir();
+    writeFileSync(
+      join(dir, "loop-behavior-eval.yaml"),
+      [
+        "version: 1",
+        "results:",
+        "  - {}",
+        "  - scenarioId: valid",
+        "    passed: true",
+        "    evaluatedAt: 2026-06-29T12:00:00Z",
+        "    score:",
+        "      passed: true",
+        "      metrics:",
+        "        expectedStages: 1",
+        "        observedStages: 1",
+        "        missingStages: []",
+        "        replanCount: 0",
+        "        approvalGateCount: 0",
+        "        terminalStatus: done",
+        "      violations: []",
+        "updatedAt: 2026-06-29T12:00:00Z",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const state = readLoopBehaviorEvalState(dir);
+
+    expect(state?.results).toHaveLength(1);
+    expect(state?.results[0]?.scenarioId).toBe("valid");
+  });
+
   it("summarizes not-run when state is undefined", () => {
     const summary = summarizeBehaviorEval(undefined);
     expect(summary).toEqual({

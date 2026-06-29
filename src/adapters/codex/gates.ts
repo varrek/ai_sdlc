@@ -37,7 +37,7 @@ process.exit(0);
 
 const APPROVED_GATE_SCRIPT = `#!/usr/bin/env node
 // Codex PreToolUse Approved? gate. Blocks apply_patch/Bash/MCP until SDLC_APPROVED=1.
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const approved = process.env.SDLC_APPROVED === "1";
 
@@ -61,9 +61,7 @@ const event = JSON.stringify({
 });
 
 try {
-  // Use double quotes and escape backslashes and double quotes in the JSON
-  const escapedEvent = event.replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"');
-  execSync(\`npx --yes aisdlc record-event --event "\${escapedEvent}"\`, { stdio: "ignore" });
+  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event], { stdio: "ignore" });
 } catch (err) {
   // Best-effort: log recording failures but don't block the gate.
   console.warn("Warning: failed to record approval event:", err.message);

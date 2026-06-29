@@ -40,14 +40,15 @@ export function readLoopBehaviorEvalState(sdlcDir: string): LoopBehaviorEvalStat
   if (!existsSync(path)) return undefined;
   try {
     const parsed = parseYaml(readFileSync(path, "utf8")) as Partial<LoopBehaviorEvalState> | null;
-    if (
-      parsed &&
-      parsed.version === 1 &&
-      Array.isArray(parsed.results) &&
-      typeof parsed.updatedAt === "string" &&
-      parsed.results.every(isEvalResult)
-    ) {
-      return parsed as LoopBehaviorEvalState;
+    if (parsed && parsed.version === 1 && Array.isArray(parsed.results)) {
+      const results = parsed.results.filter(isEvalResult);
+      if (results.length > 0) {
+        return {
+          version: 1,
+          results,
+          updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
+        };
+      }
     }
   } catch {
     return undefined;

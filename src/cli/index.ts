@@ -36,6 +36,25 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+function isLoopTraceEvent(value: unknown): value is LoopTraceEvent {
+  if (!value || typeof value !== "object") return false;
+  const type = (value as { type?: unknown }).type;
+  switch (type) {
+    case "plan_created":
+    case "handoff":
+    case "tool_attempt":
+    case "test_run":
+    case "approval_gate":
+    case "review_verdict":
+    case "replan":
+    case "done":
+    case "stuck":
+      return true;
+    default:
+      return false;
+  }
+}
+
 /** Where `customize` writes the project overlay. */
 const DEFAULT_OVERLAY = join(".sdlc", "overlay", ".customize.yaml");
 
@@ -307,7 +326,11 @@ function cmdRecordEvent(rest: string[]): void {
 
   let event: LoopTraceEvent;
   try {
-    event = JSON.parse(eventJson!) as LoopTraceEvent;
+    const parsed = JSON.parse(eventJson!);
+    if (!isLoopTraceEvent(parsed)) {
+      fail("record-event: event must include a valid loop trace type");
+    }
+    event = parsed;
   } catch (err) {
     fail(`record-event: invalid JSON in --event: ${err}`);
   }
