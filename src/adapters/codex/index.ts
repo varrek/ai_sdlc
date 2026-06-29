@@ -11,6 +11,8 @@ const CAPABILITIES: HostCapabilities = {
   perRoleToolRestriction: "partial", // sandbox_mode + per-agent MCP; no tool allowlist
   gates: "native",
   mcp: "native",
+  pluginDistribution: "none",
+  lspGuidance: "none",
 };
 
 export class CodexAdapter implements Adapter {

@@ -281,11 +281,13 @@ export function buildProjectContext(profile: RepoProfile, index: StandardsIndex)
     const scoped = index.standards.filter((s) => s.scope === pkg.path);
     return {
       path: pkg.path,
+      languages: pkg.languages,
       testCommand: pkg.testCommand,
       instructionBody: renderPackageInstructionBody(pkg.path, scoped),
     };
   });
   return {
+    languages: profile.languages,
     packages,
     map: buildCodebaseMap(profile),
     exclusions: [...DEFAULT_EXCLUSIONS],

@@ -66,6 +66,10 @@ export interface HostCapabilities {
   gates: CapabilityLevel;
   /** MCP integration. */
   mcp: CapabilityLevel;
+  /** Installable/distributable plugin bundle metadata. */
+  pluginDistribution: CapabilityLevel;
+  /** Emitted LSP setup guidance for symbol-level navigation. */
+  lspGuidance: CapabilityLevel;
 }
 
 /**
