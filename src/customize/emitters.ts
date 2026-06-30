@@ -15,8 +15,8 @@ import {
   type OperatingMode,
   Overlay,
 } from "../schema/index.js";
-import { buildTemplateRoleAddenda } from "./role-addenda-templates.js";
 import type { PackageProfile, RepoProfile } from "./repo-miner.js";
+import { buildTemplateRoleAddenda } from "./role-addenda-templates.js";
 
 export interface StandardEntry {
   statement: string;
@@ -202,12 +202,10 @@ export function buildOverlay(
   }
 
   const projectContext = buildProjectContext(profile, index);
-  const templateAddenda = buildTemplateRoleAddenda(
-    profile,
-    projectContext,
-    answers,
-    { ...(prior?.gapClosureProvenance ?? {}), ...gapClosureProvenance },
-  );
+  const templateAddenda = buildTemplateRoleAddenda(profile, projectContext, answers, {
+    ...(prior?.gapClosureProvenance ?? {}),
+    ...gapClosureProvenance,
+  });
 
   return Overlay.parse({
     version: 1,

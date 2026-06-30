@@ -902,10 +902,11 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
 
   // ---- PHP signals ----
   const composerJson = read(root, "composer.json");
-  const phpunitConfig =
-    fileSet.has("phpunit.xml.dist") ? "phpunit.xml.dist"
-    : fileSet.has("phpunit.xml") ? "phpunit.xml"
-    : files.find((f) => f.endsWith("phpunit.xml.dist") || f.endsWith("phpunit.xml"));
+  const phpunitConfig = fileSet.has("phpunit.xml.dist")
+    ? "phpunit.xml.dist"
+    : fileSet.has("phpunit.xml")
+      ? "phpunit.xml"
+      : files.find((f) => f.endsWith("phpunit.xml.dist") || f.endsWith("phpunit.xml"));
   if (fileSet.has("composer.json")) {
     languages.add("php");
     packageManagers.add("composer");
