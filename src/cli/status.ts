@@ -7,6 +7,7 @@ import {
   readAcceptedLearnings,
   summarizeAcceptedLearnings,
 } from "../core/accepted-learnings.js";
+import { HOST_SETUP_GUIDE_PATH } from "../core/host-setup-guidance.js";
 import {
   INSTRUCTION_HIERARCHY_FILE,
   loadInstructionHierarchy,
@@ -32,12 +33,15 @@ import {
   readLoopBehaviorEvalState,
   summarizeBehaviorEval,
 } from "../eval/loop-behavior-eval-state.js";
-import type { OperatingMode } from "../schema/index.js";
+import type { HostId, OperatingMode } from "../schema/index.js";
+import { compiledArtifactsPresent } from "./compile.js";
 import { inspectRepo } from "./customize.js";
 import {
   baseFingerprint,
   compiledFingerprint,
   emittedFingerprint,
+  emittedHostSelection,
+  emittedPackDirs,
   overlayFingerprint,
 } from "./phase-fingerprints.js";
 
@@ -49,6 +53,7 @@ export interface StatusReport {
   /** True when a re-run would be a no-op (mined + overlay phases fresh). */
   upToDate: boolean;
   setupReady: boolean;
+  hostSetupGuidePresent: boolean;
   alignmentReady: boolean;
   validButNeedsAttention: boolean;
   stalePhases: SetupPhase[];
@@ -98,7 +103,9 @@ export interface StatusOptions {
   overlayDir?: string;
   sdlcDir?: string;
   baseDir?: string;
+  packDirs?: string[];
   outDir?: string;
+  hosts?: HostId[];
 }
 
 /** Read-only: derive the four strategy metrics for the current repo. Never writes. */
@@ -107,6 +114,9 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const overlayDir = options.overlayDir ?? join(options.repoRoot, ".sdlc", "overlay");
   const sdlcDir = options.sdlcDir ?? dirname(overlayDir);
   const overlayPath = join(overlayDir, ".customize.yaml");
+  const outDir = options.outDir ?? options.repoRoot;
+  const statusHosts = options.hosts ?? emittedHostSelection(outDir);
+  const statusPackDirs = options.packDirs ?? emittedPackDirs(outDir);
   const state = readSetupState(sdlcDir);
   const phaseStatus = setupPhaseStatus({
     state,
@@ -114,8 +124,11 @@ export function buildStatus(options: StatusOptions): StatusReport {
     overlayPath,
     sdlcDir,
     baseDir: options.baseDir,
-    outDir: options.outDir ?? options.repoRoot,
+    packDirs: statusPackDirs,
+    outDir,
+    hosts: statusHosts,
   });
+  const hostSetupGuidePresent = existsSync(join(outDir, HOST_SETUP_GUIDE_PATH));
   const setupReady =
     inspection.gaps.length === 0 &&
     phaseStatus.known &&
@@ -182,6 +195,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
     operatingMode: inspection.overlay.operatingMode,
     upToDate: inspection.upToDate,
     setupReady,
+    hostSetupGuidePresent,
     alignmentReady: setupReady && !validButNeedsAttention,
     validButNeedsAttention,
     stalePhases: phaseStatus.stalePhases,
@@ -226,7 +240,9 @@ function setupPhaseStatus(options: {
   overlayPath: string;
   sdlcDir: string;
   baseDir?: string;
+  packDirs?: string[];
   outDir: string;
+  hosts?: HostId[];
 }): { stalePhases: SetupPhase[]; nextAction?: StatusReport["nextAction"]; known: boolean } {
   if (!options.upToDate) {
     return {
@@ -238,10 +254,15 @@ function setupPhaseStatus(options: {
   const stale: SetupPhase[] = [];
   if (options.baseDir && existsSync(options.baseDir)) {
     const overlayFp = overlayFingerprint(options.overlayPath, options.sdlcDir);
-    const baseFp = baseFingerprint(options.baseDir, options.sdlcDir);
-    const compiledFp = compiledFingerprint(overlayFp, baseFp);
+    const baseFp = baseFingerprint(options.baseDir, options.sdlcDir, options.packDirs);
+    const compiledFp = compiledFingerprint(overlayFp, baseFp, options.hosts);
     const smokeFp = emittedFingerprint(options.outDir, baseFp);
-    if (options.state.phases.compiled?.fingerprint !== compiledFp) stale.push("compiled");
+    if (
+      options.state.phases.compiled?.fingerprint !== compiledFp ||
+      !compiledArtifactsPresent(options.outDir)
+    ) {
+      stale.push("compiled");
+    }
     if (stale.length > 0 || options.state.phases["smoke-passed"]?.fingerprint !== smokeFp) {
       stale.push("smoke-passed");
     }
@@ -292,6 +313,9 @@ export function formatStatus(report: StatusReport): string {
   lines.push("Setup: initialized");
   lines.push(`Operating mode: ${report.operatingMode}`);
   lines.push(`Setup-ready: ${report.setupReady ? "yes" : "no"}`);
+  if (report.setupReady && report.hostSetupGuidePresent) {
+    lines.push("Host activation guide: .sdlc/host-setup.md");
+  }
   lines.push(
     `Alignment-ready: ${report.alignmentReady ? "yes" : report.validButNeedsAttention ? "needs attention" : "no"}`,
   );

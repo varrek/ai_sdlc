@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import type { HostId } from "../schema/index.js";
 import type { AdapterRegistry } from "./adapter-registry.js";
 import { serializeGapReport } from "./gap-report.js";
+import { HOST_SETUP_GUIDE_PATH, renderHostSetupGuide } from "./host-setup-guidance.js";
 import { GENERATED_INSTRUCTION_MARKER } from "./project-context.js";
 import type { EmittedFile, Gap, NeutralModel } from "./types.js";
 
@@ -13,6 +14,8 @@ export interface CompileOptions {
   outDir: string;
   /** Defaults to the hosts named in the model's manifest. */
   hosts?: HostId[];
+  /** Optional additive extension pack directories, recorded for freshness checks. */
+  packDirs?: string[];
 }
 
 export interface CompileResult {
@@ -54,10 +57,11 @@ export function compile(
     gaps.push(...result.gaps);
   }
 
+  files.push({ path: HOST_SETUP_GUIDE_PATH, contents: renderHostSetupGuide(hosts, files, gaps) });
   files.push({ path: GAP_REPORT_PATH, contents: serializeGapReport(gaps) });
 
   const sortedFiles = sortFiles(dedupeFiles(files));
-  const pruned = writeOutput(options.outDir, sortedFiles);
+  const pruned = writeOutput(options.outDir, sortedFiles, options.hosts, options.packDirs);
 
   return { files: sortedFiles, gaps, pruned };
 }
@@ -81,7 +85,12 @@ function sortFiles(files: EmittedFile[]): EmittedFile[] {
   return [...files].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
-function writeOutput(outDir: string, files: EmittedFile[]): string[] {
+function writeOutput(
+  outDir: string,
+  files: EmittedFile[],
+  hosts?: HostId[],
+  packDirs?: string[],
+): string[] {
   const previous = readEmittedManifest(outDir);
   const current = new Set(files.map((f) => f.path));
 
@@ -103,7 +112,7 @@ function writeOutput(outDir: string, files: EmittedFile[]): string[] {
   }
   pruned.sort();
 
-  writeEmittedManifest(outDir, [...current].sort());
+  writeEmittedManifest(outDir, [...current].sort(), hosts, packDirs);
   return pruned;
 }
 
@@ -139,10 +148,21 @@ function readEmittedManifest(outDir: string): string[] {
   return [];
 }
 
-function writeEmittedManifest(outDir: string, paths: string[]): void {
+function writeEmittedManifest(
+  outDir: string,
+  paths: string[],
+  hosts?: HostId[],
+  packDirs?: string[],
+): void {
   const abs = join(outDir, EMITTED_MANIFEST_PATH);
   mkdirSync(dirname(abs), { recursive: true });
-  writeFileSync(abs, `${JSON.stringify({ version: 1, files: paths }, null, 2)}\n`, "utf8");
+  const manifest = {
+    version: 1,
+    files: paths,
+    ...(hosts ? { hosts: [...hosts].sort() } : {}),
+    ...(packDirs ? { packDirs } : {}),
+  };
+  writeFileSync(abs, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }
 
 export { EMITTED_MANIFEST_PATH, GAP_REPORT_PATH };

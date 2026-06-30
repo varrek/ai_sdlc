@@ -13,10 +13,14 @@ here so that base upgrades stay clean.
 
 ## Workflow
 
+For target-repo setup, run `aisdlc setup --repo .` from the repository root. It
+runs the same resumable phases below and writes `.sdlc/host-setup.md` with the
+post-compile activation steps for each enabled host.
+
 1. `aisdlc customize` mines the repo, fills in `.customize.yaml`, and in default
    Plugin Mode asks the host model to draft reviewable role guidance.
 2. `aisdlc compile` merges base + accepted overlay state and emits host-native
-   config.
+   config plus `.sdlc/host-setup.md`.
 3. `aisdlc upgrade` re-pins the base to a new version and replays the compile.
    - **No conflicts:** `project.lock` advances; your overlay is untouched.
    - **Conflict** (a base push changes something you overrode): the upgrade

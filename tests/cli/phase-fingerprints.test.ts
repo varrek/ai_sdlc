@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { overlayFingerprint } from "../../src/cli/phase-fingerprints.js";
+import { compiledFingerprint, overlayFingerprint } from "../../src/cli/phase-fingerprints.js";
 import { acceptedLearningsPath } from "../../src/core/accepted-learnings.js";
 
 const tmpDirs: string[] = [];
@@ -17,6 +17,16 @@ function sdlc(): string {
 }
 
 describe("phase fingerprints", () => {
+  it("folds host selection into the compiled fingerprint", () => {
+    const defaultHosts = compiledFingerprint("overlay", "base");
+    const cursorOnly = compiledFingerprint("overlay", "base", ["cursor"]);
+    const sameSetDifferentOrder = compiledFingerprint("overlay", "base", ["codex", "cursor"]);
+    const sortedSet = compiledFingerprint("overlay", "base", ["cursor", "codex"]);
+
+    expect(cursorOnly).not.toBe(defaultHosts);
+    expect(sameSetDifferentOrder).toBe(sortedSet);
+  });
+
   it("folds accepted learnings into the overlay fingerprint", () => {
     const sdlcDir = sdlc();
     const overlayDir = join(sdlcDir, "overlay");
