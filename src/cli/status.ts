@@ -176,20 +176,11 @@ export function buildStatus(options: StatusOptions): StatusReport {
       reviewerDeterministic || hasRelevantLearning(acceptedLearnings, "reviewer"),
       Boolean(inspection.overlay.roleAddenda.reviewer),
     ),
-    debugger: roleState(
-      debuggerDeterministic,
-      Boolean(inspection.overlay.roleAddenda.debugger),
-    ),
+    debugger: roleState(debuggerDeterministic, Boolean(inspection.overlay.roleAddenda.debugger)),
   };
   const totalRoles = Object.keys(roleStates).length;
   const groundedRoles = Object.values(roleStates).filter((state) => state !== "generic").length;
-  const groundableRoleNames = [
-    "architect",
-    "engineer",
-    "tester",
-    "reviewer",
-    "debugger",
-  ] as const;
+  const groundableRoleNames = ["architect", "engineer", "tester", "reviewer", "debugger"] as const;
   const groundableRoles = groundableRoleNames.length;
   const groundedGroundableRoles = groundableRoleNames.filter(
     (role) => roleStates[role] !== "generic",

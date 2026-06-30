@@ -126,15 +126,15 @@ export function appendArchitectGrounding(
     return role;
   }
   const lines = [
-      "Use this mined, deterministic project map before proposing architecture changes:",
-      ...projectContext.map.slice(0, 8).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
-    ];
-    if (projectContext.map.length > 8) {
-      lines.push(
-        `- ${projectContext.map.length - 8} additional entries are available in the codebase map.`,
-      );
-    }
-    return appendGroundingSection(role, lines.join("\n"));
+    "Use this mined, deterministic project map before proposing architecture changes:",
+    ...projectContext.map.slice(0, 8).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
+  ];
+  if (projectContext.map.length > 8) {
+    lines.push(
+      `- ${projectContext.map.length - 8} additional entries are available in the codebase map.`,
+    );
+  }
+  return appendGroundingSection(role, lines.join("\n"));
 }
 
 function appendArchitectGroundingFromInput(role: Role, input: RoleGroundingInput): Role {
@@ -167,11 +167,11 @@ function appendStandardsBasedArchitectGrounding(role: Role, input: RoleGrounding
     lines.push(`- ${statement}`);
   }
   if (standards.length > 8) {
-    lines.push(`- ${standards.length - 8} additional standards are in the project standards index.`);
+    lines.push(
+      `- ${standards.length - 8} additional standards are in the project standards index.`,
+    );
   }
-  lines.push(
-    "Do not invent module boundaries beyond these evidence-backed standards.",
-  );
+  lines.push("Do not invent module boundaries beyond these evidence-backed standards.");
   return appendGroundingSection(role, lines.join("\n"));
 }
 

@@ -140,9 +140,10 @@ export const BEHAVIOR_EVAL_V2_SCENARIOS: BehaviorEvalScenario[] = [
 ];
 
 /** @deprecated Use BEHAVIOR_EVAL_V2_SCENARIOS filtered by kind localize */
-export const READ_ONLY_LOCALIZATION_SCENARIOS: LocalizeScenario[] = BEHAVIOR_EVAL_V2_SCENARIOS.filter(
-  (scenario): scenario is LocalizeScenario => scenario.kind === "localize",
-);
+export const READ_ONLY_LOCALIZATION_SCENARIOS: LocalizeScenario[] =
+  BEHAVIOR_EVAL_V2_SCENARIOS.filter(
+    (scenario): scenario is LocalizeScenario => scenario.kind === "localize",
+  );
 
 export function guidanceFromSetup(artifacts: SetupArtifacts): AgentGuidanceBundle {
   return {
@@ -158,7 +159,10 @@ export function guidanceFromSetup(artifacts: SetupArtifacts): AgentGuidanceBundl
   };
 }
 
-function guidanceSurfaces(bundle: AgentGuidanceBundle, kind: BehaviorEvalScenarioKind): WeightedSurface[] {
+function guidanceSurfaces(
+  bundle: AgentGuidanceBundle,
+  kind: BehaviorEvalScenarioKind,
+): WeightedSurface[] {
   const mapText = bundle.projectContext.map
     .map((entry) => `${entry.path} ${entry.role}`)
     .join("\n");
@@ -177,7 +181,13 @@ function guidanceSurfaces(bundle: AgentGuidanceBundle, kind: BehaviorEvalScenari
   const reviewerBoost = kind === "verify-lint" ? 2 : 1;
   const debuggerBoost = kind === "reproduce" ? 2 : 1;
   return [
-    { label: "architect", text: bundle.architect, moduleWeight: 6, commandWeight: 2, lintWeight: 1 },
+    {
+      label: "architect",
+      text: bundle.architect,
+      moduleWeight: 6,
+      commandWeight: 2,
+      lintWeight: 1,
+    },
     {
       label: "engineer",
       text: bundle.engineer,
@@ -206,8 +216,20 @@ function guidanceSurfaces(bundle: AgentGuidanceBundle, kind: BehaviorEvalScenari
       commandWeight: 5 * debuggerBoost,
       lintWeight: 1,
     },
-    { label: "constitution", text: bundle.constitution, moduleWeight: 3, commandWeight: 3, lintWeight: 2 },
-    { label: "standards", text: bundle.standardsIndex, moduleWeight: 0, commandWeight: 4, lintWeight: 4 },
+    {
+      label: "constitution",
+      text: bundle.constitution,
+      moduleWeight: 3,
+      commandWeight: 3,
+      lintWeight: 2,
+    },
+    {
+      label: "standards",
+      text: bundle.standardsIndex,
+      moduleWeight: 0,
+      commandWeight: 4,
+      lintWeight: 4,
+    },
     { label: "map", text: mapText, moduleWeight: 8, commandWeight: 2, lintWeight: 1 },
     { label: "packages", text: packageText, moduleWeight: 4, commandWeight: 5, lintWeight: 1 },
     { label: "hierarchy", text: hierarchyText, moduleWeight: 5, commandWeight: 5, lintWeight: 1 },
@@ -273,8 +295,7 @@ export function extractMockDecision(
   scenario: BehaviorEvalScenario,
 ): MockAgentDecision {
   const surfaces = guidanceSurfaces(bundle, scenario.kind);
-  const moduleCandidates =
-    scenario.kind === "localize" ? scenario.moduleCandidates : [];
+  const moduleCandidates = scenario.kind === "localize" ? scenario.moduleCandidates : [];
   const testCommandCandidates =
     scenario.kind === "localize"
       ? scenario.testCommandCandidates

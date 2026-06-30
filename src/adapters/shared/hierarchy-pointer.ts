@@ -1,7 +1,4 @@
-import {
-  GENERATED_INSTRUCTION_MARKER,
-  type InstructionScope,
-} from "../../core/project-context.js";
+import { GENERATED_INSTRUCTION_MARKER, type InstructionScope } from "../../core/project-context.js";
 
 /** Shared body for host-native scoped pointers back to local AGENTS.md files. */
 export function renderHierarchyPointerMarkdown(scope: InstructionScope): string {
