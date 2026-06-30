@@ -164,6 +164,36 @@ describe("doc gardener", () => {
     expect(report.findings.some((item) => item.id === "hierarchy-scope-missing")).toBe(false);
   });
 
+  it("analyzes accepted scopes from a hierarchy-only overlay artifact", () => {
+    const root = tmpRepo();
+    writeFileSync(join(root, "AGENTS.md"), "# Agent map\n\n## Codebase map\n", "utf8");
+    mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
+    writeFileSync(
+      join(root, ".sdlc", "overlay", "instruction-hierarchy.json"),
+      JSON.stringify({
+        version: 1,
+        scopes: [
+          {
+            path: "src/core",
+            kind: "module",
+            role: "Source module",
+            sources: ["src/core"],
+            instructionBody: "# `src/core` local module guidance\n",
+            hostTargets: ["src/core/AGENTS.md"],
+            ownership: "generated",
+            accepted: true,
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root });
+
+    const finding = report.findings.find((item) => item.id === "hierarchy-scope-missing");
+    expect(finding?.path).toBe("src/core/AGENTS.md");
+  });
+
   it("warns when a Codex hierarchy instruction chain exceeds the budget", () => {
     const root = tmpRepo();
     writeFileSync(join(root, "AGENTS.md"), `# Agent map\n\n${"root\n".repeat(20_000)}`, "utf8");

@@ -13,6 +13,7 @@ import {
 import {
   acceptedInstructionScopes,
   DEFAULT_EXCLUSIONS,
+  type InstructionHierarchy,
   type InstructionScope,
   type ProjectContext,
 } from "../core/project-context.js";
@@ -55,7 +56,7 @@ export function analyzeDocGarden(options: AnalyzeDocGardenOptions): DocGardenRep
   const gardenContext =
     projectContext && instructionHierarchy
       ? { ...projectContext, instructionHierarchy }
-      : projectContext;
+      : (projectContext ?? hierarchyOnlyProjectContext(instructionHierarchy));
   const instructionScopes = acceptedInstructionScopes(gardenContext);
   const findings: DocGardenFinding[] = [];
 
@@ -420,6 +421,18 @@ function resolveInstructionHierarchyPath(options: AnalyzeDocGardenOptions): stri
   if (options.overlayDir) return join(resolve(options.overlayDir), INSTRUCTION_HIERARCHY_FILE);
   const configDir = resolve(options.configDir ?? options.repoRoot);
   return instructionHierarchyPathFor(join(configDir, ".sdlc", "overlay", ".customize.yaml"));
+}
+
+function hierarchyOnlyProjectContext(
+  instructionHierarchy: InstructionHierarchy | undefined,
+): ProjectContext | undefined {
+  if (!instructionHierarchy) return undefined;
+  return {
+    packages: [],
+    map: [],
+    exclusions: DEFAULT_EXCLUSIONS,
+    instructionHierarchy,
+  };
 }
 
 function redactFinding(finding: DocGardenFinding): DocGardenFinding {

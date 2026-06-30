@@ -118,6 +118,8 @@ export function acceptedInstructionScopes(ctx: ProjectContext | undefined): Inst
     const scopes = ctx.instructionHierarchy.scopes.filter(
       (scope) => scope.accepted && scope.path !== ".",
     );
+    // An empty generated hierarchy falls back to legacy packages; a non-empty
+    // hierarchy with no accepted scopes means review explicitly disabled them.
     if (scopes.length > 0 || ctx.instructionHierarchy.scopes.length > 0) return scopes;
   }
   return (ctx?.packages ?? []).map((pkg) => ({
