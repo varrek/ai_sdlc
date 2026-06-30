@@ -4,8 +4,10 @@ import {
   GENERATED_INSTRUCTION_MARKER,
   hostTargetsForScope,
   type InstructionHierarchy,
+  isGeneratedInstructionFile,
   parseInstructionHierarchy,
   parseProjectContext,
+  scopeHasUserOwnedInstructionFiles,
   serializeInstructionHierarchy,
   slugifyScopePath,
 } from "../../src/core/project-context.js";
@@ -89,6 +91,11 @@ describe("project context hierarchy", () => {
 
   it("includes Kiro steering in scope host targets", () => {
     expect(hostTargetsForScope("src/core")).toContain(".kiro/steering/src-core.md");
+  });
+
+  it("detects generated vs user-owned nested instruction files", () => {
+    expect(isGeneratedInstructionFile(`${GENERATED_INSTRUCTION_MARKER}\n\n# Local\n`)).toBe(true);
+    expect(isGeneratedInstructionFile("# User-owned guidance\n")).toBe(false);
   });
 
   it("falls back to package scopes when hierarchy is absent or malformed", () => {

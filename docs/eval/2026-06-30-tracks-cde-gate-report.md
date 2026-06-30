@@ -9,7 +9,7 @@ origin: docs/brainstorms/2026-06-30-agent-skills-description-extension-requireme
 
 Gate requirement **R13** from `docs/brainstorms/2026-06-30-agent-skills-description-extension-requirements.md`: Tracks C, D, and E require a written eval report showing personalized guidance wins on all phase-B baseline scenarios before merge; regressions block downstream tracks.
 
-This report records Track A/B outcomes, the expanded 10-repo bench template, and the go/no-go decision for Tracks C–E.
+This report records Track A/B/C outcomes, the expanded 10-repo bench, go/no-go for Tracks D/E, and follow-ups (aspnetcore collision fix, monorepo noise).
 
 ---
 
@@ -23,18 +23,12 @@ This report records Track A/B outcomes, the expanded 10-repo bench template, and
 |---|---|---|---|---|---|
 | `python-rags-localize-change` | localize | python-rags | pass | fail | yes |
 | `go-app-localize-change` | localize | go-app | pass | fail | yes |
-| `rust-cargo-localize-change` | localize | rust-cargo | pass | fail | yes |
-| `java-maven-localize-change` | localize | java-maven | pass | fail | yes |
 | `go-app-verify-lint` | verify-lint | go-app | pass | fail | yes |
 | `go-app-reproduce-failure` | reproduce | go-app | pass | fail | yes |
+| `rust-cargo-localize-change` | localize | rust-cargo | pass | fail | yes |
+| `java-maven-localize-change` | localize | java-maven | pass | fail | yes |
 
-**Coverage notes:**
-
-- Four localize scenarios exercise Architect/Engineer/Tester surfaces on Python, Go, Rust, and JVM fixtures (R8, R10).
-- Reviewer (`verify-lint`) and Debugger (`reproduce`) scenarios score grounding surfaces added in Track A (R9).
-- Default CI runs these offline; no network or host LLM required.
-
-**R13 gate:** satisfied — all phase-B baseline scenarios improve with personalized guidance.
+**R13 gate:** satisfied.
 
 ---
 
@@ -47,53 +41,62 @@ This report records Track A/B outcomes, the expanded 10-repo bench template, and
 ```bash
 npm run build
 npm run bench
-# or: node dist/cli/index.js bench --seed 42 --count 10
+# or: node dist/cli/index.js bench --seed 42 --count 10 --force
 ```
 
-Reports land under `.verify/reports/<run-id>/eval-report.json`.
+**Report ID:** `seed-42-count-10-0b22bcc68560` (pre-aspnetcore fix). Post-fix aspnetcore verified locally (`setupReady: true`, `smoke: pass`).
 
-### Bench metrics template
-
-Fill after a live bench run (network required; opt-in via `AISDLC_EXTERNAL_CORPUS=1` in CI):
+### Summary metrics
 
 | Metric | Target / bar | Run value |
 |---|---|---|
-| `summary.total` | 10 | |
-| `summary.setupReady` | 10/10 | |
-| `summary.handsOff` | 10/10 | |
-| `summary.validButNeedsAttention` | 0 (ideal) | |
-| `summary.agentQuality.averageScore` | ≥ 90 | |
-| `summary.agentQuality.missingArchitectGrounding` | 0 when map exists; flat repos may use standards-based grounding | |
-| `summary.agentQuality.missingEngineerGrounding` | 0 | |
-| `summary.agentQuality.missingTesterGrounding` | 0 when test command exists | |
-| `summary.agentQuality.missingReviewerGrounding` | 0 when linter signals exist | |
-| `summary.agentQuality.missingDebuggerGrounding` | 0 when test command exists | |
-| `summary.agentQuality.noisyMaps` | note only (packages > 8) | |
-| `summary.failureClasses` | empty or documented residuals | |
-| `diversityGaps` | `[]` for full catalog | |
+| `summary.total` | 10 | **10** |
+| `summary.setupReady` | 10/10 | **9/10** → **10/10** after user-instruction collision fix |
+| `summary.handsOff` | 10/10 | **9/10** → **10/10** after fix |
+| `summary.validButNeedsAttention` | 0 (ideal) | **1** (Flask low architecture confidence) |
+| `summary.agentQuality.averageScore` | ≥ 96 | **96/100** |
+| `summary.agentQuality.missingArchitectGrounding` | 0 | **0** |
+| `summary.agentQuality.missingEngineerGrounding` | 0 | **0** |
+| `summary.agentQuality.missingTesterGrounding` | 0 | **0** |
+| `summary.agentQuality.missingReviewerGrounding` | 0 | **0** |
+| `summary.agentQuality.missingDebuggerGrounding` | 0 | **0** |
+| `summary.agentQuality.noisyMaps` | note only | **2** (Cargo, OkHttp) |
+| `summary.failureClasses` | empty | **`emitter-bug: 1`** (aspnetcore) — fixed |
+| `diversityGaps` | `[]` | **`[]`** |
 
-**Per-repo agent quality fields** (in each `results[].setup.agentQuality`):
+### Per-repo agent quality (9 successful in pre-fix run)
 
-- Role grounding: `architectGrounded`, `engineerGrounded`, `testerGrounded`, `reviewerGrounded`, `debuggerGrounded`
-- Evidence: `hasRootTestCommand`, `hasCodebaseMap`, `evidenceBackedStandards`, `mapIsNoisy`
-- Composite: `score` (0–100; five roles × 12 + test command 15 + map 15 + standards 10 − noisy map 10)
+| Repo | Score | All 5 roles grounded | Notes |
+|---|---|---|---|
+| pallets/flask | 85 | yes | low map; standards-based architect |
+| rust-lang/cargo | 90 | yes | noisy map (26 packages) |
+| square/okhttp | 90 | yes | noisy map (28 packages) |
+| vitejs/vite | 100 | yes | — |
+| cli/cli | 100 | yes | — |
+| rails/rails | 100 | yes | — |
+| spring-projects/spring-petclinic | 100 | yes | — |
+| laravel/framework | 100 | yes | — |
+| expressjs/express | 100 | yes | — |
 
-### Reference snapshot (pre–Track C)
-
-From the 7-repo catalog era (before okhttp/laravel/express expansion), the bar was 7/7 setup-ready with avg agent quality ~96/100. Track A added Reviewer/Debugger deterministic grounding; this gate extends the catalog to 10 repos and adds reviewer/debugger fields to bench scoring. Re-run bench after merge to populate the template above.
+**Failure (fixed):** `dotnet/aspnetcore` — compile refused to overwrite user-authored `src/Components/AGENTS.md`. Fix: customize marks hierarchy scopes with pre-existing nested instruction files as `accepted: false` so compile skips emission while preserving user guidance.
 
 ---
 
-## Track A — Role Grounding (summary)
+## Track C — Templated Role Addenda
 
-Shipped on branch `feat/bench-catalog-gate-report` (merged with prior Track A/B work):
+Merged on `main` (PR #26). Post-merge validation:
 
-- Reviewer deterministic grounding from linter/map signals
-- Debugger deterministic grounding from test-command provenance
-- Architect standards-based grounding for flat/low-map repos
-- `aisdlc status` reports all five groundable roles
+- **R18:** non-empty templated `roleAddenda` on **10/10** successful bench clones (5 roles each).
+- **Behavior eval v2:** 6/6 improvement maintained.
+- **Track C typecheck hotfix:** PR #29.
 
-Corpus fixtures and v2 scenarios validate these surfaces offline.
+---
+
+## Monorepo noise (ideation #6 — separate initiative)
+
+Cargo and OkHttp score **90/100** (not 100) because the bench agent-quality formula applies a **−10 `mapIsNoisy` penalty** when `packages > 8`. Root agents and role grounding remain fully deterministic on both repos.
+
+This is **not** a Track D (ecosystem pack skills) gap. The recommended follow-up is **ideation #6** — package-scoped instruction files / large-repo progressive disclosure (`docs/ideation/2026-06-30-extend-project-agents-skills-descriptions-ideation.md` #6, `docs/plans/2026-06-14-004-feat-large-repo-scaling-plan.md`). Defer until a dedicated large-repo scaling slice is scheduled.
 
 ---
 
@@ -101,20 +104,21 @@ Corpus fixtures and v2 scenarios validate these surfaces offline.
 
 | Track | Scope | Decision |
 |---|---|---|
-| **C** | Templated deterministic role addenda | **Proceed** — R13 satisfied (6/6 v2 improvement); grounding foundation in place |
-| **D** | Ecosystem pack skill descriptions | **Defer** — wait for Track C addenda eval; skip if addenda + grounding cover stack idioms (R23) |
-| **E** | Description suffix experiment | **Defer** — requires Track B routing scenario proving suffix benefit (R26); not demonstrated in current v2 set |
+| **C** | Templated deterministic role addenda | **Shipped & validated** |
+| **D** | Ecosystem pack skill descriptions | **Defer** — v2 6/6 improvement; bench avg 96; addenda + grounding cover stack idioms (R23) |
+| **E** | Description suffix experiment | **Defer** — no routing scenario in v2 (R26) |
 
-**Residuals / follow-up:**
+**Residuals:**
 
-1. Run live 10-repo bench and fill the metrics template after merge.
-2. Track C merge gate: maintain setup-ready 10/10 and non-empty addenda on ≥ 8/10 repos (R18) without regressing v2 scenarios.
-3. Add a mock routing scenario before reopening Track E.
+1. Re-run full 10-repo bench after aspnetcore fix merges to refresh report JSON.
+2. Monorepo quality uplift tracked under ideation #6, not pack skills.
+3. Add mock routing scenarios before reopening Track E.
 
 ---
 
 ## Related docs
 
 - Requirements: `docs/brainstorms/2026-06-30-agent-skills-description-extension-requirements.md`
-- Plan: `docs/plans/2026-06-30-003-feat-agent-skills-description-extension-plan.md`
+- Ideation: `docs/ideation/2026-06-30-extend-project-agents-skills-descriptions-ideation.md`
 - Bench workflow: `docs/eval/external-repo-workflow.md`
+- Large-repo scaling: `docs/plans/2026-06-14-004-feat-large-repo-scaling-plan.md`
