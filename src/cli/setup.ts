@@ -67,7 +67,7 @@ export function runSetupCli(options: SetupCliOptions): SetupCliResult {
   };
 }
 
-function formatSetupResult(
+export function formatSetupResult(
   customize: CustomizeResult,
   compile: CompileCliResult,
   smoke: SmokeCliResult,
@@ -102,8 +102,28 @@ function formatSetupResult(
     }
   } else {
     lines.push(
-      `Not setup-ready: ${smoke.blockingGapCount} blocking interview gap(s); overlay: ${overlayPath}`,
+      `Not setup-ready — ${notReadyReason(smoke.result.passed, smoke.blockingGapCount, smoke.emittedArtifactsPresent)}.`,
     );
+    for (const check of smoke.result.checks.filter((check) => !check.ok)) {
+      lines.push(`Base gate ${check.name}: ${check.reason ?? "failed"}.`);
+    }
+    if (!smoke.emittedArtifactsPresent) {
+      lines.push("Emitted compile artifacts are missing; re-run `aisdlc compile`.");
+    }
+    if (smoke.blockingGapCount > 0) {
+      lines.push(`${smoke.blockingGapCount} blocking interview gap(s); overlay: ${overlayPath}`);
+    }
   }
   return lines.join("\n");
+}
+
+function notReadyReason(
+  basePassed: boolean,
+  blockingGapCount: number,
+  emittedArtifactsPresent: boolean,
+): string {
+  if (!emittedArtifactsPresent) return "emitted config artifacts are missing";
+  if (!basePassed && blockingGapCount > 0) return "base gates failed and interview gaps remain";
+  if (!basePassed) return "base gates failed";
+  return "interview gaps remain";
 }

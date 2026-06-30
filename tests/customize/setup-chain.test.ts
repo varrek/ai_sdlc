@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { runCompileCli } from "../../src/cli/compile.js";
 import { runCustomize } from "../../src/cli/customize.js";
-import { runSetupCli } from "../../src/cli/setup.js";
+import { formatSetupResult, runSetupCli } from "../../src/cli/setup.js";
 import { runSmokeCli } from "../../src/cli/smoke.js";
 import { buildStatus } from "../../src/cli/status.js";
 import { PHASE_ORDER } from "../../src/customize/setup-state.js";
@@ -64,6 +64,37 @@ describe("setup chain idempotency", () => {
     const status = buildStatus({ repoRoot: root, baseDir });
     expect(status.setupReady).toBe(true);
     expect(status.stalePhases).not.toContain("compiled");
+  });
+
+  it("reports base gate failures distinctly from interview gaps", () => {
+    const { root } = project();
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ scripts: { test: "node --version" } }),
+      "utf8",
+    );
+
+    const result = runSetupCli({ repoRoot: root, baseDir, force: true });
+    const output = formatSetupResult(
+      result.customize,
+      result.compile,
+      {
+        ...result.smoke,
+        setupReady: false,
+        result: {
+          ...result.smoke.result,
+          passed: false,
+          checks: [{ name: "constitution-present", ok: false, reason: "AGENTS.md missing" }],
+        },
+      },
+      result.overlayPath,
+      root,
+    );
+
+    expect(result.smoke.blockingGapCount).toBe(0);
+    expect(output).toContain("Not setup-ready — base gates failed.");
+    expect(output).toContain("Base gate constitution-present: AGENTS.md missing.");
+    expect(output).not.toContain("Not setup-ready: 0 blocking interview gap");
   });
 
   it("records all four phases and re-running the chain is a full no-op", () => {
