@@ -6,8 +6,10 @@ import {
   hasDeterministicEngineerGrounding,
   hasDeterministicReviewerGrounding,
   hasDeterministicTesterGrounding,
+  type RoleGroundingInput,
 } from "../core/role-grounding.js";
-import type { ToolPosture } from "../schema/index.js";
+import type { GapClosureProvenance, ToolPosture } from "../schema/index.js";
+import { Overlay } from "../schema/index.js";
 import type { RepoProfile } from "./repo-miner.js";
 
 type RoleName = "architect" | "engineer" | "tester" | "reviewer" | "debugger";
@@ -29,15 +31,15 @@ export function buildTemplateRoleAddenda(
   profile: RepoProfile,
   projectContext: ProjectContext,
   answers: Record<string, string> = {},
-  gapClosureProvenance: Record<string, "miner" | "ci" | "interview" | "unknown"> = {},
+  gapClosureProvenance: Record<string, GapClosureProvenance> = {},
 ): Partial<Record<RoleName, string>> {
-  const groundingInput = {
-    overlay: {
-      version: 1 as const,
+  const groundingInput: RoleGroundingInput = {
+    overlay: Overlay.parse({
+      version: 1,
       standards: buildStandardsStatements(profile),
       interviewAnswers: answers,
       gapClosureProvenance,
-    },
+    }),
     projectContext,
   };
 
