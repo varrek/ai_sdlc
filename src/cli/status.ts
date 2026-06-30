@@ -17,7 +17,10 @@ import {
 import { stagesForTrack } from "../core/loop.js";
 import { acceptedInstructionScopes } from "../core/project-context.js";
 import {
+  hasDeterministicArchitectGrounding,
+  hasDeterministicDebuggerGrounding,
   hasDeterministicEngineerGrounding,
+  hasDeterministicReviewerGrounding,
   hasDeterministicTesterGrounding,
   SETUP_GROUNDING_LEARNINGS_BY_ROLE,
 } from "../core/role-grounding.js";
@@ -155,10 +158,13 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const groundingInput = { overlay: inspection.overlay, projectContext };
   const engineerDeterministic = hasDeterministicEngineerGrounding(groundingInput);
   const testerDeterministic = hasDeterministicTesterGrounding(groundingInput);
+  const architectDeterministic = hasDeterministicArchitectGrounding(groundingInput);
+  const reviewerDeterministic = hasDeterministicReviewerGrounding(groundingInput);
+  const debuggerDeterministic = hasDeterministicDebuggerGrounding(groundingInput);
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
   const roleStates = {
     architect: roleState(
-      archConfidence === "high" || hasRelevantLearning(acceptedLearnings, "architect"),
+      architectDeterministic || hasRelevantLearning(acceptedLearnings, "architect"),
       Boolean(inspection.overlay.roleAddenda.architect),
     ),
     engineer: roleState(engineerDeterministic, Boolean(inspection.overlay.roleAddenda.engineer)),
@@ -167,14 +173,23 @@ export function buildStatus(options: StatusOptions): StatusReport {
       Boolean(inspection.overlay.roleAddenda.tester),
     ),
     reviewer: roleState(
-      hasRelevantLearning(acceptedLearnings, "reviewer"),
+      reviewerDeterministic || hasRelevantLearning(acceptedLearnings, "reviewer"),
       Boolean(inspection.overlay.roleAddenda.reviewer),
     ),
-    debugger: roleState(false, Boolean(inspection.overlay.roleAddenda.debugger)),
+    debugger: roleState(
+      debuggerDeterministic,
+      Boolean(inspection.overlay.roleAddenda.debugger),
+    ),
   };
   const totalRoles = Object.keys(roleStates).length;
   const groundedRoles = Object.values(roleStates).filter((state) => state !== "generic").length;
-  const groundableRoleNames = ["architect", "engineer", "tester", "reviewer"] as const;
+  const groundableRoleNames = [
+    "architect",
+    "engineer",
+    "tester",
+    "reviewer",
+    "debugger",
+  ] as const;
   const groundableRoles = groundableRoleNames.length;
   const groundedGroundableRoles = groundableRoleNames.filter(
     (role) => roleStates[role] !== "generic",

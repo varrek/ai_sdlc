@@ -20,7 +20,10 @@ export interface SetupArtifacts {
   projectContext: ProjectContext;
   standardsIndex: string;
   architect: string;
+  engineer: string;
   tester: string;
+  reviewer: string;
+  debugger: string;
   constitution: string;
   overlay: OverlaySnapshot;
 }
@@ -143,7 +146,10 @@ export function runGenericSetupChain(
     projectContext: readProjectContext(overlayDir),
     standardsIndex: readOptionalUtf8(join(overlayDir, "standards-index.yaml")),
     architect: readFileSync(join(root, ".cursor", "agents", "architect.md"), "utf8"),
+    engineer: readOptionalUtf8(join(root, ".cursor", "agents", "engineer.md")),
     tester: readOptionalUtf8(join(root, ".cursor", "agents", "tester.md")),
+    reviewer: readOptionalUtf8(join(root, ".cursor", "agents", "reviewer.md")),
+    debugger: readOptionalUtf8(join(root, ".cursor", "agents", "debugger.md")),
     constitution: readFileSync(join(root, "AGENTS.md"), "utf8"),
     overlay: { interviewAnswers: {}, gapClosureProvenance: {} },
   };
@@ -166,7 +172,10 @@ function readSetupArtifacts(
     projectContext: readProjectContext(overlayDir),
     standardsIndex: readFileSync(join(overlayDir, "standards-index.yaml"), "utf8"),
     architect: readFileSync(join(root, ".cursor", "agents", "architect.md"), "utf8"),
+    engineer: readFileSync(join(root, ".cursor", "agents", "engineer.md"), "utf8"),
     tester: readFileSync(join(root, ".cursor", "agents", "tester.md"), "utf8"),
+    reviewer: readFileSync(join(root, ".cursor", "agents", "reviewer.md"), "utf8"),
+    debugger: readFileSync(join(root, ".cursor", "agents", "debugger.md"), "utf8"),
     constitution: readFileSync(join(root, "AGENTS.md"), "utf8"),
     overlay: {
       interviewAnswers: overlayRaw.interviewAnswers ?? {},
@@ -182,7 +191,10 @@ function emptySetupArtifacts(smoke: SmokeCliResult, status: StatusReport): Setup
     projectContext: EMPTY_PROJECT_CONTEXT,
     standardsIndex: "",
     architect: "",
+    engineer: "",
     tester: "",
+    reviewer: "",
+    debugger: "",
     constitution: "",
     overlay: { interviewAnswers: {}, gapClosureProvenance: {} },
   };

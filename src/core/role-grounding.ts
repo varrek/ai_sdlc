@@ -36,9 +36,52 @@ export const SETUP_GROUNDING_LEARNINGS_BY_ROLE: Record<string, AcceptedLearningK
 const BARE_TEST_DIR_REMINDER =
   "Do not infer a test runner from bare `tests/`, `test/`, or `__tests__/` directories without toolchain evidence.";
 
+const DEBUGGER_READ_ONLY_REMINDER =
+  "Stay read-only while investigating — hand any fix to the Engineer.";
+
 export interface RoleGroundingInput {
   overlay: Overlay;
   projectContext?: ProjectContext;
+}
+
+function overlayStandards(input: RoleGroundingInput): string[] {
+  return input.overlay.standards ?? [];
+}
+
+function hasActionablePlanningStandards(standards: string[]): boolean {
+  return standards.some(
+    (statement) =>
+      statement.includes("Run tests with") ||
+      statement.startsWith("Lint/format with") ||
+      statement.startsWith("Built with") ||
+      statement.includes("Co-locate tests") ||
+      statement.includes("Place tests under"),
+  );
+}
+
+export function hasDeterministicArchitectGrounding(input: RoleGroundingInput): boolean {
+  const map = input.projectContext?.map ?? [];
+  if (map.length > 0) return true;
+  return hasStandardsBasedArchitectSignals(input);
+}
+
+export function hasStandardsBasedArchitectSignals(input: RoleGroundingInput): boolean {
+  const standards = overlayStandards(input);
+  if (standards.length === 0) return false;
+  return hasActionablePlanningStandards(standards);
+}
+
+export function hasDeterministicReviewerGrounding(input: RoleGroundingInput): boolean {
+  const standards = overlayStandards(input);
+  if (standards.some((statement) => statement.startsWith("Lint/format with"))) return true;
+  if (standards.some((statement) => statement.includes("Project architecture:"))) return true;
+  if (standards.some((statement) => statement.includes("confidence is low"))) return true;
+  if (standards.some((statement) => statement.includes("CI runs"))) return true;
+  return (input.projectContext?.map ?? []).length > 0;
+}
+
+export function hasDeterministicDebuggerGrounding(input: RoleGroundingInput): boolean {
+  return hasDeterministicTesterGrounding(input);
 }
 
 export function hasDeterministicTesterGrounding(input: RoleGroundingInput): boolean {
@@ -57,7 +100,7 @@ export function hasDeterministicEngineerGrounding(input: RoleGroundingInput): bo
 
 export function appendRoleGrounding(role: Role, input: RoleGroundingInput): Role {
   if (role.frontmatter.name === "architect") {
-    return appendArchitectGrounding(role, input.projectContext);
+    return appendArchitectGroundingFromInput(role, input);
   }
   if (role.frontmatter.name === "engineer") {
     return appendEngineerGrounding(role, input);
@@ -65,10 +108,16 @@ export function appendRoleGrounding(role: Role, input: RoleGroundingInput): Role
   if (role.frontmatter.name === "tester") {
     return appendTesterGrounding(role, input);
   }
+  if (role.frontmatter.name === "reviewer") {
+    return appendReviewerGrounding(role, input);
+  }
+  if (role.frontmatter.name === "debugger") {
+    return appendDebuggerGrounding(role, input);
+  }
   return role;
 }
 
-/** @deprecated Use appendRoleGrounding — kept for direct unit tests of Architect behavior. */
+/** @deprecated Use appendRoleGrounding — kept for direct unit tests of Architect map behavior. */
 export function appendArchitectGrounding(
   role: Role,
   projectContext: ProjectContext | undefined,
@@ -77,14 +126,94 @@ export function appendArchitectGrounding(
     return role;
   }
   const lines = [
-    "Use this mined, deterministic project map before proposing architecture changes:",
-    ...projectContext.map.slice(0, 8).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
+      "Use this mined, deterministic project map before proposing architecture changes:",
+      ...projectContext.map.slice(0, 8).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
+    ];
+    if (projectContext.map.length > 8) {
+      lines.push(
+        `- ${projectContext.map.length - 8} additional entries are available in the codebase map.`,
+      );
+    }
+    return appendGroundingSection(role, lines.join("\n"));
+}
+
+function appendArchitectGroundingFromInput(role: Role, input: RoleGroundingInput): Role {
+  if (role.frontmatter.name !== "architect") return role;
+  const projectContext = input.projectContext;
+  if (projectContext && projectContext.map.length > 0) {
+    const lines = [
+      "Use this mined, deterministic project map before proposing architecture changes:",
+      ...projectContext.map.slice(0, 8).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
+    ];
+    if (projectContext.map.length > 8) {
+      lines.push(
+        `- ${projectContext.map.length - 8} additional entries are available in the codebase map.`,
+      );
+    }
+    return appendGroundingSection(role, lines.join("\n"));
+  }
+  if (hasStandardsBasedArchitectSignals(input)) {
+    return appendStandardsBasedArchitectGrounding(role, input);
+  }
+  return role;
+}
+
+function appendStandardsBasedArchitectGrounding(role: Role, input: RoleGroundingInput): Role {
+  const standards = overlayStandards(input);
+  const lines = [
+    "No high-confidence codebase map is available. Use these mined planning signals (standards-based / low-confidence — not a module map):",
   ];
-  if (projectContext.map.length > 8) {
+  for (const statement of standards.slice(0, 8)) {
+    lines.push(`- ${statement}`);
+  }
+  if (standards.length > 8) {
+    lines.push(`- ${standards.length - 8} additional standards are in the project standards index.`);
+  }
+  lines.push(
+    "Do not invent module boundaries beyond these evidence-backed standards.",
+  );
+  return appendGroundingSection(role, lines.join("\n"));
+}
+
+function appendReviewerGrounding(role: Role, input: RoleGroundingInput): Role {
+  if (role.frontmatter.name !== "reviewer" || !hasDeterministicReviewerGrounding(input)) {
+    return role;
+  }
+  const lines = ["Use these mined review signals when checking a change:"];
+  const standards = overlayStandards(input);
+  for (const statement of standards) {
+    if (
+      statement.startsWith("Lint/format with") ||
+      statement.includes("Project architecture:") ||
+      statement.includes("confidence is low") ||
+      statement.includes("CI runs") ||
+      statement.includes("Run tests with")
+    ) {
+      lines.push(`- ${statement}`);
+    }
+  }
+  const map = input.projectContext?.map ?? [];
+  if (map.length > 0) {
     lines.push(
-      `- ${projectContext.map.length - 8} additional entries are available in the codebase map.`,
+      "Boundary-sensitive modules from the codebase map:",
+      ...map.slice(0, 6).map((entry) => `- \`${entry.path}\` — ${entry.role}`),
     );
   }
+  return appendGroundingSection(role, lines.join("\n"));
+}
+
+function appendDebuggerGrounding(role: Role, input: RoleGroundingInput): Role {
+  if (role.frontmatter.name !== "debugger" || !hasDeterministicDebuggerGrounding(input)) {
+    return role;
+  }
+  const lines = [
+    "Use these evidence-backed commands when reproducing failures:",
+    ...buildTesterGroundingLines(input).slice(1),
+  ];
+  if (overlayStandards(input).some((statement) => statement.includes("CI runs"))) {
+    lines.push("- Check CI workflow logs and artifacts for the failing job output.");
+  }
+  lines.push(`- ${DEBUGGER_READ_ONLY_REMINDER}`);
   return appendGroundingSection(role, lines.join("\n"));
 }
 

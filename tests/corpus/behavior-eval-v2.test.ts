@@ -1,32 +1,31 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   type AgentGuidanceBundle,
+  BEHAVIOR_EVAL_V2_SCENARIOS,
+  evaluateBehaviorEvalScenario,
   evaluateReadOnlyLocalizationScenario,
   guidanceFromSetup,
-  READ_ONLY_LOCALIZATION_SCENARIOS,
-  type ReadOnlyLocalizationScenario,
+  type LocalizeScenario,
 } from "./behavior-eval-v2.js";
 import { cleanupCorpusTempDirs, copyFixture, runGenericSetup, runSetup } from "./corpus-harness.js";
 
 afterEach(() => cleanupCorpusTempDirs());
 
-describe("behavior eval v2 read-only localization", () => {
+describe("behavior eval v2 read-only scenarios", () => {
   it.each(
-    READ_ONLY_LOCALIZATION_SCENARIOS.map((scenario) => [scenario.id, scenario] as const),
-  )("%s improves module and test-command selection over generic Cursor guidance", (scenarioId, scenario) => {
+    BEHAVIOR_EVAL_V2_SCENARIOS.map((scenario) => [scenario.id, scenario] as const),
+  )("%s improves personalized guidance over generic Cursor bundle", (scenarioId, scenario) => {
     const root = copyFixture(scenario.fixture);
     const generic = guidanceFromSetup(runGenericSetup(root));
 
     const personalizedRoot = copyFixture(scenario.fixture);
     const personalized = guidanceFromSetup(runSetup(personalizedRoot));
 
-    const result = evaluateReadOnlyLocalizationScenario(scenario, generic, personalized);
+    const result = evaluateBehaviorEvalScenario(scenario, generic, personalized);
 
     expect(result.scenarioId).toBe(scenarioId);
     expect(result.host).toBe("cursor");
     expect(result.personalizedPass, result.notes.join("; ")).toBe(true);
-    expect(result.personalized.selectedModule).toBe(scenario.expectedModule);
-    expect(result.personalized.selectedTestCommand).toBe(scenario.expectedTestCommand);
     expect(result.genericPass).toBe(false);
     expect(result.improvement).toBe(true);
   });
@@ -41,8 +40,9 @@ describe("behavior eval v2 read-only localization", () => {
   });
 
   it("uses accepted hierarchy scope text as local guidance", () => {
-    const scenario: ReadOnlyLocalizationScenario = {
+    const scenario: LocalizeScenario = {
       id: "backend-scope-local-guidance",
+      kind: "localize",
       fixture: "synthetic",
       task: "Change backend code and run its local tests.",
       expectedModule: "backend",
@@ -75,6 +75,10 @@ function bundleWithHierarchy(
     host: "cursor",
     constitution: "# Root\n",
     architect: "",
+    engineer: "",
+    tester: "",
+    reviewer: "",
+    debugger: "",
     standardsIndex: "",
     projectContext: {
       packages: [],

@@ -157,6 +157,42 @@ describe("role grounding", () => {
     expect(tester.body).toContain("**Root:** `npm test`");
   });
 
+  it("appends standards-based architect grounding when the map is empty but standards exist", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({
+      version: 1,
+      interviewAnswers: { "test-command": "npm test" },
+      standards: [
+        "Run tests with `npm test`; the test suite must pass before a change ships.",
+        "Project architecture confidence is low; do not treat any single directory as authoritative.",
+      ],
+    });
+    const emptyContext: ProjectContext = { packages: [], map: [], exclusions: [] };
+    const model = mergeOverlay(base, overlay, emptyContext);
+    const architect = model.roles.find((r) => r.frontmatter.name === "architect")!;
+    expect(architect.body).toContain(ROLE_GROUNDING_HEADING);
+    expect(architect.body).toContain("standards-based");
+    expect(architect.body).toContain("npm test");
+  });
+
+  it("appends reviewer and debugger grounding from mined signals", () => {
+    const base = loadBase(baseDir);
+    const overlay = Overlay.parse({
+      version: 1,
+      interviewAnswers: { "test-command": "go test ./..." },
+      gapClosureProvenance: { "test-command": "miner" },
+      standards: ["Lint/format with golangci-lint.", "Run tests with `go test ./...`."],
+    });
+    const model = mergeOverlay(base, overlay, sampleMap);
+    const reviewer = model.roles.find((r) => r.frontmatter.name === "reviewer")!;
+    const debuggerRole = model.roles.find((r) => r.frontmatter.name === "debugger")!;
+    expect(reviewer.body).toContain(ROLE_GROUNDING_HEADING);
+    expect(reviewer.body).toContain("golangci-lint");
+    expect(debuggerRole.body).toContain(ROLE_GROUNDING_HEADING);
+    expect(debuggerRole.body).toContain("go test ./...");
+    expect(debuggerRole.body).toContain("read-only");
+  });
+
   it("routes loop-derived accepted learnings to reviewer, tester, and engineer", () => {
     const base = loadBase(baseDir);
     const reviewer = base.roles.find((r) => r.frontmatter.name === "reviewer")!;
