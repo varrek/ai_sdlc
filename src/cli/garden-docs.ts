@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   analyzeDocGarden,
+  applyDocGardenFixes,
   hasSeverityAtLeast,
   renderDocGardenMarkdown,
   renderDocGardenText,
@@ -17,6 +18,7 @@ export interface GardenDocsOptions {
   format?: "text" | "json";
   writeReport?: boolean;
   failOn?: DocGardenSeverity;
+  fix?: boolean;
 }
 
 export interface GardenDocsResult {
@@ -24,15 +26,18 @@ export interface GardenDocsResult {
   output: string;
   exitCode: number;
   writtenPaths: string[];
+  fixedPaths: string[];
 }
 
 export function runGardenDocs(options: GardenDocsOptions): GardenDocsResult {
-  const report = analyzeDocGarden({
+  const analyzeOptions = {
     repoRoot: options.repoRoot,
     configDir: options.configDir,
     overlayPath: options.overlayPath,
     overlayDir: options.overlayDir,
-  });
+  };
+  const fixResult = options.fix ? applyDocGardenFixes(analyzeOptions) : undefined;
+  const report = fixResult?.report ?? analyzeDocGarden(analyzeOptions);
   const serializedJson = serializeDocGardenReport(report);
   const writtenPaths: string[] = [];
   if (options.writeReport) {
@@ -44,12 +49,14 @@ export function runGardenDocs(options: GardenDocsOptions): GardenDocsResult {
     writeFileSync(markdownPath, renderDocGardenMarkdown(report), "utf8");
     writtenPaths.push(jsonPath, markdownPath);
   }
-  const output = options.format === "json" ? serializedJson.trimEnd() : renderDocGardenText(report);
+  const output =
+    options.format === "json" ? serializedJson.trimEnd() : renderDocGardenText(report, fixResult);
   return {
     report,
     output,
     exitCode: options.failOn && hasSeverityAtLeast(report, options.failOn) ? 1 : 0,
     writtenPaths,
+    fixedPaths: fixResult?.fixedPaths ?? [],
   };
 }
 

@@ -125,6 +125,7 @@ hood.
 | `aisdlc upgrade` | Re-pin the base and replay compile, flagging overlay conflicts. |
 | `aisdlc gen-matrix` | Regenerate `docs/capability-matrix.md` from adapter capabilities. |
 | `aisdlc bench` | Run a reproducible external-repo setup evaluation from the pinned catalog. |
+| `aisdlc garden` | Run deterministic doc fixes, write `.sdlc/doc-gardening-report.json`, and hand off judgment findings to the `garden-docs` skill. |
 | `aisdlc garden-docs` | Report stale or noisy agent-facing docs for continuous doc gardening. |
 | `aisdlc help` | Show usage. |
 
@@ -148,8 +149,10 @@ Common flags:
   `--cache-dir <dir>`, `--report-dir <dir>`, `--base <dir>`,
   `--mode deterministic|plugin`, `--dry-run`, `--skip-clone`, `--force`,
   `--repo-timeout-ms <n>`, `--fail-on-class <class,class>`
+- `garden`: `--repo <dir>`, `--config <dir>`, `--overlay <file>`,
+  `--overlay-dir <dir>`, `--fail-on warning|error`
 - `garden-docs`: `--repo <dir>`, `--config <dir>`, `--overlay <file>`,
-  `--overlay-dir <dir>`, `--format text|json`, `--write-report`,
+  `--overlay-dir <dir>`, `--format text|json`, `--write-report`, `--fix`,
   `--fail-on warning|error`
 
 `bench` clones only pinned public repos into `.verify/repos/` and writes reports
@@ -202,11 +205,31 @@ git-ignored by default.
 
 `aisdlc garden-docs` checks the repo's agent-facing docs for issues that make
 large codebases harder for agents to navigate: bloated root instruction files,
-broken local markdown links, missing codebase-map pointers, and stale generated
-capability matrix content. By default it reports findings without changing docs
-or failing the command; use `--fail-on warning` or `--fail-on error` for CI, and
-`--write-report` to write `.sdlc/doc-gardening-report.json` plus a markdown
-summary.
+broken local markdown links, missing codebase-map pointers, hierarchy scope gaps,
+Codex instruction-chain budget warnings, and stale generated capability matrix
+content.
+
+**Full workflow (recommended):**
+
+```bash
+npm run garden          # or: aisdlc garden --repo .
+```
+
+`aisdlc garden` applies safe deterministic repairs (regenerate
+`docs/capability-matrix.md`, append mined codebase-map sections), writes
+`.sdlc/doc-gardening-report.json`, and tells you when to invoke the compiled
+`garden-docs` skill for judgment-heavy fixes (broken links, root bloat).
+
+**Report-only / CI:**
+
+```bash
+aisdlc garden-docs --write-report --fail-on warning   # CI gate, no edits
+aisdlc garden-docs --fix --write-report               # mechanical fixes only
+```
+
+After `aisdlc garden`, use the host skill `/garden-docs` (see
+`sdlc-base/skills/garden-docs/SKILL.md`) to repair remaining findings with the
+host model, then re-run `aisdlc garden` to verify.
 
 ## Default Plugin Mode
 

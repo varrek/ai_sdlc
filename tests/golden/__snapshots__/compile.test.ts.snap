@@ -93,6 +93,73 @@ freshness makes the no-op cheap.
 - Placeholder integration server IDs are forbidden — an integration is either bound
   to a real server just-in-time or left deferred, never faked at setup.
 ",
+  ".agents/skills/garden-docs/SKILL.md": "---
+name: garden-docs
+description: Repair agent-facing documentation from a doc-gardening report — fix
+  broken links, trim bloated root instructions, and resolve hierarchy budget
+  warnings after the CLI applies safe deterministic fixes.
+---
+
+# /garden-docs
+
+Keep agent-facing docs lean, linked, and navigable. The CLI handles mechanical
+repairs; you (the host agent) handle judgment-heavy edits grounded in repo
+evidence. Every patch must pass a re-run of \`aisdlc garden\` before you present
+the diff for human review.
+
+## Invariants (non-negotiable)
+
+- **CLI first.** Run \`aisdlc garden --repo .\` before editing. It regenerates
+  stale generated docs and appends missing codebase-map sections, then writes
+  \`.sdlc/doc-gardening-report.json\`.
+- **Verify after every edit.** Re-run \`aisdlc garden --repo .\` (or
+  \`aisdlc garden-docs --fix --write-report\`) so link checks and bloat thresholds
+  confirm your patch. Do not claim success from prose alone.
+- **Reviewable.** Present a normal git diff of doc changes for human approval.
+  Never hide edits outside tracked markdown.
+- **No invented targets.** For \`broken-local-link\`, only point links at files
+  that exist in the repo. Search \`git log\`, similar paths, and headings before
+  changing a target.
+
+## Finding playbook
+
+| Finding id | Your job |
+| --- | --- |
+| \`broken-local-link\` | Locate the correct file or restore the missing doc; update the markdown link. |
+| \`root-doc-bloat\` | Move package- or task-specific prose into \`docs/\` or layered skills; keep the root file as a table of contents with pointers. |
+| \`hierarchy-codex-budget\` | Trim or split local \`AGENTS.md\` bodies so the Codex chain stays under budget; keep root as TOC. |
+| \`hierarchy-scope-missing\` | Prefer \`aisdlc compile\` to emit missing scope files; only hand-author when compile cannot run. |
+| \`doc-scan-truncated\` | Narrow the docs tree (exclude vendor/generated paths) or ask the team to raise scan limits — do not guess at unscanned links. |
+
+Deterministic fixes (\`stale-capability-matrix\`, \`missing-codebase-map\`) are
+already applied by \`aisdlc garden\`; do not redo them unless the report still
+lists them after a fresh run.
+
+## Flow
+
+1. **Run the workflow.** \`aisdlc garden --repo .\` applies safe fixes and writes
+   \`.sdlc/doc-gardening-report.json\` plus \`.sdlc/doc-gardening-report.md\`.
+2. **Read the report.** Load the JSON findings list. Group by \`path\` and \`id\`.
+3. **Draft minimal patches.** For each judgment finding, change only what the
+   check requires. Cite the repo signal you used (path, rename, heading).
+4. **Verify.** Re-run \`aisdlc garden --repo .\` until judgment findings are gone
+   or you document why a finding is intentionally accepted.
+5. **Review.** Show the doc diff. For remaining warnings the team chooses to
+   keep, note them in the PR or task comment.
+
+## When to use
+
+- After \`aisdlc garden\` reports findings that need judgment.
+- On a schedule (weekly doc gardening) alongside CI \`aisdlc garden-docs --fail-on warning\`.
+- Before large refactors that move or rename \`docs/\` paths agents rely on.
+
+## Notes
+
+- Report-only checks: \`aisdlc garden-docs --write-report\` (no deterministic fixes).
+- CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
+- This skill does not open PRs or call external LLM APIs — it uses the host
+  model already available in Plugin Mode.
+",
   ".agents/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
 description: Run a task through the single-writer Architect -> Engineer ->
@@ -723,6 +790,73 @@ freshness makes the no-op cheap.
   upgrade invalidates the compiled + smoke phases so they re-run.
 - Placeholder integration server IDs are forbidden — an integration is either bound
   to a real server just-in-time or left deferred, never faked at setup.
+",
+  ".claude/skills/garden-docs/SKILL.md": "---
+name: garden-docs
+description: Repair agent-facing documentation from a doc-gardening report — fix
+  broken links, trim bloated root instructions, and resolve hierarchy budget
+  warnings after the CLI applies safe deterministic fixes.
+---
+
+# /garden-docs
+
+Keep agent-facing docs lean, linked, and navigable. The CLI handles mechanical
+repairs; you (the host agent) handle judgment-heavy edits grounded in repo
+evidence. Every patch must pass a re-run of \`aisdlc garden\` before you present
+the diff for human review.
+
+## Invariants (non-negotiable)
+
+- **CLI first.** Run \`aisdlc garden --repo .\` before editing. It regenerates
+  stale generated docs and appends missing codebase-map sections, then writes
+  \`.sdlc/doc-gardening-report.json\`.
+- **Verify after every edit.** Re-run \`aisdlc garden --repo .\` (or
+  \`aisdlc garden-docs --fix --write-report\`) so link checks and bloat thresholds
+  confirm your patch. Do not claim success from prose alone.
+- **Reviewable.** Present a normal git diff of doc changes for human approval.
+  Never hide edits outside tracked markdown.
+- **No invented targets.** For \`broken-local-link\`, only point links at files
+  that exist in the repo. Search \`git log\`, similar paths, and headings before
+  changing a target.
+
+## Finding playbook
+
+| Finding id | Your job |
+| --- | --- |
+| \`broken-local-link\` | Locate the correct file or restore the missing doc; update the markdown link. |
+| \`root-doc-bloat\` | Move package- or task-specific prose into \`docs/\` or layered skills; keep the root file as a table of contents with pointers. |
+| \`hierarchy-codex-budget\` | Trim or split local \`AGENTS.md\` bodies so the Codex chain stays under budget; keep root as TOC. |
+| \`hierarchy-scope-missing\` | Prefer \`aisdlc compile\` to emit missing scope files; only hand-author when compile cannot run. |
+| \`doc-scan-truncated\` | Narrow the docs tree (exclude vendor/generated paths) or ask the team to raise scan limits — do not guess at unscanned links. |
+
+Deterministic fixes (\`stale-capability-matrix\`, \`missing-codebase-map\`) are
+already applied by \`aisdlc garden\`; do not redo them unless the report still
+lists them after a fresh run.
+
+## Flow
+
+1. **Run the workflow.** \`aisdlc garden --repo .\` applies safe fixes and writes
+   \`.sdlc/doc-gardening-report.json\` plus \`.sdlc/doc-gardening-report.md\`.
+2. **Read the report.** Load the JSON findings list. Group by \`path\` and \`id\`.
+3. **Draft minimal patches.** For each judgment finding, change only what the
+   check requires. Cite the repo signal you used (path, rename, heading).
+4. **Verify.** Re-run \`aisdlc garden --repo .\` until judgment findings are gone
+   or you document why a finding is intentionally accepted.
+5. **Review.** Show the doc diff. For remaining warnings the team chooses to
+   keep, note them in the PR or task comment.
+
+## When to use
+
+- After \`aisdlc garden\` reports findings that need judgment.
+- On a schedule (weekly doc gardening) alongside CI \`aisdlc garden-docs --fail-on warning\`.
+- Before large refactors that move or rename \`docs/\` paths agents rely on.
+
+## Notes
+
+- Report-only checks: \`aisdlc garden-docs --write-report\` (no deterministic fixes).
+- CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
+- This skill does not open PRs or call external LLM APIs — it uses the host
+  model already available in Plugin Mode.
 ",
   ".claude/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -1392,6 +1526,73 @@ freshness makes the no-op cheap.
   upgrade invalidates the compiled + smoke phases so they re-run.
 - Placeholder integration server IDs are forbidden — an integration is either bound
   to a real server just-in-time or left deferred, never faked at setup.
+",
+  ".codex/skills/garden-docs/SKILL.md": "---
+name: garden-docs
+description: Repair agent-facing documentation from a doc-gardening report — fix
+  broken links, trim bloated root instructions, and resolve hierarchy budget
+  warnings after the CLI applies safe deterministic fixes.
+---
+
+# /garden-docs
+
+Keep agent-facing docs lean, linked, and navigable. The CLI handles mechanical
+repairs; you (the host agent) handle judgment-heavy edits grounded in repo
+evidence. Every patch must pass a re-run of \`aisdlc garden\` before you present
+the diff for human review.
+
+## Invariants (non-negotiable)
+
+- **CLI first.** Run \`aisdlc garden --repo .\` before editing. It regenerates
+  stale generated docs and appends missing codebase-map sections, then writes
+  \`.sdlc/doc-gardening-report.json\`.
+- **Verify after every edit.** Re-run \`aisdlc garden --repo .\` (or
+  \`aisdlc garden-docs --fix --write-report\`) so link checks and bloat thresholds
+  confirm your patch. Do not claim success from prose alone.
+- **Reviewable.** Present a normal git diff of doc changes for human approval.
+  Never hide edits outside tracked markdown.
+- **No invented targets.** For \`broken-local-link\`, only point links at files
+  that exist in the repo. Search \`git log\`, similar paths, and headings before
+  changing a target.
+
+## Finding playbook
+
+| Finding id | Your job |
+| --- | --- |
+| \`broken-local-link\` | Locate the correct file or restore the missing doc; update the markdown link. |
+| \`root-doc-bloat\` | Move package- or task-specific prose into \`docs/\` or layered skills; keep the root file as a table of contents with pointers. |
+| \`hierarchy-codex-budget\` | Trim or split local \`AGENTS.md\` bodies so the Codex chain stays under budget; keep root as TOC. |
+| \`hierarchy-scope-missing\` | Prefer \`aisdlc compile\` to emit missing scope files; only hand-author when compile cannot run. |
+| \`doc-scan-truncated\` | Narrow the docs tree (exclude vendor/generated paths) or ask the team to raise scan limits — do not guess at unscanned links. |
+
+Deterministic fixes (\`stale-capability-matrix\`, \`missing-codebase-map\`) are
+already applied by \`aisdlc garden\`; do not redo them unless the report still
+lists them after a fresh run.
+
+## Flow
+
+1. **Run the workflow.** \`aisdlc garden --repo .\` applies safe fixes and writes
+   \`.sdlc/doc-gardening-report.json\` plus \`.sdlc/doc-gardening-report.md\`.
+2. **Read the report.** Load the JSON findings list. Group by \`path\` and \`id\`.
+3. **Draft minimal patches.** For each judgment finding, change only what the
+   check requires. Cite the repo signal you used (path, rename, heading).
+4. **Verify.** Re-run \`aisdlc garden --repo .\` until judgment findings are gone
+   or you document why a finding is intentionally accepted.
+5. **Review.** Show the doc diff. For remaining warnings the team chooses to
+   keep, note them in the PR or task comment.
+
+## When to use
+
+- After \`aisdlc garden\` reports findings that need judgment.
+- On a schedule (weekly doc gardening) alongside CI \`aisdlc garden-docs --fail-on warning\`.
+- Before large refactors that move or rename \`docs/\` paths agents rely on.
+
+## Notes
+
+- Report-only checks: \`aisdlc garden-docs --write-report\` (no deterministic fixes).
+- CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
+- This skill does not open PRs or call external LLM APIs — it uses the host
+  model already available in Plugin Mode.
 ",
   ".codex/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -2091,6 +2292,73 @@ freshness makes the no-op cheap.
   upgrade invalidates the compiled + smoke phases so they re-run.
 - Placeholder integration server IDs are forbidden — an integration is either bound
   to a real server just-in-time or left deferred, never faked at setup.
+",
+  ".cursor/skills/garden-docs/SKILL.md": "---
+name: garden-docs
+description: Repair agent-facing documentation from a doc-gardening report — fix
+  broken links, trim bloated root instructions, and resolve hierarchy budget
+  warnings after the CLI applies safe deterministic fixes.
+---
+
+# /garden-docs
+
+Keep agent-facing docs lean, linked, and navigable. The CLI handles mechanical
+repairs; you (the host agent) handle judgment-heavy edits grounded in repo
+evidence. Every patch must pass a re-run of \`aisdlc garden\` before you present
+the diff for human review.
+
+## Invariants (non-negotiable)
+
+- **CLI first.** Run \`aisdlc garden --repo .\` before editing. It regenerates
+  stale generated docs and appends missing codebase-map sections, then writes
+  \`.sdlc/doc-gardening-report.json\`.
+- **Verify after every edit.** Re-run \`aisdlc garden --repo .\` (or
+  \`aisdlc garden-docs --fix --write-report\`) so link checks and bloat thresholds
+  confirm your patch. Do not claim success from prose alone.
+- **Reviewable.** Present a normal git diff of doc changes for human approval.
+  Never hide edits outside tracked markdown.
+- **No invented targets.** For \`broken-local-link\`, only point links at files
+  that exist in the repo. Search \`git log\`, similar paths, and headings before
+  changing a target.
+
+## Finding playbook
+
+| Finding id | Your job |
+| --- | --- |
+| \`broken-local-link\` | Locate the correct file or restore the missing doc; update the markdown link. |
+| \`root-doc-bloat\` | Move package- or task-specific prose into \`docs/\` or layered skills; keep the root file as a table of contents with pointers. |
+| \`hierarchy-codex-budget\` | Trim or split local \`AGENTS.md\` bodies so the Codex chain stays under budget; keep root as TOC. |
+| \`hierarchy-scope-missing\` | Prefer \`aisdlc compile\` to emit missing scope files; only hand-author when compile cannot run. |
+| \`doc-scan-truncated\` | Narrow the docs tree (exclude vendor/generated paths) or ask the team to raise scan limits — do not guess at unscanned links. |
+
+Deterministic fixes (\`stale-capability-matrix\`, \`missing-codebase-map\`) are
+already applied by \`aisdlc garden\`; do not redo them unless the report still
+lists them after a fresh run.
+
+## Flow
+
+1. **Run the workflow.** \`aisdlc garden --repo .\` applies safe fixes and writes
+   \`.sdlc/doc-gardening-report.json\` plus \`.sdlc/doc-gardening-report.md\`.
+2. **Read the report.** Load the JSON findings list. Group by \`path\` and \`id\`.
+3. **Draft minimal patches.** For each judgment finding, change only what the
+   check requires. Cite the repo signal you used (path, rename, heading).
+4. **Verify.** Re-run \`aisdlc garden --repo .\` until judgment findings are gone
+   or you document why a finding is intentionally accepted.
+5. **Review.** Show the doc diff. For remaining warnings the team chooses to
+   keep, note them in the PR or task comment.
+
+## When to use
+
+- After \`aisdlc garden\` reports findings that need judgment.
+- On a schedule (weekly doc gardening) alongside CI \`aisdlc garden-docs --fail-on warning\`.
+- Before large refactors that move or rename \`docs/\` paths agents rely on.
+
+## Notes
+
+- Report-only checks: \`aisdlc garden-docs --write-report\` (no deterministic fixes).
+- CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
+- This skill does not open PRs or call external LLM APIs — it uses the host
+  model already available in Plugin Mode.
 ",
   ".cursor/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -2828,6 +3096,73 @@ freshness makes the no-op cheap.
   upgrade invalidates the compiled + smoke phases so they re-run.
 - Placeholder integration server IDs are forbidden — an integration is either bound
   to a real server just-in-time or left deferred, never faked at setup.
+",
+  ".github/skills/garden-docs/SKILL.md": "---
+name: garden-docs
+description: Repair agent-facing documentation from a doc-gardening report — fix
+  broken links, trim bloated root instructions, and resolve hierarchy budget
+  warnings after the CLI applies safe deterministic fixes.
+---
+
+# /garden-docs
+
+Keep agent-facing docs lean, linked, and navigable. The CLI handles mechanical
+repairs; you (the host agent) handle judgment-heavy edits grounded in repo
+evidence. Every patch must pass a re-run of \`aisdlc garden\` before you present
+the diff for human review.
+
+## Invariants (non-negotiable)
+
+- **CLI first.** Run \`aisdlc garden --repo .\` before editing. It regenerates
+  stale generated docs and appends missing codebase-map sections, then writes
+  \`.sdlc/doc-gardening-report.json\`.
+- **Verify after every edit.** Re-run \`aisdlc garden --repo .\` (or
+  \`aisdlc garden-docs --fix --write-report\`) so link checks and bloat thresholds
+  confirm your patch. Do not claim success from prose alone.
+- **Reviewable.** Present a normal git diff of doc changes for human approval.
+  Never hide edits outside tracked markdown.
+- **No invented targets.** For \`broken-local-link\`, only point links at files
+  that exist in the repo. Search \`git log\`, similar paths, and headings before
+  changing a target.
+
+## Finding playbook
+
+| Finding id | Your job |
+| --- | --- |
+| \`broken-local-link\` | Locate the correct file or restore the missing doc; update the markdown link. |
+| \`root-doc-bloat\` | Move package- or task-specific prose into \`docs/\` or layered skills; keep the root file as a table of contents with pointers. |
+| \`hierarchy-codex-budget\` | Trim or split local \`AGENTS.md\` bodies so the Codex chain stays under budget; keep root as TOC. |
+| \`hierarchy-scope-missing\` | Prefer \`aisdlc compile\` to emit missing scope files; only hand-author when compile cannot run. |
+| \`doc-scan-truncated\` | Narrow the docs tree (exclude vendor/generated paths) or ask the team to raise scan limits — do not guess at unscanned links. |
+
+Deterministic fixes (\`stale-capability-matrix\`, \`missing-codebase-map\`) are
+already applied by \`aisdlc garden\`; do not redo them unless the report still
+lists them after a fresh run.
+
+## Flow
+
+1. **Run the workflow.** \`aisdlc garden --repo .\` applies safe fixes and writes
+   \`.sdlc/doc-gardening-report.json\` plus \`.sdlc/doc-gardening-report.md\`.
+2. **Read the report.** Load the JSON findings list. Group by \`path\` and \`id\`.
+3. **Draft minimal patches.** For each judgment finding, change only what the
+   check requires. Cite the repo signal you used (path, rename, heading).
+4. **Verify.** Re-run \`aisdlc garden --repo .\` until judgment findings are gone
+   or you document why a finding is intentionally accepted.
+5. **Review.** Show the doc diff. For remaining warnings the team chooses to
+   keep, note them in the PR or task comment.
+
+## When to use
+
+- After \`aisdlc garden\` reports findings that need judgment.
+- On a schedule (weekly doc gardening) alongside CI \`aisdlc garden-docs --fail-on warning\`.
+- Before large refactors that move or rename \`docs/\` paths agents rely on.
+
+## Notes
+
+- Report-only checks: \`aisdlc garden-docs --write-report\` (no deterministic fixes).
+- CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
+- This skill does not open PRs or call external LLM APIs — it uses the host
+  model already available in Plugin Mode.
 ",
   ".github/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -3670,6 +4005,73 @@ freshness makes the no-op cheap.
 - Placeholder integration server IDs are forbidden — an integration is either bound
   to a real server just-in-time or left deferred, never faked at setup.
 ",
+  ".kiro/skills/garden-docs/SKILL.md": "---
+name: garden-docs
+description: Repair agent-facing documentation from a doc-gardening report — fix
+  broken links, trim bloated root instructions, and resolve hierarchy budget
+  warnings after the CLI applies safe deterministic fixes.
+---
+
+# /garden-docs
+
+Keep agent-facing docs lean, linked, and navigable. The CLI handles mechanical
+repairs; you (the host agent) handle judgment-heavy edits grounded in repo
+evidence. Every patch must pass a re-run of \`aisdlc garden\` before you present
+the diff for human review.
+
+## Invariants (non-negotiable)
+
+- **CLI first.** Run \`aisdlc garden --repo .\` before editing. It regenerates
+  stale generated docs and appends missing codebase-map sections, then writes
+  \`.sdlc/doc-gardening-report.json\`.
+- **Verify after every edit.** Re-run \`aisdlc garden --repo .\` (or
+  \`aisdlc garden-docs --fix --write-report\`) so link checks and bloat thresholds
+  confirm your patch. Do not claim success from prose alone.
+- **Reviewable.** Present a normal git diff of doc changes for human approval.
+  Never hide edits outside tracked markdown.
+- **No invented targets.** For \`broken-local-link\`, only point links at files
+  that exist in the repo. Search \`git log\`, similar paths, and headings before
+  changing a target.
+
+## Finding playbook
+
+| Finding id | Your job |
+| --- | --- |
+| \`broken-local-link\` | Locate the correct file or restore the missing doc; update the markdown link. |
+| \`root-doc-bloat\` | Move package- or task-specific prose into \`docs/\` or layered skills; keep the root file as a table of contents with pointers. |
+| \`hierarchy-codex-budget\` | Trim or split local \`AGENTS.md\` bodies so the Codex chain stays under budget; keep root as TOC. |
+| \`hierarchy-scope-missing\` | Prefer \`aisdlc compile\` to emit missing scope files; only hand-author when compile cannot run. |
+| \`doc-scan-truncated\` | Narrow the docs tree (exclude vendor/generated paths) or ask the team to raise scan limits — do not guess at unscanned links. |
+
+Deterministic fixes (\`stale-capability-matrix\`, \`missing-codebase-map\`) are
+already applied by \`aisdlc garden\`; do not redo them unless the report still
+lists them after a fresh run.
+
+## Flow
+
+1. **Run the workflow.** \`aisdlc garden --repo .\` applies safe fixes and writes
+   \`.sdlc/doc-gardening-report.json\` plus \`.sdlc/doc-gardening-report.md\`.
+2. **Read the report.** Load the JSON findings list. Group by \`path\` and \`id\`.
+3. **Draft minimal patches.** For each judgment finding, change only what the
+   check requires. Cite the repo signal you used (path, rename, heading).
+4. **Verify.** Re-run \`aisdlc garden --repo .\` until judgment findings are gone
+   or you document why a finding is intentionally accepted.
+5. **Review.** Show the doc diff. For remaining warnings the team chooses to
+   keep, note them in the PR or task comment.
+
+## When to use
+
+- After \`aisdlc garden\` reports findings that need judgment.
+- On a schedule (weekly doc gardening) alongside CI \`aisdlc garden-docs --fail-on warning\`.
+- Before large refactors that move or rename \`docs/\` paths agents rely on.
+
+## Notes
+
+- Report-only checks: \`aisdlc garden-docs --write-report\` (no deterministic fixes).
+- CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
+- This skill does not open PRs or call external LLM APIs — it uses the host
+  model already available in Plugin Mode.
+",
   ".kiro/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
 description: Run a task through the single-writer Architect -> Engineer ->
@@ -3881,6 +4283,7 @@ prose.
   "version": 1,
   "files": [
     ".agents/skills/customize/SKILL.md",
+    ".agents/skills/garden-docs/SKILL.md",
     ".agents/skills/sdlc-loop/SKILL.md",
     ".agents/skills/track-select/SKILL.md",
     ".agents/skills/tune-roles/SKILL.md",
@@ -3892,6 +4295,7 @@ prose.
     ".claude/hooks/approved-gate.mjs",
     ".claude/settings.json",
     ".claude/skills/customize/SKILL.md",
+    ".claude/skills/garden-docs/SKILL.md",
     ".claude/skills/sdlc-loop/SKILL.md",
     ".claude/skills/track-select/SKILL.md",
     ".claude/skills/tune-roles/SKILL.md",
@@ -3905,6 +4309,7 @@ prose.
     ".codex/hooks/mcp-gate.mjs",
     ".codex/sdlc/role-policy.json",
     ".codex/skills/customize/SKILL.md",
+    ".codex/skills/garden-docs/SKILL.md",
     ".codex/skills/sdlc-loop/SKILL.md",
     ".codex/skills/track-select/SKILL.md",
     ".codex/skills/tune-roles/SKILL.md",
@@ -3920,6 +4325,7 @@ prose.
     ".cursor/permissions.json",
     ".cursor/sdlc/role-policy.json",
     ".cursor/skills/customize/SKILL.md",
+    ".cursor/skills/garden-docs/SKILL.md",
     ".cursor/skills/sdlc-loop/SKILL.md",
     ".cursor/skills/track-select/SKILL.md",
     ".cursor/skills/tune-roles/SKILL.md",
@@ -3933,6 +4339,7 @@ prose.
     ".github/hooks/approved-gate.json",
     ".github/hooks/approved-gate.mjs",
     ".github/skills/customize/SKILL.md",
+    ".github/skills/garden-docs/SKILL.md",
     ".github/skills/sdlc-loop/SKILL.md",
     ".github/skills/track-select/SKILL.md",
     ".github/skills/tune-roles/SKILL.md",
@@ -3949,6 +4356,7 @@ prose.
     ".kiro/sdlc/role-policy.json",
     ".kiro/settings/mcp.json",
     ".kiro/skills/customize/SKILL.md",
+    ".kiro/skills/garden-docs/SKILL.md",
     ".kiro/skills/sdlc-loop/SKILL.md",
     ".kiro/skills/track-select/SKILL.md",
     ".kiro/skills/tune-roles/SKILL.md",

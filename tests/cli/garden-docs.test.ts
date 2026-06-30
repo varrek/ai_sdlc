@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -85,6 +85,29 @@ describe("garden-docs command", () => {
   it("rejects invalid option values", () => {
     expect(() => parseGardenDocsFormat("xml")).toThrow("--format");
     expect(() => parseGardenDocsFailOn("info")).toThrow("--fail-on");
+  });
+
+  it("applies safe fixes when --fix is set", () => {
+    const root = tmpRepo();
+    writeFileSync(join(root, "AGENTS.md"), "# Agent map\n", "utf8");
+    mkdirSync(join(root, "docs"), { recursive: true });
+    writeFileSync(join(root, "docs", "capability-matrix.md"), "# stale\n", "utf8");
+    mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
+    writeFileSync(
+      join(root, ".sdlc", "overlay", "project-context.json"),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src", role: "Source", sources: ["src"] }],
+        exclusions: [],
+      }),
+      "utf8",
+    );
+
+    const result = runGardenDocs({ repoRoot: root, fix: true });
+
+    expect(result.fixedPaths).toEqual(["docs/capability-matrix.md", "AGENTS.md"]);
+    expect(result.output).toContain("Applied 2 fix");
+    expect(readFileSync(join(root, "AGENTS.md"), "utf8")).toContain("## Codebase map");
   });
 });
 

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
@@ -16,9 +16,16 @@ import {
   type InstructionHierarchy,
   type InstructionScope,
   type ProjectContext,
+  renderCodebaseMap,
 } from "../core/project-context.js";
 import { redactUntrustedText } from "../eval/redact.js";
-import type { DocGardenFinding, DocGardenReport, DocGardenSeverity } from "./types.js";
+import type {
+  DocGardenFinding,
+  DocGardenFixResult,
+  DocGardenReport,
+  DocGardenSeverity,
+} from "./types.js";
+import { JUDGMENT_DOC_GARDEN_FINDING_IDS } from "./types.js";
 
 export interface AnalyzeDocGardenOptions {
   repoRoot: string;
@@ -82,10 +89,56 @@ export function analyzeDocGarden(options: AnalyzeDocGardenOptions): DocGardenRep
   };
 }
 
-export function renderDocGardenText(report: DocGardenReport): string {
-  const lines = [
+export function applyDocGardenFixes(options: AnalyzeDocGardenOptions): DocGardenFixResult {
+  const repoRoot = resolve(options.repoRoot);
+  const initial = analyzeDocGarden(options);
+  const applied: DocGardenFixResult["applied"] = [];
+  const fixedPaths: string[] = [];
+
+  if (initial.findings.some((finding) => finding.id === "stale-capability-matrix")) {
+    const matrixPath = join(repoRoot, "docs", "capability-matrix.md");
+    mkdirSync(dirname(matrixPath), { recursive: true });
+    writeFileSync(matrixPath, getExpectedCapabilityMatrix(), "utf8");
+    applied.push({ id: "stale-capability-matrix", path: "docs/capability-matrix.md" });
+    fixedPaths.push("docs/capability-matrix.md");
+  }
+
+  if (initial.findings.some((finding) => finding.id === "missing-codebase-map")) {
+    const context = loadProjectContext(resolveProjectContextPath(options));
+    const rootDoc = firstExistingRootDoc(repoRoot);
+    if (context && context.map.length > 0 && rootDoc) {
+      const absolute = join(repoRoot, rootDoc);
+      const section = renderCodebaseMap(context.map);
+      const current = readFileSync(absolute, "utf8");
+      writeFileSync(absolute, `${current.replace(/\s*$/, "")}\n\n${section}\n`, "utf8");
+      applied.push({ id: "missing-codebase-map", path: rootDoc });
+      fixedPaths.push(rootDoc);
+    }
+  }
+
+  return {
+    report: analyzeDocGarden(options),
+    applied,
+    fixedPaths,
+  };
+}
+
+export function judgmentFindings(report: DocGardenReport): DocGardenFinding[] {
+  const judgmentIds = new Set<string>(JUDGMENT_DOC_GARDEN_FINDING_IDS);
+  return report.findings.filter((finding) => judgmentIds.has(finding.id));
+}
+
+export function renderDocGardenText(
+  report: DocGardenReport,
+  fixResult?: Pick<DocGardenFixResult, "applied" | "fixedPaths">,
+): string {
+  const lines: string[] = [];
+  if (fixResult && fixResult.applied.length > 0) {
+    lines.push(`Applied ${fixResult.applied.length} fix(es): ${fixResult.fixedPaths.join(", ")}.`);
+  }
+  lines.push(
     `Doc gardening: ${report.summary.total} finding(s), ${report.summary.warnings} warning(s), ${report.summary.errors} error(s).`,
-  ];
+  );
   for (const finding of report.findings) {
     lines.push(
       `${finding.severity.toUpperCase()} ${finding.id} ${finding.path}: ${finding.message}`,
@@ -220,7 +273,8 @@ function findMissingCodebaseMap(
       path: firstRootDoc ?? "AGENTS.md",
       message:
         "project context has map entries, but the root instructions do not mention a codebase map",
-      suggestion: "Re-run compile or add a root pointer to the generated codebase map.",
+      suggestion:
+        "Re-run compile or add a root pointer to the generated codebase map, or run `aisdlc garden`.",
     },
   ];
 }
@@ -289,7 +343,7 @@ function findStaleCapabilityMatrix(repoRoot: string): DocGardenFinding[] {
       severity: "warning",
       path: "docs/capability-matrix.md",
       message: "capability matrix differs from adapter declarations",
-      suggestion: "Run `aisdlc gen-matrix` and review the generated diff.",
+      suggestion: "Run `aisdlc gen-matrix` or `aisdlc garden` and review the generated diff.",
     },
   ];
 }
@@ -421,6 +475,13 @@ function resolveInstructionHierarchyPath(options: AnalyzeDocGardenOptions): stri
   if (options.overlayDir) return join(resolve(options.overlayDir), INSTRUCTION_HIERARCHY_FILE);
   const configDir = resolve(options.configDir ?? options.repoRoot);
   return instructionHierarchyPathFor(join(configDir, ".sdlc", "overlay", ".customize.yaml"));
+}
+
+function firstExistingRootDoc(repoRoot: string): string | undefined {
+  for (const path of ROOT_DOCS) {
+    if (existsSync(join(repoRoot, path))) return path;
+  }
+  return undefined;
 }
 
 function hierarchyOnlyProjectContext(

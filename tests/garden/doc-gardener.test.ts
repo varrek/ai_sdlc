@@ -1,7 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { analyzeDocGarden, renderDocGardenText } from "../../src/garden/doc-gardener.js";
+import {
+  analyzeDocGarden,
+  applyDocGardenFixes,
+  renderDocGardenText,
+} from "../../src/garden/doc-gardener.js";
 
 const tmpDirs: string[] = [];
 
@@ -387,6 +391,33 @@ describe("doc gardener", () => {
 
     const report = analyzeDocGarden({ repoRoot: root });
     expect(report.findings.some((finding) => finding.id === "doc-scan-truncated")).toBe(true);
+  });
+
+  it("fixes stale capability matrix and missing codebase map pointers", () => {
+    const root = tmpRepo();
+    writeFileSync(join(root, "AGENTS.md"), "# Agent map\n", "utf8");
+    mkdirSync(join(root, "docs"), { recursive: true });
+    writeFileSync(join(root, "docs", "capability-matrix.md"), "# stale\n", "utf8");
+    mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
+    writeFileSync(
+      join(root, ".sdlc", "overlay", "project-context.json"),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src", role: "Source", sources: ["src"] }],
+        exclusions: [],
+      }),
+      "utf8",
+    );
+
+    const result = applyDocGardenFixes({ repoRoot: root });
+
+    expect(result.fixedPaths).toEqual(["docs/capability-matrix.md", "AGENTS.md"]);
+    expect(result.report.findings.some((finding) => finding.id === "stale-capability-matrix")).toBe(
+      false,
+    );
+    expect(result.report.findings.some((finding) => finding.id === "missing-codebase-map")).toBe(
+      false,
+    );
   });
 });
 
