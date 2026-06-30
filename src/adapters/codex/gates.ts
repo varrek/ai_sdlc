@@ -1,12 +1,13 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { approvedGateScript, emitLoopEventRecorder } from "../shared/approved-gate.js";
+import { mcpPolicyLoaderScript } from "../shared/mcp-policy-gate.js";
 import { buildRolePolicy, stableJson } from "../shared/roles.js";
 import { renderMcpSections } from "./mcp.js";
 import { joinTomlSections } from "./toml.js";
 
 const MCP_GATE_SCRIPT = `#!/usr/bin/env node
 // Codex PreToolUse MCP gate: deny MCP calls a role is not permitted to make.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 function readStdin() {
   try { return JSON.parse(readFileSync(0, "utf8")); } catch { return {}; }
@@ -22,10 +23,7 @@ const input = readStdin();
 const role = input.agent_type ?? process.env.SDLC_ACTIVE_ROLE ?? "";
 const server = serverFromToolName(input.tool_name);
 
-let policy = {};
-try { policy = JSON.parse(readFileSync(".codex/sdlc/role-policy.json", "utf8")); } catch {}
-
-const hasPolicy = Object.keys(policy).length > 0;
+${mcpPolicyLoaderScript(".codex/sdlc/role-policy.json")}
 if (server && hasPolicy) {
   const entry = policy[role];
   if (!entry || !entry.servers.includes(server)) {

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCustomize } from "../../src/cli/customize.js";
 import { readAcceptedLearnings } from "../../src/core/accepted-learnings.js";
-import { syncAcceptedLearningsFromCustomize } from "../../src/core/accepted-learnings-sync.js";
+import { syncAcceptedLearningsFromCustomize } from "../../src/customize/accepted-learnings-sync.js";
 import { buildStandardsIndex } from "../../src/customize/emitters.js";
 import { mineRepo } from "../../src/customize/repo-miner.js";
 import { Overlay } from "../../src/schema/index.js";

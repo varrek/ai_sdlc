@@ -1,13 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { MINER_IGNORE_DIR_SET } from "../core/miner-exclusions.js";
-
-/** Directories never mined — see `MINER_IGNORE_DIR_SET` in core/miner-exclusions. */
-const IGNORE_DIRS = MINER_IGNORE_DIR_SET;
-
-const WALK_DEPTH = 8;
+import { readEmittedPaths, walk } from "./miner-walk.js";
 
 /** Observable architecture: the source module map + entrypoints (never inferred layering). */
 export interface Architecture {
@@ -134,92 +129,6 @@ function isLowValueRoot(seg: string): boolean {
   return (
     LOW_VALUE_ROOTS.has(seg) || /^docs?[_-]/.test(seg) || /[_-](demo|example|fixture)s?$/.test(seg)
   );
-}
-
-function walk(root: string, excluded: ReadonlySet<string>): string[] {
-  const out: string[] = [];
-  const visit = (dir: string, depth: number): void => {
-    let entries: string[];
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      return;
-    }
-    for (const name of entries) {
-      if (IGNORE_DIRS.has(name)) continue;
-      const abs = join(dir, name);
-      let st;
-      try {
-        st = statSync(abs);
-      } catch {
-        continue;
-      }
-      if (st.isDirectory()) {
-        if (depth < WALK_DEPTH) visit(abs, depth + 1);
-      } else {
-        const rel = relative(root, abs);
-        // Never mine our own generated config: otherwise a re-run after compile
-        // would scan the emitted `.claude/`, `.cursor/`, `AGENTS.md`, etc. as if
-        // they were repo source — corrupting language/track detection and
-        // breaking the mined-phase fingerprint (and thus freshness/idempotency).
-        // The static `isGeneratedArtifact` check covers files the compiler may
-        // overwrite in place (a pre-existing `AGENTS.md`), which `excluded`
-        // (the emitted manifest) cannot make symmetric across the first compile.
-        if (excluded.has(rel) || isGeneratedArtifact(rel)) continue;
-        out.push(rel);
-      }
-    }
-  };
-  visit(root, 0);
-  return out.sort();
-}
-
-/**
- * Files the compiler emits into the repo's own namespace (the constitution, host
- * instruction files, generated agents/skills/hooks, the SDLC gate workflow).
- * Unlike the rest of `.github/`, these collide with paths a user may already
- * own — compile overwrites a pre-existing `AGENTS.md` in place — so the
- * `emitted.json` manifest alone can't keep mining stable: the first compile
- * would turn a counted source file into an excluded one, shifting the mined
- * fingerprint. Excluding the whole generated namespace unconditionally makes a
- * re-mine after an in-repo compile a true no-op. Real user workflows under
- * `.github/workflows/` (minus our own gate) are deliberately still mined.
- */
-function isGeneratedArtifact(rel: string): boolean {
-  const base = rel.slice(rel.lastIndexOf("/") + 1);
-  if (base === "AGENTS.md" || base === "CLAUDE.md") return true;
-  if (rel === ".mcp.json" || rel === ".vscode/mcp.json" || rel === "portability.gap.yml")
-    return true;
-  if (rel === ".github/copilot-instructions.md") return true;
-  if (rel === ".github/workflows/sdlc-gate.yml") return true;
-  return (
-    rel.startsWith(".cursor/rules/") ||
-    rel.startsWith(".github/agents/") ||
-    rel.startsWith(".github/skills/") ||
-    rel.startsWith(".github/hooks/") ||
-    rel.startsWith(".github/instructions/") ||
-    rel.startsWith(".kiro/")
-  );
-}
-
-/**
- * Paths the compiler emitted on a prior run, read from the `.sdlc/emitted.json`
- * manifest. Empty before the first compile. These are excluded from mining so
- * generated config never feeds back into the repo profile, while user-authored
- * files in the same standard dirs (e.g. real `.github/workflows/*`) are kept.
- */
-function readEmittedPaths(root: string): Set<string> {
-  try {
-    const parsed = JSON.parse(readFileSync(join(root, ".sdlc", "emitted.json"), "utf8")) as {
-      files?: unknown;
-    };
-    if (Array.isArray(parsed.files)) {
-      return new Set(parsed.files.filter((p): p is string => typeof p === "string"));
-    }
-  } catch {
-    /* no manifest yet (pre-first-compile) — nothing to exclude */
-  }
-  return new Set();
 }
 
 function read(root: string, rel: string): string {

@@ -17,6 +17,29 @@ node dist/cli/index.js bench --seed 42 --count 10 --dry-run
 
 Reports are written under `.verify/reports/<run-id>/eval-report.json`. Clones are cached under `.verify/repos/`.
 
+See [`eval-frameworks.md`](./eval-frameworks.md) for how loop behavior eval, behavior eval v2, golden compile snapshots, and external bench relate to each other.
+
+## Advanced controls
+
+### Checkpoint resume
+
+Bench runs write a checkpoint under the report directory. Re-run with the same
+`--report-dir` and `--seed` to resume an interrupted evaluation instead of
+starting from scratch.
+
+### Fail-on class
+
+Use `--fail-on-class <class,class>` to make bench exit non-zero when any result
+matches a failure class (for example `emitter-bug` or `monorepo-miner-limitation`).
+This is useful in CI wrappers that gate on specific regression categories rather
+than any bench failure.
+
+### External corpus environment gate
+
+The pinned external corpus is opt-in. Set `AISDLC_EXTERNAL_CORPUS=1` (or run via
+the documented npm script) before invoking bench when network access and git clone
+are allowed. Default offline tests use checked-in fixtures only.
+
 ## Fix Loop
 
 1. Run `aisdlc bench` and inspect the JSON report.

@@ -110,11 +110,13 @@ export interface StatusOptions {
   packDirs?: string[];
   outDir?: string;
   hosts?: HostId[];
+  /** When true, re-mine the repo instead of using the persisted mined snapshot. */
+  refresh?: boolean;
 }
 
 /** Read-only: derive the four strategy metrics for the current repo. Never writes. */
 export function buildStatus(options: StatusOptions): StatusReport {
-  const inspection = inspectRepo(options);
+  const inspection = inspectRepo({ ...options, refresh: options.refresh });
   const overlayDir = options.overlayDir ?? join(options.repoRoot, ".sdlc", "overlay");
   const sdlcDir = options.sdlcDir ?? dirname(overlayDir);
   const overlayPath = join(overlayDir, ".customize.yaml");

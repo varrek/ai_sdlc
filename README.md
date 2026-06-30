@@ -119,6 +119,9 @@ hood.
 | `aisdlc customize` | Mine the current repo, build the standards index, and write the project overlay. |
 | `aisdlc compile` | Compile the host-neutral base (+ overlay) to host-native config. |
 | `aisdlc smoke` | Run the smoke validation gate and report setup-readiness. |
+| `aisdlc status` | Read-only setup report (uses cached mined snapshot unless `--refresh`). |
+| `aisdlc explain` | Explain a numbered standard or claim key with evidence pointers. |
+| `aisdlc record-event` | Append a validated loop trace event (used by emitted gate hooks). |
 | `aisdlc upgrade` | Re-pin the base and replay compile, flagging overlay conflicts. |
 | `aisdlc gen-matrix` | Regenerate `docs/capability-matrix.md` from adapter capabilities. |
 | `aisdlc bench` | Run a reproducible external-repo setup evaluation from the pinned catalog. |
@@ -137,6 +140,9 @@ Common flags:
   `--hosts cursor,claude-code,copilot,codex,kiro`, `--force`
 - `smoke`: `--repo <dir>`, `--config <dir>`, `--packs <dir,dir>`,
   `--overlay <file>`, `--compile`
+- `status`: `--repo <dir>`, `--overlay-dir <dir>`, `--sdlc-dir <dir>`,
+  `--base <dir>`, `--packs <dir,dir>`, `--out <dir>`, `--hosts <host,host>`,
+  `--refresh` (re-mine instead of using `.sdlc/overlay/.mined-snapshot.json`)
 - `bench`: `--seed <n>`, `--count <n>`, `--catalog <file>`,
   `--cache-dir <dir>`, `--report-dir <dir>`, `--base <dir>`,
   `--mode deterministic|plugin`, `--dry-run`, `--skip-clone`, `--force`,
