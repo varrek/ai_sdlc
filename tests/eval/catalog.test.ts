@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_CATALOG } from "../../src/cli/bench.js";
 import {
   parseExternalRepoCatalog,
   readExternalRepoCatalog,
   repoId,
   selectExternalRepos,
 } from "../../src/eval/catalog.js";
-import { DEFAULT_CATALOG } from "../../src/cli/bench.js";
 
 const catalog = parseExternalRepoCatalog({
   catalogRevision: "test",
