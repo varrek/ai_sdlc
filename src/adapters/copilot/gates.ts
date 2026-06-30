@@ -1,4 +1,5 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
+import { approvedGateScript, emitLoopEventRecorder } from "../shared/approved-gate.js";
 import { stableJson } from "../shared/roles.js";
 
 /**
@@ -8,70 +9,17 @@ import { stableJson } from "../shared/roles.js";
  */
 const CLOUD_HOOK = {
   version: 1,
-  event: "preToolUse",
-  description: "Block mutating tools until the change is Approved? (SDLC_APPROVED=1).",
-  command: "node ./.github/hooks/approved-gate.mjs",
+  hooks: {
+    preToolUse: [
+      {
+        type: "command",
+        matcher: "bash|edit|create|delete|mcp.*",
+        bash: "node ./.github/hooks/approved-gate.mjs",
+        command: "node ./.github/hooks/approved-gate.mjs",
+      },
+    ],
+  },
 };
-
-const APPROVED_GATE_SCRIPT = `#!/usr/bin/env node
-// Copilot CLI/cloud Approved? gate (no IDE equivalent — see CI backstop).
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-
-const approved = process.env.SDLC_APPROVED === "1";
-
-function findSdlcDir() {
-  let dir = process.cwd();
-  while (true) {
-    const candidate = join(dir, ".sdlc");
-    if (existsSync(candidate)) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) return join(process.cwd(), ".sdlc");
-    dir = parent;
-  }
-}
-
-function gateStage() {
-  const stage = process.env.SDLC_GATE_STAGE || process.env.SDLC_STAGE;
-  return ["architect", "engineer", "test", "reviewer", "wrap-up"].includes(stage) ? stage : undefined;
-}
-
-if (!approved) {
-  console.error("SDLC gate: changes are not Approved? yet.");
-  process.exit(2);
-}
-
-// Record the approval event to loop trace history.
-const taskId = process.env.SDLC_TASK_ID || "unknown";
-const scope = process.env.SDLC_SCOPE || "workspace";
-const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
-const sdlcDir = process.env.SDLC_DIR || findSdlcDir();
-const stage = gateStage();
-const checkpoint = process.env.SDLC_CHECKPOINT;
-const label = checkpoint || stage || scope;
-
-const event = JSON.stringify({
-  type: "approval_gate",
-  taskId,
-  verdict: "approved",
-  role,
-  stage,
-  checkpoint,
-  reason: \`Human approved via SDLC_APPROVED=1 (\${label})\`,
-  evidence: [scope, label].filter(Boolean),
-});
-
-try {
-  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
-} catch (err) {
-  // Best-effort: log recording failures but don't block the gate.
-  const message = err instanceof Error ? err.message : String(err);
-  console.warn("Warning: failed to record approval event:", message);
-}
-
-process.exit(0);
-`;
 
 const CI_WORKFLOW_HEADER = `name: SDLC Gate
 # CI backstop for the Approved? + review + tests-pass gates on Copilot IDE,
@@ -147,7 +95,8 @@ export function emitGates(model: NeutralModel): EmittedFile[] {
   const gateMode = model.manifest.options?.copilot?.gateMode ?? "ci";
   const files: EmittedFile[] = [
     { path: ".github/hooks/approved-gate.json", contents: stableJson(CLOUD_HOOK) },
-    { path: ".github/hooks/approved-gate.mjs", contents: APPROVED_GATE_SCRIPT },
+    { path: ".github/hooks/approved-gate.mjs", contents: approvedGateScript("Copilot CLI/cloud") },
+    emitLoopEventRecorder(),
   ];
   // The cloud-agent hook above always applies; the CI backstop is only emitted
   // when gateMode is "ci". Under "instructions" the gate relies solely on the

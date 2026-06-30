@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
 import { appendLoopEvent, readLoopEvents } from "../core/memory.js";
+import { resolveDefaultBaseDir } from "../core/package-root.js";
 import { buildStandardsIndex, evidenceCoverage } from "../customize/emitters.js";
 import type { LoopTraceEvent } from "../eval/loop-trace.js";
 import {
@@ -23,6 +24,7 @@ import { runCompileCli } from "./compile.js";
 import { loadAnswersFile, runCustomize } from "./customize.js";
 import { EXPLAIN_CLAIM_KEYS, explainClaim, explainStandard, isExplainClaimKey } from "./explain.js";
 import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "./garden-docs.js";
+import { runSetupCli } from "./setup.js";
 import { runSmokeCli } from "./smoke.js";
 import { buildStatus, formatStatus } from "./status.js";
 import { runUpgrade } from "./upgrade.js";
@@ -31,8 +33,10 @@ const HELP = `aisdlc — internal AI SDLC framework compiler
 
 Usage:
   aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot,codex]
+  aisdlc setup --repo <dir> [--hosts cursor,claude-code,copilot,codex]
 
 Commands:
+  setup       Run customize -> compile -> smoke for a target repo (alias: init).
   compile     Compile the host-neutral base (+ overlay) to host-native config.
   gen-matrix  Regenerate docs/capability-matrix.md from adapter capabilities.
   customize   Adapt the base to the current repository (Plugin Mode by default; use --mode deterministic to opt out).
@@ -114,9 +118,18 @@ function parseList(value: string | undefined): string[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+function resolveBaseOption(value: string | undefined): string {
+  if (value) return value;
+  try {
+    return resolveDefaultBaseDir();
+  } catch (error) {
+    fail((error as Error).message);
+  }
+}
+
 function cmdCompile(rest: string[]): void {
   const { options, flags } = parseArgs(rest);
-  const baseDir = options.get("base") ?? "sdlc-base";
+  const baseDir = resolveBaseOption(options.get("base"));
   const outDir = options.get("out");
   if (!outDir) fail("compile: --out <dir> is required");
 
@@ -239,7 +252,7 @@ function cmdCustomize(rest: string[]): void {
 function cmdSmoke(rest: string[]): void {
   const { options, flags } = parseArgs(rest);
   const { result, setupReady, blockingGapCount, deferredIntegrations } = runSmokeCli({
-    baseDir: options.get("base") ?? "sdlc-base",
+    baseDir: resolveBaseOption(options.get("base")),
     packDirs: parseList(options.get("packs")),
     overlayPath: resolveOverlay(options.get("overlay")),
     configDir: options.get("config") ?? options.get("out") ?? ".",
@@ -354,13 +367,37 @@ function cmdBench(rest: string[]): void {
     catalogPath: options.get("catalog") ?? DEFAULT_CATALOG,
     cacheDir: options.get("cache-dir") ?? DEFAULT_CACHE_DIR,
     reportDir: options.get("report-dir") ?? DEFAULT_REPORT_DIR,
-    baseDir: options.get("base") ?? "sdlc-base",
+    baseDir: resolveBaseOption(options.get("base")),
     mode,
     skipClone: flags.has("skip-clone"),
     dryRun: flags.has("dry-run"),
     force: flags.has("force"),
     repoTimeoutMs,
     failOnClasses,
+  });
+  process.stdout.write(`${result.output}\n`);
+  process.exit(result.exitCode);
+}
+
+function cmdSetup(rest: string[]): void {
+  const { options, flags } = parseArgs(rest);
+  let operatingMode: OperatingModeValue | undefined;
+  try {
+    const rawMode = options.get("mode");
+    operatingMode = rawMode ? OperatingMode.parse(rawMode) : undefined;
+  } catch (error) {
+    fail(`setup: invalid --mode (${(error as Error).message})`);
+  }
+
+  const hostsRaw = options.get("hosts");
+  const hosts = hostsRaw ? hostsRaw.split(",").map((h) => HostId.parse(h.trim())) : undefined;
+  const result = runSetupCli({
+    repoRoot: options.get("repo") ?? process.cwd(),
+    baseDir: resolveBaseOption(options.get("base")),
+    packDirs: parseList(options.get("packs")),
+    hosts,
+    operatingMode,
+    force: flags.has("force"),
   });
   process.stdout.write(`${result.output}\n`);
   process.exit(result.exitCode);
@@ -456,6 +493,10 @@ function cmdRecordEvent(rest: string[]): void {
 function main(): void {
   const [command, ...rest] = process.argv.slice(2);
   switch (command) {
+    case "setup":
+    case "init":
+      cmdSetup(rest);
+      return;
     case "compile":
       cmdCompile(rest);
       return;

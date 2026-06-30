@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import type { HostId } from "../schema/index.js";
 import type { AdapterRegistry } from "./adapter-registry.js";
 import { serializeGapReport } from "./gap-report.js";
+import { HOST_SETUP_GUIDE_PATH, renderHostSetupGuide } from "./host-setup-guidance.js";
 import type { EmittedFile, Gap, NeutralModel } from "./types.js";
 
 const GAP_REPORT_PATH = "portability.gap.yml";
@@ -53,6 +54,7 @@ export function compile(
     gaps.push(...result.gaps);
   }
 
+  files.push({ path: HOST_SETUP_GUIDE_PATH, contents: renderHostSetupGuide(hosts, files, gaps) });
   files.push({ path: GAP_REPORT_PATH, contents: serializeGapReport(gaps) });
 
   const sortedFiles = sortFiles(dedupeFiles(files));

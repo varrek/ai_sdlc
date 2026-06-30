@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { runCompileCli } from "../../src/cli/compile.js";
 import { runCustomize } from "../../src/cli/customize.js";
+import { runSetupCli } from "../../src/cli/setup.js";
 import { runSmokeCli } from "../../src/cli/smoke.js";
 import { PHASE_ORDER } from "../../src/customize/setup-state.js";
 
@@ -37,6 +38,27 @@ function readPhases(sdlcDir: string): Record<string, { fingerprint: string }> {
 }
 
 describe("setup chain idempotency", () => {
+  it("runs the native setup wrapper and emits host activation guidance", () => {
+    const { root, sdlcDir } = project();
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ scripts: { test: "node --version" }, devDependencies: { vitest: "1.0.0" } }),
+      "utf8",
+    );
+
+    const result = runSetupCli({
+      repoRoot: root,
+      baseDir,
+      hosts: ["cursor", "claude-code"],
+      force: true,
+    });
+
+    expect(result.smoke.setupReady).toBe(true);
+    expect(result.output).toContain("Setup-ready");
+    expect(existsSync(join(root, ".sdlc", "host-setup.md"))).toBe(true);
+    expect(existsSync(join(sdlcDir, "setup-state.yaml"))).toBe(true);
+  });
+
   it("records all four phases and re-running the chain is a full no-op", () => {
     const { root, sdlcDir, overlayDir, overlayPath } = project();
 

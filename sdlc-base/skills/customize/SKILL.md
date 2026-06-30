@@ -9,7 +9,8 @@ disableModelInvocation: false
 Drive the full first-run chain for *this* repository: **mine → personalize (Plugin
 Mode) → compile → smoke**. Repo-mine first; interview only for what mining cannot
 answer; emit schema-valid, evidence-backed artifacts; then compile and gate on a
-passing smoke run.
+passing smoke run. When a CLI entrypoint is easier, `aisdlc setup --repo .`
+runs this same chain; the subcommands below remain the resumable phases.
 
 The chain is **resumable**. Each command records a fingerprinted phase in
 `.sdlc/setup-state.yaml` and short-circuits when its inputs are unchanged, so
@@ -65,6 +66,12 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run `/customize` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+6. **Read host activation guidance.** After compile, `.sdlc/host-setup.md`
+   lists every enabled host, the files it should load, activation/trust notes,
+   and honest degradation such as Copilot's IDE gate fallback. This guide is
+   generated for agents and humans; it does not prove a live IDE loaded the
+   files.
 
 ## Guarantees
 

@@ -266,6 +266,7 @@ export function formatStatus(report: StatusReport): string {
   lines.push("Setup: initialized");
   lines.push(`Operating mode: ${report.operatingMode}`);
   lines.push(`Setup-ready: ${report.setupReady ? "yes" : "no"}`);
+  if (report.setupReady) lines.push("Host activation guide: .sdlc/host-setup.md");
   lines.push(
     `Alignment-ready: ${report.alignmentReady ? "yes" : report.validButNeedsAttention ? "needs attention" : "no"}`,
   );

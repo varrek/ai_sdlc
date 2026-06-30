@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -49,6 +49,10 @@ describe("gate emit", () => {
     expect(gateGap?.host).toBe("copilot");
     const mcpGap = result.gaps.find((g) => g.capability === "per-role-mcp-hook");
     expect(mcpGap?.host).toBe("copilot");
+    const hook = JSON.parse(files.get(".github/hooks/approved-gate.json")!) as {
+      hooks: { preToolUse?: { command?: string; bash?: string }[] };
+    };
+    expect(hook.hooks.preToolUse?.[0]?.bash).toContain("approved-gate.mjs");
   });
 
   it("copilot CI runs the mined test command (not a placeholder echo)", () => {
@@ -113,6 +117,95 @@ describe("gate emit", () => {
     expect(files.has(".github/copilot-instructions.md")).toBe(true);
     expect(files.has(".github/hooks/approved-gate.mjs")).toBe(true);
   });
+});
+
+describe("approved gate runtime", () => {
+  let dir: string;
+  afterEach(() => dir && rmSync(dir, { recursive: true, force: true }));
+
+  const hostScripts = [
+    ["claude", new ClaudeCodeAdapter(), ".claude/hooks/approved-gate.mjs"],
+    ["cursor", new CursorAdapter(), ".cursor/hooks/approved-gate.mjs"],
+    ["copilot", new CopilotAdapter(), ".github/hooks/approved-gate.mjs"],
+    ["codex", new CodexAdapter(), ".codex/hooks/approved-gate.mjs"],
+  ] as const;
+
+  function install(files: Map<string, string>, scriptRel: string): string {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-approvedgate-"));
+    for (const rel of [scriptRel, ".sdlc/hooks/record-loop-event.mjs"]) {
+      mkdirSync(join(dir, rel, ".."), { recursive: true });
+      writeFileSync(join(dir, rel), files.get(rel)!);
+    }
+    return join(dir, scriptRel);
+  }
+
+  function installGateOnly(files: Map<string, string>, scriptRel: string): string {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-approvedgate-"));
+    mkdirSync(join(dir, scriptRel, ".."), { recursive: true });
+    writeFileSync(join(dir, scriptRel), files.get(scriptRel)!);
+    return join(dir, scriptRel);
+  }
+
+  for (const [host, adapter, scriptRel] of hostScripts) {
+    it(`${host} blocks when approval is missing`, () => {
+      const files = byPath(adapter.emit(model).files);
+      expect(files.get(scriptRel)).not.toContain("npx");
+      const script = install(files, scriptRel);
+      expect(runApprovedGate(script, {})).toBe(2);
+      expect(existsSync(join(dir, ".sdlc", "loop_history", "events.jsonl"))).toBe(false);
+    });
+
+    it(`${host} records approval locally`, () => {
+      const files = byPath(adapter.emit(model).files);
+      const script = install(files, scriptRel);
+      const env = {
+        SDLC_APPROVED: "1",
+        SDLC_TASK_ID: "T-123",
+        SDLC_ACTIVE_ROLE: "engineer",
+        SDLC_CHECKPOINT: "review",
+      };
+      expect(runApprovedGate(script, env)).toBe(0);
+      const events = readFileSync(join(dir, ".sdlc", "loop_history", "events.jsonl"), "utf8");
+      expect(events).toContain('"type":"approval_gate"');
+      expect(events).toContain('"taskId":"T-123"');
+    });
+  }
+
+  it("dedupes repeated approvals for the same checkpoint", () => {
+    const files = byPath(new CursorAdapter().emit(model).files);
+    const script = install(files, ".cursor/hooks/approved-gate.mjs");
+    const env = {
+      SDLC_APPROVED: "1",
+      SDLC_TASK_ID: "T-123",
+      SDLC_ACTIVE_ROLE: "engineer",
+      SDLC_CHECKPOINT: "before-reviewer",
+    };
+
+    expect(runApprovedGate(script, env)).toBe(0);
+    expect(runApprovedGate(script, env)).toBe(0);
+
+    const events = readFileSync(join(dir, ".sdlc", "loop_history", "events.jsonl"), "utf8")
+      .split("\n")
+      .filter(Boolean);
+    expect(events).toHaveLength(1);
+  });
+
+  it("allows approved actions when local recording fails", () => {
+    const files = byPath(new CursorAdapter().emit(model).files);
+    const script = installGateOnly(files, ".cursor/hooks/approved-gate.mjs");
+
+    expect(runApprovedGate(script, { SDLC_APPROVED: "1", SDLC_TASK_ID: "T-123" })).toBe(0);
+    expect(existsSync(join(dir, ".sdlc", "loop_history", "events.jsonl"))).toBe(false);
+  });
+
+  function runApprovedGate(script: string, env: Record<string, string>): number {
+    try {
+      execFileSync("node", [script], { cwd: dir, env: { ...process.env, ...env } });
+      return 0;
+    } catch (e) {
+      return (e as { status?: number }).status ?? 1;
+    }
+  }
 });
 
 /**
