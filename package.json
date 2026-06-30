@@ -37,6 +37,7 @@
     "test:watch": "vitest",
     "bench": "node dist/cli/index.js bench --seed 42 --count 10",
     "garden": "npm run build && node dist/cli/index.js garden --repo .",
+    "maintain": "npm run build && node dist/cli/index.js maintain --repo .",
     "verify:pack": "node scripts/verify-pack.mjs"
   },
   "dependencies": {

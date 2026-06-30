@@ -2,6 +2,139 @@
 
 exports[`golden compile output > emits a stable tree across all default hosts 1`] = `
 {
+  ".agents/skills/architecture-grounding/SKILL.md": "---
+name: architecture-grounding
+description: Improve architecture grounding when confidence is low or
+  Architect/Reviewer/Debugger roles remain generic — maps, ADRs, and bounded
+  addenda.
+---
+
+# /architecture-grounding
+
+Use when \`aisdlc status\` or maintain reports low architecture confidence or
+generic role grounding for Architect, Reviewer, or Debugger.
+
+## Invariants
+
+- **Do not fake high confidence.** Prefer advisory low-confidence notes with
+  reasons over inventing a codebase map.
+- **Maps and ADRs.** Point agents at real \`docs/\`, ADRs, or mined map entries.
+- **Plugin Mode.** Use \`tune-roles\` for bounded \`roleAddenda\` when evidence
+  supports stack-specific guidance.
+- **Verify.** Re-run \`aisdlc maintain\` until \`architecture-grounding\` clears.
+
+## Flow
+
+1. Read \`aisdlc status\` architecture reasons and role states.
+2. Improve navigation docs or overlay map pointers; draft role addenda from evidence.
+3. Compile, smoke, maintain.
+",
+  ".agents/skills/bench-triage/SKILL.md": "---
+name: bench-triage
+description: Triage failures from aisdlc bench external-repo evaluation reports
+  when maintain was run with --bench.
+---
+
+# /bench-triage
+
+For maintainers running \`aisdlc maintain --bench\`. The CLI runs a pinned external
+corpus eval; this skill interprets failures without weakening gates.
+
+## Invariants
+
+- **Read the report.** Start from the bench report path in
+  \`.sdlc/maintenance-report.json\` (under \`.verify/reports/\`).
+- **Product vs corpus.** Distinguish miner regressions, catalog pin issues, and
+  intentional capability gaps.
+- **Fix in repo code/tests**, not by skipping corpus checks.
+
+## Flow
+
+1. Open the bench JSON/markdown report listed in the maintenance handoff.
+2. Identify failing repos and failure class (setup, smoke, agent quality).
+3. Patch ai-sdlc miner/adapters/tests as needed; re-run \`aisdlc maintain --bench\`.
+",
+  ".agents/skills/bind-integrations/SKILL.md": "---
+name: bind-integrations
+description: Bind deferred GitLab/Jira integration contracts in the overlay when
+  wrap-up or Full-track work needs MCP servers.
+---
+
+# /bind-integrations
+
+Integrations are **deferred at setup** so repos reach setup-ready without
+hand-editing MCP. Bind them just-in-time before \`wrap-up\`.
+
+## Invariants
+
+- **Least privilege.** Each binding lists \`serverId\`, optional \`server\` spec, and
+  \`allowedRoles\` — only roles that need the integration.
+- **No placeholders.** Use real server ids or leave deferred; never fake bindings.
+- **Verify.** Re-run \`aisdlc compile\` and confirm \`bind-integrations\` clears from
+  \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and integration contracts under
+   \`sdlc-base/integrations/\`.
+2. Propose \`integrations.gitlab\` / \`integrations.jira\` entries in
+   \`.sdlc/overlay/.customize.yaml\`.
+3. Present diff for approval; compile; re-run \`aisdlc maintain\`.
+",
+  ".agents/skills/close-gaps/SKILL.md": "---
+name: close-gaps
+description: Close blocking setup gaps the miner could not resolve — find the
+  real test command and record it in the overlay, then re-run maintain.
+---
+
+# /close-gaps
+
+Close **blocking** setup gaps so the repo can reach setup-ready. Today the main
+gap is a runnable **test command** when mining and CI could not infer one.
+
+## Invariants
+
+- **Evidence first.** Every answer must cite repo paths (CI workflow, Makefile,
+  \`package.json\` scripts, README, monorepo package roots).
+- **Overlay only.** Write answers to \`.sdlc/overlay/.customize.yaml\` under
+  \`interviewAnswers\` and set \`gapClosureProvenance\` appropriately (\`manual\` or
+  \`ci\` when justified).
+- **Verify.** Re-run \`aisdlc maintain --repo .\` (or \`customize\` → \`compile\` →
+  \`smoke\`) until \`close-gaps\` no longer appears in \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for the \`close-gaps\` handoff.
+2. Search CI configs, Makefiles, package manifests, and docs for the canonical
+   test invocation.
+3. Update the overlay; present the diff for human review.
+4. Re-run \`aisdlc maintain\`.
+",
+  ".agents/skills/compound-learnings/SKILL.md": "---
+name: compound-learnings
+description: Review accepted learnings and gate outcomes promoted from customize
+  drift — keep durable repo facts in the learnings ledger.
+---
+
+# /compound-learnings
+
+Customize syncs some facts into \`.sdlc/accepted-learnings.json\` (test commands,
+architecture demotions, new standards). Review before they become long-lived
+agent guidance.
+
+## Invariants
+
+- **Ledger is durable.** Edits go to accepted learnings or overlay — not hidden
+  compile output.
+- **Evidence-backed.** Each learning must keep \`sources\` and \`provenance\`.
+- **Verify.** Re-run \`aisdlc status\` and \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/accepted-learnings.json\` after a customize drift event.
+2. Drop noisy entries; keep high-signal claims agents should prefer over inference.
+3. Re-run \`aisdlc maintain\`.
+",
   ".agents/skills/customize/SKILL.md": "---
 name: customize
 description: Adapt the AI SDLC base to the current repository as a resumable
@@ -72,6 +205,11 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+   For ongoing maintenance after setup, prefer \`aisdlc maintain --repo .\` — it
+   runs customize → compile → smoke → garden and writes
+   \`.sdlc/maintenance-report.json\` with host skill handoffs (\`close-gaps\`,
+   \`setup-triage\`, \`garden-docs\`, etc.).
 
 6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
    lists every enabled host, the files it should load, activation/trust notes,
@@ -159,6 +297,88 @@ lists them after a fresh run.
 - CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
 - This skill does not open PRs or call external LLM APIs — it uses the host
   model already available in Plugin Mode.
+",
+  ".agents/skills/pack-workflows/SKILL.md": "---
+name: pack-workflows
+description: Apply optional reference-pack workflow skills when packs are
+  enabled — use pack-local SKILL.md files for stack-specific ceremony.
+---
+
+# /pack-workflows
+
+When compile enables reference packs (\`--packs\`), additional skills ship under
+each pack (for example \`packs/data-ml/skills/…\`). This skill routes you to the
+right pack workflow without bloating the portable base.
+
+## Invariants
+
+- **Pack skills are optional.** Base skills (\`customize\`, \`sdlc-loop\`) stay
+  host-neutral.
+- **Read \`docs/packs.md\`.** Match detected stack signals to attached packs.
+- **Verify.** Pack usage should appear in compiled \`.cursor/skills/\` (or host
+  equivalent) after compile.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for enabled pack paths.
+2. Open the pack's \`skills/*/SKILL.md\` relevant to the task (security, mobile,
+   data-ml, etc.).
+3. Follow the pack skill, then re-run \`aisdlc maintain\` if setup changed.
+",
+  ".agents/skills/resolve-upgrade/SKILL.md": "---
+name: resolve-upgrade
+description: Resolve overlay conflicts after a blocked aisdlc upgrade using
+  upgrade-conflicts.yml, then retry upgrade.
+---
+
+# /resolve-upgrade
+
+When \`aisdlc upgrade\` blocks, it writes \`.sdlc/upgrade-conflicts.yml\` and leaves
+the overlay byte-identical. You reconcile base changes with project-owned edges.
+
+## Invariants
+
+- **Read the report.** Start from \`.sdlc/upgrade-conflicts.yml\` — do not guess
+  collisions.
+- **Preserve intent.** Keep team choices for standards, integrations, track, and
+  role models unless the new base requires a deliberate migration.
+- **Verify.** After editing the overlay, run \`aisdlc upgrade\` again, then
+  \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`upgrade-conflicts.yml\`.
+2. For each conflict, choose overlay vs new-base value with a one-line rationale.
+3. Present the overlay diff for approval; retry upgrade.
+4. Re-run \`aisdlc maintain\` to refresh the maintenance report.
+",
+  ".agents/skills/review-standards-drift/SKILL.md": "---
+name: review-standards-drift
+description: Review standards-index drift after customize re-runs — accept,
+  adjust overlay standards, or document intentional changes.
+---
+
+# /review-standards-drift
+
+When mining changes, \`customize\` diffs the standards index and records drift
+(added/removed/changed metadata). This skill makes that delta a human decision.
+
+## Invariants
+
+- **Drift is reviewable by design.** Do not silently ignore added/removed
+  standards.
+- **Overlay edits only.** Adjust \`.sdlc/overlay/.customize.yaml\` standards or
+  interview answers — not the base constitution.
+- **Verify.** Re-run \`aisdlc customize\` or \`aisdlc maintain\` and confirm drift
+  is resolved or accepted.
+
+## Flow
+
+1. Re-run \`aisdlc customize --repo .\` and read the drift summary in CLI output.
+2. Compare \`.sdlc/overlay/standards-index.yaml\` to prior git revision if needed.
+3. Accept the delta, trim incorrect standards, or add overlay standards that
+   encode team policy.
+4. Re-run \`aisdlc maintain\`.
 ",
   ".agents/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -254,6 +474,34 @@ checkpoint ids when they represent distinct decisions.
 - **Copilot:** sequential handoffs (\`.github/agents/handoffs.json\`); the gate
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
+",
+  ".agents/skills/setup-triage/SKILL.md": "---
+name: setup-triage
+description: Diagnose and fix setup-ready failures after maintain's
+  compile/smoke chain — missing artifacts, gate failures, or stale phases.
+---
+
+# /setup-triage
+
+Use when \`aisdlc maintain\` reports the repo is **not setup-ready** after the
+deterministic customize → compile → smoke chain.
+
+## Invariants
+
+- **Status first.** Run \`aisdlc status --repo .\` and read smoke log paths from
+  maintain output.
+- **Fix root cause.** Repair overlay, re-compile, or restore emitted artifacts —
+  do not weaken gates in prose.
+- **Verify.** Re-run \`aisdlc maintain\` until setup-ready or a different skill
+  handoff replaces this one.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`aisdlc status\` output.
+2. If compile artifacts are missing → \`aisdlc compile --overlay … --out .\`.
+3. If smoke checks fail → read \`.sdlc/smoke/\` logs; fix overlay/schema issues.
+4. If blocking gaps remain → invoke \`close-gaps\` instead of guessing here.
+5. Re-run \`aisdlc maintain\`.
 ",
   ".agents/skills/track-select/SKILL.md": "---
 name: track-select
@@ -700,6 +948,139 @@ process.exit(0);
   }
 }
 ",
+  ".claude/skills/architecture-grounding/SKILL.md": "---
+name: architecture-grounding
+description: Improve architecture grounding when confidence is low or
+  Architect/Reviewer/Debugger roles remain generic — maps, ADRs, and bounded
+  addenda.
+---
+
+# /architecture-grounding
+
+Use when \`aisdlc status\` or maintain reports low architecture confidence or
+generic role grounding for Architect, Reviewer, or Debugger.
+
+## Invariants
+
+- **Do not fake high confidence.** Prefer advisory low-confidence notes with
+  reasons over inventing a codebase map.
+- **Maps and ADRs.** Point agents at real \`docs/\`, ADRs, or mined map entries.
+- **Plugin Mode.** Use \`tune-roles\` for bounded \`roleAddenda\` when evidence
+  supports stack-specific guidance.
+- **Verify.** Re-run \`aisdlc maintain\` until \`architecture-grounding\` clears.
+
+## Flow
+
+1. Read \`aisdlc status\` architecture reasons and role states.
+2. Improve navigation docs or overlay map pointers; draft role addenda from evidence.
+3. Compile, smoke, maintain.
+",
+  ".claude/skills/bench-triage/SKILL.md": "---
+name: bench-triage
+description: Triage failures from aisdlc bench external-repo evaluation reports
+  when maintain was run with --bench.
+---
+
+# /bench-triage
+
+For maintainers running \`aisdlc maintain --bench\`. The CLI runs a pinned external
+corpus eval; this skill interprets failures without weakening gates.
+
+## Invariants
+
+- **Read the report.** Start from the bench report path in
+  \`.sdlc/maintenance-report.json\` (under \`.verify/reports/\`).
+- **Product vs corpus.** Distinguish miner regressions, catalog pin issues, and
+  intentional capability gaps.
+- **Fix in repo code/tests**, not by skipping corpus checks.
+
+## Flow
+
+1. Open the bench JSON/markdown report listed in the maintenance handoff.
+2. Identify failing repos and failure class (setup, smoke, agent quality).
+3. Patch ai-sdlc miner/adapters/tests as needed; re-run \`aisdlc maintain --bench\`.
+",
+  ".claude/skills/bind-integrations/SKILL.md": "---
+name: bind-integrations
+description: Bind deferred GitLab/Jira integration contracts in the overlay when
+  wrap-up or Full-track work needs MCP servers.
+---
+
+# /bind-integrations
+
+Integrations are **deferred at setup** so repos reach setup-ready without
+hand-editing MCP. Bind them just-in-time before \`wrap-up\`.
+
+## Invariants
+
+- **Least privilege.** Each binding lists \`serverId\`, optional \`server\` spec, and
+  \`allowedRoles\` — only roles that need the integration.
+- **No placeholders.** Use real server ids or leave deferred; never fake bindings.
+- **Verify.** Re-run \`aisdlc compile\` and confirm \`bind-integrations\` clears from
+  \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and integration contracts under
+   \`sdlc-base/integrations/\`.
+2. Propose \`integrations.gitlab\` / \`integrations.jira\` entries in
+   \`.sdlc/overlay/.customize.yaml\`.
+3. Present diff for approval; compile; re-run \`aisdlc maintain\`.
+",
+  ".claude/skills/close-gaps/SKILL.md": "---
+name: close-gaps
+description: Close blocking setup gaps the miner could not resolve — find the
+  real test command and record it in the overlay, then re-run maintain.
+---
+
+# /close-gaps
+
+Close **blocking** setup gaps so the repo can reach setup-ready. Today the main
+gap is a runnable **test command** when mining and CI could not infer one.
+
+## Invariants
+
+- **Evidence first.** Every answer must cite repo paths (CI workflow, Makefile,
+  \`package.json\` scripts, README, monorepo package roots).
+- **Overlay only.** Write answers to \`.sdlc/overlay/.customize.yaml\` under
+  \`interviewAnswers\` and set \`gapClosureProvenance\` appropriately (\`manual\` or
+  \`ci\` when justified).
+- **Verify.** Re-run \`aisdlc maintain --repo .\` (or \`customize\` → \`compile\` →
+  \`smoke\`) until \`close-gaps\` no longer appears in \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for the \`close-gaps\` handoff.
+2. Search CI configs, Makefiles, package manifests, and docs for the canonical
+   test invocation.
+3. Update the overlay; present the diff for human review.
+4. Re-run \`aisdlc maintain\`.
+",
+  ".claude/skills/compound-learnings/SKILL.md": "---
+name: compound-learnings
+description: Review accepted learnings and gate outcomes promoted from customize
+  drift — keep durable repo facts in the learnings ledger.
+---
+
+# /compound-learnings
+
+Customize syncs some facts into \`.sdlc/accepted-learnings.json\` (test commands,
+architecture demotions, new standards). Review before they become long-lived
+agent guidance.
+
+## Invariants
+
+- **Ledger is durable.** Edits go to accepted learnings or overlay — not hidden
+  compile output.
+- **Evidence-backed.** Each learning must keep \`sources\` and \`provenance\`.
+- **Verify.** Re-run \`aisdlc status\` and \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/accepted-learnings.json\` after a customize drift event.
+2. Drop noisy entries; keep high-signal claims agents should prefer over inference.
+3. Re-run \`aisdlc maintain\`.
+",
   ".claude/skills/customize/SKILL.md": "---
 name: customize
 description: Adapt the AI SDLC base to the current repository as a resumable
@@ -770,6 +1151,11 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+   For ongoing maintenance after setup, prefer \`aisdlc maintain --repo .\` — it
+   runs customize → compile → smoke → garden and writes
+   \`.sdlc/maintenance-report.json\` with host skill handoffs (\`close-gaps\`,
+   \`setup-triage\`, \`garden-docs\`, etc.).
 
 6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
    lists every enabled host, the files it should load, activation/trust notes,
@@ -857,6 +1243,88 @@ lists them after a fresh run.
 - CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
 - This skill does not open PRs or call external LLM APIs — it uses the host
   model already available in Plugin Mode.
+",
+  ".claude/skills/pack-workflows/SKILL.md": "---
+name: pack-workflows
+description: Apply optional reference-pack workflow skills when packs are
+  enabled — use pack-local SKILL.md files for stack-specific ceremony.
+---
+
+# /pack-workflows
+
+When compile enables reference packs (\`--packs\`), additional skills ship under
+each pack (for example \`packs/data-ml/skills/…\`). This skill routes you to the
+right pack workflow without bloating the portable base.
+
+## Invariants
+
+- **Pack skills are optional.** Base skills (\`customize\`, \`sdlc-loop\`) stay
+  host-neutral.
+- **Read \`docs/packs.md\`.** Match detected stack signals to attached packs.
+- **Verify.** Pack usage should appear in compiled \`.cursor/skills/\` (or host
+  equivalent) after compile.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for enabled pack paths.
+2. Open the pack's \`skills/*/SKILL.md\` relevant to the task (security, mobile,
+   data-ml, etc.).
+3. Follow the pack skill, then re-run \`aisdlc maintain\` if setup changed.
+",
+  ".claude/skills/resolve-upgrade/SKILL.md": "---
+name: resolve-upgrade
+description: Resolve overlay conflicts after a blocked aisdlc upgrade using
+  upgrade-conflicts.yml, then retry upgrade.
+---
+
+# /resolve-upgrade
+
+When \`aisdlc upgrade\` blocks, it writes \`.sdlc/upgrade-conflicts.yml\` and leaves
+the overlay byte-identical. You reconcile base changes with project-owned edges.
+
+## Invariants
+
+- **Read the report.** Start from \`.sdlc/upgrade-conflicts.yml\` — do not guess
+  collisions.
+- **Preserve intent.** Keep team choices for standards, integrations, track, and
+  role models unless the new base requires a deliberate migration.
+- **Verify.** After editing the overlay, run \`aisdlc upgrade\` again, then
+  \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`upgrade-conflicts.yml\`.
+2. For each conflict, choose overlay vs new-base value with a one-line rationale.
+3. Present the overlay diff for approval; retry upgrade.
+4. Re-run \`aisdlc maintain\` to refresh the maintenance report.
+",
+  ".claude/skills/review-standards-drift/SKILL.md": "---
+name: review-standards-drift
+description: Review standards-index drift after customize re-runs — accept,
+  adjust overlay standards, or document intentional changes.
+---
+
+# /review-standards-drift
+
+When mining changes, \`customize\` diffs the standards index and records drift
+(added/removed/changed metadata). This skill makes that delta a human decision.
+
+## Invariants
+
+- **Drift is reviewable by design.** Do not silently ignore added/removed
+  standards.
+- **Overlay edits only.** Adjust \`.sdlc/overlay/.customize.yaml\` standards or
+  interview answers — not the base constitution.
+- **Verify.** Re-run \`aisdlc customize\` or \`aisdlc maintain\` and confirm drift
+  is resolved or accepted.
+
+## Flow
+
+1. Re-run \`aisdlc customize --repo .\` and read the drift summary in CLI output.
+2. Compare \`.sdlc/overlay/standards-index.yaml\` to prior git revision if needed.
+3. Accept the delta, trim incorrect standards, or add overlay standards that
+   encode team policy.
+4. Re-run \`aisdlc maintain\`.
 ",
   ".claude/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -952,6 +1420,34 @@ checkpoint ids when they represent distinct decisions.
 - **Copilot:** sequential handoffs (\`.github/agents/handoffs.json\`); the gate
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
+",
+  ".claude/skills/setup-triage/SKILL.md": "---
+name: setup-triage
+description: Diagnose and fix setup-ready failures after maintain's
+  compile/smoke chain — missing artifacts, gate failures, or stale phases.
+---
+
+# /setup-triage
+
+Use when \`aisdlc maintain\` reports the repo is **not setup-ready** after the
+deterministic customize → compile → smoke chain.
+
+## Invariants
+
+- **Status first.** Run \`aisdlc status --repo .\` and read smoke log paths from
+  maintain output.
+- **Fix root cause.** Repair overlay, re-compile, or restore emitted artifacts —
+  do not weaken gates in prose.
+- **Verify.** Re-run \`aisdlc maintain\` until setup-ready or a different skill
+  handoff replaces this one.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`aisdlc status\` output.
+2. If compile artifacts are missing → \`aisdlc compile --overlay … --out .\`.
+3. If smoke checks fail → read \`.sdlc/smoke/\` logs; fix overlay/schema issues.
+4. If blocking gaps remain → invoke \`close-gaps\` instead of guessing here.
+5. Re-run \`aisdlc maintain\`.
 ",
   ".claude/skills/track-select/SKILL.md": "---
 name: track-select
@@ -1436,6 +1932,139 @@ process.exit(0);
   }
 }
 ",
+  ".codex/skills/architecture-grounding/SKILL.md": "---
+name: architecture-grounding
+description: Improve architecture grounding when confidence is low or
+  Architect/Reviewer/Debugger roles remain generic — maps, ADRs, and bounded
+  addenda.
+---
+
+# /architecture-grounding
+
+Use when \`aisdlc status\` or maintain reports low architecture confidence or
+generic role grounding for Architect, Reviewer, or Debugger.
+
+## Invariants
+
+- **Do not fake high confidence.** Prefer advisory low-confidence notes with
+  reasons over inventing a codebase map.
+- **Maps and ADRs.** Point agents at real \`docs/\`, ADRs, or mined map entries.
+- **Plugin Mode.** Use \`tune-roles\` for bounded \`roleAddenda\` when evidence
+  supports stack-specific guidance.
+- **Verify.** Re-run \`aisdlc maintain\` until \`architecture-grounding\` clears.
+
+## Flow
+
+1. Read \`aisdlc status\` architecture reasons and role states.
+2. Improve navigation docs or overlay map pointers; draft role addenda from evidence.
+3. Compile, smoke, maintain.
+",
+  ".codex/skills/bench-triage/SKILL.md": "---
+name: bench-triage
+description: Triage failures from aisdlc bench external-repo evaluation reports
+  when maintain was run with --bench.
+---
+
+# /bench-triage
+
+For maintainers running \`aisdlc maintain --bench\`. The CLI runs a pinned external
+corpus eval; this skill interprets failures without weakening gates.
+
+## Invariants
+
+- **Read the report.** Start from the bench report path in
+  \`.sdlc/maintenance-report.json\` (under \`.verify/reports/\`).
+- **Product vs corpus.** Distinguish miner regressions, catalog pin issues, and
+  intentional capability gaps.
+- **Fix in repo code/tests**, not by skipping corpus checks.
+
+## Flow
+
+1. Open the bench JSON/markdown report listed in the maintenance handoff.
+2. Identify failing repos and failure class (setup, smoke, agent quality).
+3. Patch ai-sdlc miner/adapters/tests as needed; re-run \`aisdlc maintain --bench\`.
+",
+  ".codex/skills/bind-integrations/SKILL.md": "---
+name: bind-integrations
+description: Bind deferred GitLab/Jira integration contracts in the overlay when
+  wrap-up or Full-track work needs MCP servers.
+---
+
+# /bind-integrations
+
+Integrations are **deferred at setup** so repos reach setup-ready without
+hand-editing MCP. Bind them just-in-time before \`wrap-up\`.
+
+## Invariants
+
+- **Least privilege.** Each binding lists \`serverId\`, optional \`server\` spec, and
+  \`allowedRoles\` — only roles that need the integration.
+- **No placeholders.** Use real server ids or leave deferred; never fake bindings.
+- **Verify.** Re-run \`aisdlc compile\` and confirm \`bind-integrations\` clears from
+  \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and integration contracts under
+   \`sdlc-base/integrations/\`.
+2. Propose \`integrations.gitlab\` / \`integrations.jira\` entries in
+   \`.sdlc/overlay/.customize.yaml\`.
+3. Present diff for approval; compile; re-run \`aisdlc maintain\`.
+",
+  ".codex/skills/close-gaps/SKILL.md": "---
+name: close-gaps
+description: Close blocking setup gaps the miner could not resolve — find the
+  real test command and record it in the overlay, then re-run maintain.
+---
+
+# /close-gaps
+
+Close **blocking** setup gaps so the repo can reach setup-ready. Today the main
+gap is a runnable **test command** when mining and CI could not infer one.
+
+## Invariants
+
+- **Evidence first.** Every answer must cite repo paths (CI workflow, Makefile,
+  \`package.json\` scripts, README, monorepo package roots).
+- **Overlay only.** Write answers to \`.sdlc/overlay/.customize.yaml\` under
+  \`interviewAnswers\` and set \`gapClosureProvenance\` appropriately (\`manual\` or
+  \`ci\` when justified).
+- **Verify.** Re-run \`aisdlc maintain --repo .\` (or \`customize\` → \`compile\` →
+  \`smoke\`) until \`close-gaps\` no longer appears in \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for the \`close-gaps\` handoff.
+2. Search CI configs, Makefiles, package manifests, and docs for the canonical
+   test invocation.
+3. Update the overlay; present the diff for human review.
+4. Re-run \`aisdlc maintain\`.
+",
+  ".codex/skills/compound-learnings/SKILL.md": "---
+name: compound-learnings
+description: Review accepted learnings and gate outcomes promoted from customize
+  drift — keep durable repo facts in the learnings ledger.
+---
+
+# /compound-learnings
+
+Customize syncs some facts into \`.sdlc/accepted-learnings.json\` (test commands,
+architecture demotions, new standards). Review before they become long-lived
+agent guidance.
+
+## Invariants
+
+- **Ledger is durable.** Edits go to accepted learnings or overlay — not hidden
+  compile output.
+- **Evidence-backed.** Each learning must keep \`sources\` and \`provenance\`.
+- **Verify.** Re-run \`aisdlc status\` and \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/accepted-learnings.json\` after a customize drift event.
+2. Drop noisy entries; keep high-signal claims agents should prefer over inference.
+3. Re-run \`aisdlc maintain\`.
+",
   ".codex/skills/customize/SKILL.md": "---
 name: customize
 description: Adapt the AI SDLC base to the current repository as a resumable
@@ -1506,6 +2135,11 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+   For ongoing maintenance after setup, prefer \`aisdlc maintain --repo .\` — it
+   runs customize → compile → smoke → garden and writes
+   \`.sdlc/maintenance-report.json\` with host skill handoffs (\`close-gaps\`,
+   \`setup-triage\`, \`garden-docs\`, etc.).
 
 6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
    lists every enabled host, the files it should load, activation/trust notes,
@@ -1593,6 +2227,88 @@ lists them after a fresh run.
 - CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
 - This skill does not open PRs or call external LLM APIs — it uses the host
   model already available in Plugin Mode.
+",
+  ".codex/skills/pack-workflows/SKILL.md": "---
+name: pack-workflows
+description: Apply optional reference-pack workflow skills when packs are
+  enabled — use pack-local SKILL.md files for stack-specific ceremony.
+---
+
+# /pack-workflows
+
+When compile enables reference packs (\`--packs\`), additional skills ship under
+each pack (for example \`packs/data-ml/skills/…\`). This skill routes you to the
+right pack workflow without bloating the portable base.
+
+## Invariants
+
+- **Pack skills are optional.** Base skills (\`customize\`, \`sdlc-loop\`) stay
+  host-neutral.
+- **Read \`docs/packs.md\`.** Match detected stack signals to attached packs.
+- **Verify.** Pack usage should appear in compiled \`.cursor/skills/\` (or host
+  equivalent) after compile.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for enabled pack paths.
+2. Open the pack's \`skills/*/SKILL.md\` relevant to the task (security, mobile,
+   data-ml, etc.).
+3. Follow the pack skill, then re-run \`aisdlc maintain\` if setup changed.
+",
+  ".codex/skills/resolve-upgrade/SKILL.md": "---
+name: resolve-upgrade
+description: Resolve overlay conflicts after a blocked aisdlc upgrade using
+  upgrade-conflicts.yml, then retry upgrade.
+---
+
+# /resolve-upgrade
+
+When \`aisdlc upgrade\` blocks, it writes \`.sdlc/upgrade-conflicts.yml\` and leaves
+the overlay byte-identical. You reconcile base changes with project-owned edges.
+
+## Invariants
+
+- **Read the report.** Start from \`.sdlc/upgrade-conflicts.yml\` — do not guess
+  collisions.
+- **Preserve intent.** Keep team choices for standards, integrations, track, and
+  role models unless the new base requires a deliberate migration.
+- **Verify.** After editing the overlay, run \`aisdlc upgrade\` again, then
+  \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`upgrade-conflicts.yml\`.
+2. For each conflict, choose overlay vs new-base value with a one-line rationale.
+3. Present the overlay diff for approval; retry upgrade.
+4. Re-run \`aisdlc maintain\` to refresh the maintenance report.
+",
+  ".codex/skills/review-standards-drift/SKILL.md": "---
+name: review-standards-drift
+description: Review standards-index drift after customize re-runs — accept,
+  adjust overlay standards, or document intentional changes.
+---
+
+# /review-standards-drift
+
+When mining changes, \`customize\` diffs the standards index and records drift
+(added/removed/changed metadata). This skill makes that delta a human decision.
+
+## Invariants
+
+- **Drift is reviewable by design.** Do not silently ignore added/removed
+  standards.
+- **Overlay edits only.** Adjust \`.sdlc/overlay/.customize.yaml\` standards or
+  interview answers — not the base constitution.
+- **Verify.** Re-run \`aisdlc customize\` or \`aisdlc maintain\` and confirm drift
+  is resolved or accepted.
+
+## Flow
+
+1. Re-run \`aisdlc customize --repo .\` and read the drift summary in CLI output.
+2. Compare \`.sdlc/overlay/standards-index.yaml\` to prior git revision if needed.
+3. Accept the delta, trim incorrect standards, or add overlay standards that
+   encode team policy.
+4. Re-run \`aisdlc maintain\`.
 ",
   ".codex/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -1688,6 +2404,34 @@ checkpoint ids when they represent distinct decisions.
 - **Copilot:** sequential handoffs (\`.github/agents/handoffs.json\`); the gate
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
+",
+  ".codex/skills/setup-triage/SKILL.md": "---
+name: setup-triage
+description: Diagnose and fix setup-ready failures after maintain's
+  compile/smoke chain — missing artifacts, gate failures, or stale phases.
+---
+
+# /setup-triage
+
+Use when \`aisdlc maintain\` reports the repo is **not setup-ready** after the
+deterministic customize → compile → smoke chain.
+
+## Invariants
+
+- **Status first.** Run \`aisdlc status --repo .\` and read smoke log paths from
+  maintain output.
+- **Fix root cause.** Repair overlay, re-compile, or restore emitted artifacts —
+  do not weaken gates in prose.
+- **Verify.** Re-run \`aisdlc maintain\` until setup-ready or a different skill
+  handoff replaces this one.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`aisdlc status\` output.
+2. If compile artifacts are missing → \`aisdlc compile --overlay … --out .\`.
+3. If smoke checks fail → read \`.sdlc/smoke/\` logs; fix overlay/schema issues.
+4. If blocking gaps remain → invoke \`close-gaps\` instead of guessing here.
+5. Re-run \`aisdlc maintain\`.
 ",
   ".codex/skills/track-select/SKILL.md": "---
 name: track-select
@@ -2202,6 +2946,139 @@ process.exit(0);
   }
 }
 ",
+  ".cursor/skills/architecture-grounding/SKILL.md": "---
+name: architecture-grounding
+description: Improve architecture grounding when confidence is low or
+  Architect/Reviewer/Debugger roles remain generic — maps, ADRs, and bounded
+  addenda.
+---
+
+# /architecture-grounding
+
+Use when \`aisdlc status\` or maintain reports low architecture confidence or
+generic role grounding for Architect, Reviewer, or Debugger.
+
+## Invariants
+
+- **Do not fake high confidence.** Prefer advisory low-confidence notes with
+  reasons over inventing a codebase map.
+- **Maps and ADRs.** Point agents at real \`docs/\`, ADRs, or mined map entries.
+- **Plugin Mode.** Use \`tune-roles\` for bounded \`roleAddenda\` when evidence
+  supports stack-specific guidance.
+- **Verify.** Re-run \`aisdlc maintain\` until \`architecture-grounding\` clears.
+
+## Flow
+
+1. Read \`aisdlc status\` architecture reasons and role states.
+2. Improve navigation docs or overlay map pointers; draft role addenda from evidence.
+3. Compile, smoke, maintain.
+",
+  ".cursor/skills/bench-triage/SKILL.md": "---
+name: bench-triage
+description: Triage failures from aisdlc bench external-repo evaluation reports
+  when maintain was run with --bench.
+---
+
+# /bench-triage
+
+For maintainers running \`aisdlc maintain --bench\`. The CLI runs a pinned external
+corpus eval; this skill interprets failures without weakening gates.
+
+## Invariants
+
+- **Read the report.** Start from the bench report path in
+  \`.sdlc/maintenance-report.json\` (under \`.verify/reports/\`).
+- **Product vs corpus.** Distinguish miner regressions, catalog pin issues, and
+  intentional capability gaps.
+- **Fix in repo code/tests**, not by skipping corpus checks.
+
+## Flow
+
+1. Open the bench JSON/markdown report listed in the maintenance handoff.
+2. Identify failing repos and failure class (setup, smoke, agent quality).
+3. Patch ai-sdlc miner/adapters/tests as needed; re-run \`aisdlc maintain --bench\`.
+",
+  ".cursor/skills/bind-integrations/SKILL.md": "---
+name: bind-integrations
+description: Bind deferred GitLab/Jira integration contracts in the overlay when
+  wrap-up or Full-track work needs MCP servers.
+---
+
+# /bind-integrations
+
+Integrations are **deferred at setup** so repos reach setup-ready without
+hand-editing MCP. Bind them just-in-time before \`wrap-up\`.
+
+## Invariants
+
+- **Least privilege.** Each binding lists \`serverId\`, optional \`server\` spec, and
+  \`allowedRoles\` — only roles that need the integration.
+- **No placeholders.** Use real server ids or leave deferred; never fake bindings.
+- **Verify.** Re-run \`aisdlc compile\` and confirm \`bind-integrations\` clears from
+  \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and integration contracts under
+   \`sdlc-base/integrations/\`.
+2. Propose \`integrations.gitlab\` / \`integrations.jira\` entries in
+   \`.sdlc/overlay/.customize.yaml\`.
+3. Present diff for approval; compile; re-run \`aisdlc maintain\`.
+",
+  ".cursor/skills/close-gaps/SKILL.md": "---
+name: close-gaps
+description: Close blocking setup gaps the miner could not resolve — find the
+  real test command and record it in the overlay, then re-run maintain.
+---
+
+# /close-gaps
+
+Close **blocking** setup gaps so the repo can reach setup-ready. Today the main
+gap is a runnable **test command** when mining and CI could not infer one.
+
+## Invariants
+
+- **Evidence first.** Every answer must cite repo paths (CI workflow, Makefile,
+  \`package.json\` scripts, README, monorepo package roots).
+- **Overlay only.** Write answers to \`.sdlc/overlay/.customize.yaml\` under
+  \`interviewAnswers\` and set \`gapClosureProvenance\` appropriately (\`manual\` or
+  \`ci\` when justified).
+- **Verify.** Re-run \`aisdlc maintain --repo .\` (or \`customize\` → \`compile\` →
+  \`smoke\`) until \`close-gaps\` no longer appears in \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for the \`close-gaps\` handoff.
+2. Search CI configs, Makefiles, package manifests, and docs for the canonical
+   test invocation.
+3. Update the overlay; present the diff for human review.
+4. Re-run \`aisdlc maintain\`.
+",
+  ".cursor/skills/compound-learnings/SKILL.md": "---
+name: compound-learnings
+description: Review accepted learnings and gate outcomes promoted from customize
+  drift — keep durable repo facts in the learnings ledger.
+---
+
+# /compound-learnings
+
+Customize syncs some facts into \`.sdlc/accepted-learnings.json\` (test commands,
+architecture demotions, new standards). Review before they become long-lived
+agent guidance.
+
+## Invariants
+
+- **Ledger is durable.** Edits go to accepted learnings or overlay — not hidden
+  compile output.
+- **Evidence-backed.** Each learning must keep \`sources\` and \`provenance\`.
+- **Verify.** Re-run \`aisdlc status\` and \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/accepted-learnings.json\` after a customize drift event.
+2. Drop noisy entries; keep high-signal claims agents should prefer over inference.
+3. Re-run \`aisdlc maintain\`.
+",
   ".cursor/skills/customize/SKILL.md": "---
 name: customize
 description: Adapt the AI SDLC base to the current repository as a resumable
@@ -2272,6 +3149,11 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+   For ongoing maintenance after setup, prefer \`aisdlc maintain --repo .\` — it
+   runs customize → compile → smoke → garden and writes
+   \`.sdlc/maintenance-report.json\` with host skill handoffs (\`close-gaps\`,
+   \`setup-triage\`, \`garden-docs\`, etc.).
 
 6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
    lists every enabled host, the files it should load, activation/trust notes,
@@ -2359,6 +3241,88 @@ lists them after a fresh run.
 - CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
 - This skill does not open PRs or call external LLM APIs — it uses the host
   model already available in Plugin Mode.
+",
+  ".cursor/skills/pack-workflows/SKILL.md": "---
+name: pack-workflows
+description: Apply optional reference-pack workflow skills when packs are
+  enabled — use pack-local SKILL.md files for stack-specific ceremony.
+---
+
+# /pack-workflows
+
+When compile enables reference packs (\`--packs\`), additional skills ship under
+each pack (for example \`packs/data-ml/skills/…\`). This skill routes you to the
+right pack workflow without bloating the portable base.
+
+## Invariants
+
+- **Pack skills are optional.** Base skills (\`customize\`, \`sdlc-loop\`) stay
+  host-neutral.
+- **Read \`docs/packs.md\`.** Match detected stack signals to attached packs.
+- **Verify.** Pack usage should appear in compiled \`.cursor/skills/\` (or host
+  equivalent) after compile.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for enabled pack paths.
+2. Open the pack's \`skills/*/SKILL.md\` relevant to the task (security, mobile,
+   data-ml, etc.).
+3. Follow the pack skill, then re-run \`aisdlc maintain\` if setup changed.
+",
+  ".cursor/skills/resolve-upgrade/SKILL.md": "---
+name: resolve-upgrade
+description: Resolve overlay conflicts after a blocked aisdlc upgrade using
+  upgrade-conflicts.yml, then retry upgrade.
+---
+
+# /resolve-upgrade
+
+When \`aisdlc upgrade\` blocks, it writes \`.sdlc/upgrade-conflicts.yml\` and leaves
+the overlay byte-identical. You reconcile base changes with project-owned edges.
+
+## Invariants
+
+- **Read the report.** Start from \`.sdlc/upgrade-conflicts.yml\` — do not guess
+  collisions.
+- **Preserve intent.** Keep team choices for standards, integrations, track, and
+  role models unless the new base requires a deliberate migration.
+- **Verify.** After editing the overlay, run \`aisdlc upgrade\` again, then
+  \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`upgrade-conflicts.yml\`.
+2. For each conflict, choose overlay vs new-base value with a one-line rationale.
+3. Present the overlay diff for approval; retry upgrade.
+4. Re-run \`aisdlc maintain\` to refresh the maintenance report.
+",
+  ".cursor/skills/review-standards-drift/SKILL.md": "---
+name: review-standards-drift
+description: Review standards-index drift after customize re-runs — accept,
+  adjust overlay standards, or document intentional changes.
+---
+
+# /review-standards-drift
+
+When mining changes, \`customize\` diffs the standards index and records drift
+(added/removed/changed metadata). This skill makes that delta a human decision.
+
+## Invariants
+
+- **Drift is reviewable by design.** Do not silently ignore added/removed
+  standards.
+- **Overlay edits only.** Adjust \`.sdlc/overlay/.customize.yaml\` standards or
+  interview answers — not the base constitution.
+- **Verify.** Re-run \`aisdlc customize\` or \`aisdlc maintain\` and confirm drift
+  is resolved or accepted.
+
+## Flow
+
+1. Re-run \`aisdlc customize --repo .\` and read the drift summary in CLI output.
+2. Compare \`.sdlc/overlay/standards-index.yaml\` to prior git revision if needed.
+3. Accept the delta, trim incorrect standards, or add overlay standards that
+   encode team policy.
+4. Re-run \`aisdlc maintain\`.
 ",
   ".cursor/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -2454,6 +3418,34 @@ checkpoint ids when they represent distinct decisions.
 - **Copilot:** sequential handoffs (\`.github/agents/handoffs.json\`); the gate
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
+",
+  ".cursor/skills/setup-triage/SKILL.md": "---
+name: setup-triage
+description: Diagnose and fix setup-ready failures after maintain's
+  compile/smoke chain — missing artifacts, gate failures, or stale phases.
+---
+
+# /setup-triage
+
+Use when \`aisdlc maintain\` reports the repo is **not setup-ready** after the
+deterministic customize → compile → smoke chain.
+
+## Invariants
+
+- **Status first.** Run \`aisdlc status --repo .\` and read smoke log paths from
+  maintain output.
+- **Fix root cause.** Repair overlay, re-compile, or restore emitted artifacts —
+  do not weaken gates in prose.
+- **Verify.** Re-run \`aisdlc maintain\` until setup-ready or a different skill
+  handoff replaces this one.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`aisdlc status\` output.
+2. If compile artifacts are missing → \`aisdlc compile --overlay … --out .\`.
+3. If smoke checks fail → read \`.sdlc/smoke/\` logs; fix overlay/schema issues.
+4. If blocking gaps remain → invoke \`close-gaps\` instead of guessing here.
+5. Re-run \`aisdlc maintain\`.
 ",
   ".cursor/skills/track-select/SKILL.md": "---
 name: track-select
@@ -3006,6 +3998,139 @@ try {
 
 process.exit(0);
 ",
+  ".github/skills/architecture-grounding/SKILL.md": "---
+name: architecture-grounding
+description: Improve architecture grounding when confidence is low or
+  Architect/Reviewer/Debugger roles remain generic — maps, ADRs, and bounded
+  addenda.
+---
+
+# /architecture-grounding
+
+Use when \`aisdlc status\` or maintain reports low architecture confidence or
+generic role grounding for Architect, Reviewer, or Debugger.
+
+## Invariants
+
+- **Do not fake high confidence.** Prefer advisory low-confidence notes with
+  reasons over inventing a codebase map.
+- **Maps and ADRs.** Point agents at real \`docs/\`, ADRs, or mined map entries.
+- **Plugin Mode.** Use \`tune-roles\` for bounded \`roleAddenda\` when evidence
+  supports stack-specific guidance.
+- **Verify.** Re-run \`aisdlc maintain\` until \`architecture-grounding\` clears.
+
+## Flow
+
+1. Read \`aisdlc status\` architecture reasons and role states.
+2. Improve navigation docs or overlay map pointers; draft role addenda from evidence.
+3. Compile, smoke, maintain.
+",
+  ".github/skills/bench-triage/SKILL.md": "---
+name: bench-triage
+description: Triage failures from aisdlc bench external-repo evaluation reports
+  when maintain was run with --bench.
+---
+
+# /bench-triage
+
+For maintainers running \`aisdlc maintain --bench\`. The CLI runs a pinned external
+corpus eval; this skill interprets failures without weakening gates.
+
+## Invariants
+
+- **Read the report.** Start from the bench report path in
+  \`.sdlc/maintenance-report.json\` (under \`.verify/reports/\`).
+- **Product vs corpus.** Distinguish miner regressions, catalog pin issues, and
+  intentional capability gaps.
+- **Fix in repo code/tests**, not by skipping corpus checks.
+
+## Flow
+
+1. Open the bench JSON/markdown report listed in the maintenance handoff.
+2. Identify failing repos and failure class (setup, smoke, agent quality).
+3. Patch ai-sdlc miner/adapters/tests as needed; re-run \`aisdlc maintain --bench\`.
+",
+  ".github/skills/bind-integrations/SKILL.md": "---
+name: bind-integrations
+description: Bind deferred GitLab/Jira integration contracts in the overlay when
+  wrap-up or Full-track work needs MCP servers.
+---
+
+# /bind-integrations
+
+Integrations are **deferred at setup** so repos reach setup-ready without
+hand-editing MCP. Bind them just-in-time before \`wrap-up\`.
+
+## Invariants
+
+- **Least privilege.** Each binding lists \`serverId\`, optional \`server\` spec, and
+  \`allowedRoles\` — only roles that need the integration.
+- **No placeholders.** Use real server ids or leave deferred; never fake bindings.
+- **Verify.** Re-run \`aisdlc compile\` and confirm \`bind-integrations\` clears from
+  \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and integration contracts under
+   \`sdlc-base/integrations/\`.
+2. Propose \`integrations.gitlab\` / \`integrations.jira\` entries in
+   \`.sdlc/overlay/.customize.yaml\`.
+3. Present diff for approval; compile; re-run \`aisdlc maintain\`.
+",
+  ".github/skills/close-gaps/SKILL.md": "---
+name: close-gaps
+description: Close blocking setup gaps the miner could not resolve — find the
+  real test command and record it in the overlay, then re-run maintain.
+---
+
+# /close-gaps
+
+Close **blocking** setup gaps so the repo can reach setup-ready. Today the main
+gap is a runnable **test command** when mining and CI could not infer one.
+
+## Invariants
+
+- **Evidence first.** Every answer must cite repo paths (CI workflow, Makefile,
+  \`package.json\` scripts, README, monorepo package roots).
+- **Overlay only.** Write answers to \`.sdlc/overlay/.customize.yaml\` under
+  \`interviewAnswers\` and set \`gapClosureProvenance\` appropriately (\`manual\` or
+  \`ci\` when justified).
+- **Verify.** Re-run \`aisdlc maintain --repo .\` (or \`customize\` → \`compile\` →
+  \`smoke\`) until \`close-gaps\` no longer appears in \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for the \`close-gaps\` handoff.
+2. Search CI configs, Makefiles, package manifests, and docs for the canonical
+   test invocation.
+3. Update the overlay; present the diff for human review.
+4. Re-run \`aisdlc maintain\`.
+",
+  ".github/skills/compound-learnings/SKILL.md": "---
+name: compound-learnings
+description: Review accepted learnings and gate outcomes promoted from customize
+  drift — keep durable repo facts in the learnings ledger.
+---
+
+# /compound-learnings
+
+Customize syncs some facts into \`.sdlc/accepted-learnings.json\` (test commands,
+architecture demotions, new standards). Review before they become long-lived
+agent guidance.
+
+## Invariants
+
+- **Ledger is durable.** Edits go to accepted learnings or overlay — not hidden
+  compile output.
+- **Evidence-backed.** Each learning must keep \`sources\` and \`provenance\`.
+- **Verify.** Re-run \`aisdlc status\` and \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/accepted-learnings.json\` after a customize drift event.
+2. Drop noisy entries; keep high-signal claims agents should prefer over inference.
+3. Re-run \`aisdlc maintain\`.
+",
   ".github/skills/customize/SKILL.md": "---
 name: customize
 description: Adapt the AI SDLC base to the current repository as a resumable
@@ -3076,6 +4201,11 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+   For ongoing maintenance after setup, prefer \`aisdlc maintain --repo .\` — it
+   runs customize → compile → smoke → garden and writes
+   \`.sdlc/maintenance-report.json\` with host skill handoffs (\`close-gaps\`,
+   \`setup-triage\`, \`garden-docs\`, etc.).
 
 6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
    lists every enabled host, the files it should load, activation/trust notes,
@@ -3163,6 +4293,88 @@ lists them after a fresh run.
 - CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
 - This skill does not open PRs or call external LLM APIs — it uses the host
   model already available in Plugin Mode.
+",
+  ".github/skills/pack-workflows/SKILL.md": "---
+name: pack-workflows
+description: Apply optional reference-pack workflow skills when packs are
+  enabled — use pack-local SKILL.md files for stack-specific ceremony.
+---
+
+# /pack-workflows
+
+When compile enables reference packs (\`--packs\`), additional skills ship under
+each pack (for example \`packs/data-ml/skills/…\`). This skill routes you to the
+right pack workflow without bloating the portable base.
+
+## Invariants
+
+- **Pack skills are optional.** Base skills (\`customize\`, \`sdlc-loop\`) stay
+  host-neutral.
+- **Read \`docs/packs.md\`.** Match detected stack signals to attached packs.
+- **Verify.** Pack usage should appear in compiled \`.cursor/skills/\` (or host
+  equivalent) after compile.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for enabled pack paths.
+2. Open the pack's \`skills/*/SKILL.md\` relevant to the task (security, mobile,
+   data-ml, etc.).
+3. Follow the pack skill, then re-run \`aisdlc maintain\` if setup changed.
+",
+  ".github/skills/resolve-upgrade/SKILL.md": "---
+name: resolve-upgrade
+description: Resolve overlay conflicts after a blocked aisdlc upgrade using
+  upgrade-conflicts.yml, then retry upgrade.
+---
+
+# /resolve-upgrade
+
+When \`aisdlc upgrade\` blocks, it writes \`.sdlc/upgrade-conflicts.yml\` and leaves
+the overlay byte-identical. You reconcile base changes with project-owned edges.
+
+## Invariants
+
+- **Read the report.** Start from \`.sdlc/upgrade-conflicts.yml\` — do not guess
+  collisions.
+- **Preserve intent.** Keep team choices for standards, integrations, track, and
+  role models unless the new base requires a deliberate migration.
+- **Verify.** After editing the overlay, run \`aisdlc upgrade\` again, then
+  \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`upgrade-conflicts.yml\`.
+2. For each conflict, choose overlay vs new-base value with a one-line rationale.
+3. Present the overlay diff for approval; retry upgrade.
+4. Re-run \`aisdlc maintain\` to refresh the maintenance report.
+",
+  ".github/skills/review-standards-drift/SKILL.md": "---
+name: review-standards-drift
+description: Review standards-index drift after customize re-runs — accept,
+  adjust overlay standards, or document intentional changes.
+---
+
+# /review-standards-drift
+
+When mining changes, \`customize\` diffs the standards index and records drift
+(added/removed/changed metadata). This skill makes that delta a human decision.
+
+## Invariants
+
+- **Drift is reviewable by design.** Do not silently ignore added/removed
+  standards.
+- **Overlay edits only.** Adjust \`.sdlc/overlay/.customize.yaml\` standards or
+  interview answers — not the base constitution.
+- **Verify.** Re-run \`aisdlc customize\` or \`aisdlc maintain\` and confirm drift
+  is resolved or accepted.
+
+## Flow
+
+1. Re-run \`aisdlc customize --repo .\` and read the drift summary in CLI output.
+2. Compare \`.sdlc/overlay/standards-index.yaml\` to prior git revision if needed.
+3. Accept the delta, trim incorrect standards, or add overlay standards that
+   encode team policy.
+4. Re-run \`aisdlc maintain\`.
 ",
   ".github/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -3258,6 +4470,34 @@ checkpoint ids when they represent distinct decisions.
 - **Copilot:** sequential handoffs (\`.github/agents/handoffs.json\`); the gate
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
+",
+  ".github/skills/setup-triage/SKILL.md": "---
+name: setup-triage
+description: Diagnose and fix setup-ready failures after maintain's
+  compile/smoke chain — missing artifacts, gate failures, or stale phases.
+---
+
+# /setup-triage
+
+Use when \`aisdlc maintain\` reports the repo is **not setup-ready** after the
+deterministic customize → compile → smoke chain.
+
+## Invariants
+
+- **Status first.** Run \`aisdlc status --repo .\` and read smoke log paths from
+  maintain output.
+- **Fix root cause.** Repair overlay, re-compile, or restore emitted artifacts —
+  do not weaken gates in prose.
+- **Verify.** Re-run \`aisdlc maintain\` until setup-ready or a different skill
+  handoff replaces this one.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`aisdlc status\` output.
+2. If compile artifacts are missing → \`aisdlc compile --overlay … --out .\`.
+3. If smoke checks fail → read \`.sdlc/smoke/\` logs; fix overlay/schema issues.
+4. If blocking gaps remain → invoke \`close-gaps\` instead of guessing here.
+5. Re-run \`aisdlc maintain\`.
 ",
   ".github/skills/track-select/SKILL.md": "---
 name: track-select
@@ -3914,6 +5154,139 @@ process.exit(0);
   "mcpServers": {}
 }
 ",
+  ".kiro/skills/architecture-grounding/SKILL.md": "---
+name: architecture-grounding
+description: Improve architecture grounding when confidence is low or
+  Architect/Reviewer/Debugger roles remain generic — maps, ADRs, and bounded
+  addenda.
+---
+
+# /architecture-grounding
+
+Use when \`aisdlc status\` or maintain reports low architecture confidence or
+generic role grounding for Architect, Reviewer, or Debugger.
+
+## Invariants
+
+- **Do not fake high confidence.** Prefer advisory low-confidence notes with
+  reasons over inventing a codebase map.
+- **Maps and ADRs.** Point agents at real \`docs/\`, ADRs, or mined map entries.
+- **Plugin Mode.** Use \`tune-roles\` for bounded \`roleAddenda\` when evidence
+  supports stack-specific guidance.
+- **Verify.** Re-run \`aisdlc maintain\` until \`architecture-grounding\` clears.
+
+## Flow
+
+1. Read \`aisdlc status\` architecture reasons and role states.
+2. Improve navigation docs or overlay map pointers; draft role addenda from evidence.
+3. Compile, smoke, maintain.
+",
+  ".kiro/skills/bench-triage/SKILL.md": "---
+name: bench-triage
+description: Triage failures from aisdlc bench external-repo evaluation reports
+  when maintain was run with --bench.
+---
+
+# /bench-triage
+
+For maintainers running \`aisdlc maintain --bench\`. The CLI runs a pinned external
+corpus eval; this skill interprets failures without weakening gates.
+
+## Invariants
+
+- **Read the report.** Start from the bench report path in
+  \`.sdlc/maintenance-report.json\` (under \`.verify/reports/\`).
+- **Product vs corpus.** Distinguish miner regressions, catalog pin issues, and
+  intentional capability gaps.
+- **Fix in repo code/tests**, not by skipping corpus checks.
+
+## Flow
+
+1. Open the bench JSON/markdown report listed in the maintenance handoff.
+2. Identify failing repos and failure class (setup, smoke, agent quality).
+3. Patch ai-sdlc miner/adapters/tests as needed; re-run \`aisdlc maintain --bench\`.
+",
+  ".kiro/skills/bind-integrations/SKILL.md": "---
+name: bind-integrations
+description: Bind deferred GitLab/Jira integration contracts in the overlay when
+  wrap-up or Full-track work needs MCP servers.
+---
+
+# /bind-integrations
+
+Integrations are **deferred at setup** so repos reach setup-ready without
+hand-editing MCP. Bind them just-in-time before \`wrap-up\`.
+
+## Invariants
+
+- **Least privilege.** Each binding lists \`serverId\`, optional \`server\` spec, and
+  \`allowedRoles\` — only roles that need the integration.
+- **No placeholders.** Use real server ids or leave deferred; never fake bindings.
+- **Verify.** Re-run \`aisdlc compile\` and confirm \`bind-integrations\` clears from
+  \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and integration contracts under
+   \`sdlc-base/integrations/\`.
+2. Propose \`integrations.gitlab\` / \`integrations.jira\` entries in
+   \`.sdlc/overlay/.customize.yaml\`.
+3. Present diff for approval; compile; re-run \`aisdlc maintain\`.
+",
+  ".kiro/skills/close-gaps/SKILL.md": "---
+name: close-gaps
+description: Close blocking setup gaps the miner could not resolve — find the
+  real test command and record it in the overlay, then re-run maintain.
+---
+
+# /close-gaps
+
+Close **blocking** setup gaps so the repo can reach setup-ready. Today the main
+gap is a runnable **test command** when mining and CI could not infer one.
+
+## Invariants
+
+- **Evidence first.** Every answer must cite repo paths (CI workflow, Makefile,
+  \`package.json\` scripts, README, monorepo package roots).
+- **Overlay only.** Write answers to \`.sdlc/overlay/.customize.yaml\` under
+  \`interviewAnswers\` and set \`gapClosureProvenance\` appropriately (\`manual\` or
+  \`ci\` when justified).
+- **Verify.** Re-run \`aisdlc maintain --repo .\` (or \`customize\` → \`compile\` →
+  \`smoke\`) until \`close-gaps\` no longer appears in \`.sdlc/maintenance-report.json\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for the \`close-gaps\` handoff.
+2. Search CI configs, Makefiles, package manifests, and docs for the canonical
+   test invocation.
+3. Update the overlay; present the diff for human review.
+4. Re-run \`aisdlc maintain\`.
+",
+  ".kiro/skills/compound-learnings/SKILL.md": "---
+name: compound-learnings
+description: Review accepted learnings and gate outcomes promoted from customize
+  drift — keep durable repo facts in the learnings ledger.
+---
+
+# /compound-learnings
+
+Customize syncs some facts into \`.sdlc/accepted-learnings.json\` (test commands,
+architecture demotions, new standards). Review before they become long-lived
+agent guidance.
+
+## Invariants
+
+- **Ledger is durable.** Edits go to accepted learnings or overlay — not hidden
+  compile output.
+- **Evidence-backed.** Each learning must keep \`sources\` and \`provenance\`.
+- **Verify.** Re-run \`aisdlc status\` and \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/accepted-learnings.json\` after a customize drift event.
+2. Drop noisy entries; keep high-signal claims agents should prefer over inference.
+3. Re-run \`aisdlc maintain\`.
+",
   ".kiro/skills/customize/SKILL.md": "---
 name: customize
 description: Adapt the AI SDLC base to the current repository as a resumable
@@ -3984,6 +5357,11 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+   For ongoing maintenance after setup, prefer \`aisdlc maintain --repo .\` — it
+   runs customize → compile → smoke → garden and writes
+   \`.sdlc/maintenance-report.json\` with host skill handoffs (\`close-gaps\`,
+   \`setup-triage\`, \`garden-docs\`, etc.).
 
 6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
    lists every enabled host, the files it should load, activation/trust notes,
@@ -4071,6 +5449,88 @@ lists them after a fresh run.
 - CI gate: \`aisdlc garden-docs --fail-on warning --write-report\`.
 - This skill does not open PRs or call external LLM APIs — it uses the host
   model already available in Plugin Mode.
+",
+  ".kiro/skills/pack-workflows/SKILL.md": "---
+name: pack-workflows
+description: Apply optional reference-pack workflow skills when packs are
+  enabled — use pack-local SKILL.md files for stack-specific ceremony.
+---
+
+# /pack-workflows
+
+When compile enables reference packs (\`--packs\`), additional skills ship under
+each pack (for example \`packs/data-ml/skills/…\`). This skill routes you to the
+right pack workflow without bloating the portable base.
+
+## Invariants
+
+- **Pack skills are optional.** Base skills (\`customize\`, \`sdlc-loop\`) stay
+  host-neutral.
+- **Read \`docs/packs.md\`.** Match detected stack signals to attached packs.
+- **Verify.** Pack usage should appear in compiled \`.cursor/skills/\` (or host
+  equivalent) after compile.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` for enabled pack paths.
+2. Open the pack's \`skills/*/SKILL.md\` relevant to the task (security, mobile,
+   data-ml, etc.).
+3. Follow the pack skill, then re-run \`aisdlc maintain\` if setup changed.
+",
+  ".kiro/skills/resolve-upgrade/SKILL.md": "---
+name: resolve-upgrade
+description: Resolve overlay conflicts after a blocked aisdlc upgrade using
+  upgrade-conflicts.yml, then retry upgrade.
+---
+
+# /resolve-upgrade
+
+When \`aisdlc upgrade\` blocks, it writes \`.sdlc/upgrade-conflicts.yml\` and leaves
+the overlay byte-identical. You reconcile base changes with project-owned edges.
+
+## Invariants
+
+- **Read the report.** Start from \`.sdlc/upgrade-conflicts.yml\` — do not guess
+  collisions.
+- **Preserve intent.** Keep team choices for standards, integrations, track, and
+  role models unless the new base requires a deliberate migration.
+- **Verify.** After editing the overlay, run \`aisdlc upgrade\` again, then
+  \`aisdlc maintain\`.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`upgrade-conflicts.yml\`.
+2. For each conflict, choose overlay vs new-base value with a one-line rationale.
+3. Present the overlay diff for approval; retry upgrade.
+4. Re-run \`aisdlc maintain\` to refresh the maintenance report.
+",
+  ".kiro/skills/review-standards-drift/SKILL.md": "---
+name: review-standards-drift
+description: Review standards-index drift after customize re-runs — accept,
+  adjust overlay standards, or document intentional changes.
+---
+
+# /review-standards-drift
+
+When mining changes, \`customize\` diffs the standards index and records drift
+(added/removed/changed metadata). This skill makes that delta a human decision.
+
+## Invariants
+
+- **Drift is reviewable by design.** Do not silently ignore added/removed
+  standards.
+- **Overlay edits only.** Adjust \`.sdlc/overlay/.customize.yaml\` standards or
+  interview answers — not the base constitution.
+- **Verify.** Re-run \`aisdlc customize\` or \`aisdlc maintain\` and confirm drift
+  is resolved or accepted.
+
+## Flow
+
+1. Re-run \`aisdlc customize --repo .\` and read the drift summary in CLI output.
+2. Compare \`.sdlc/overlay/standards-index.yaml\` to prior git revision if needed.
+3. Accept the delta, trim incorrect standards, or add overlay standards that
+   encode team policy.
+4. Re-run \`aisdlc maintain\`.
 ",
   ".kiro/skills/sdlc-loop/SKILL.md": "---
 name: sdlc-loop
@@ -4166,6 +5626,34 @@ checkpoint ids when they represent distinct decisions.
 - **Copilot:** sequential handoffs (\`.github/agents/handoffs.json\`); the gate
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See \`portability.gap.yml\` and the capability matrix.
+",
+  ".kiro/skills/setup-triage/SKILL.md": "---
+name: setup-triage
+description: Diagnose and fix setup-ready failures after maintain's
+  compile/smoke chain — missing artifacts, gate failures, or stale phases.
+---
+
+# /setup-triage
+
+Use when \`aisdlc maintain\` reports the repo is **not setup-ready** after the
+deterministic customize → compile → smoke chain.
+
+## Invariants
+
+- **Status first.** Run \`aisdlc status --repo .\` and read smoke log paths from
+  maintain output.
+- **Fix root cause.** Repair overlay, re-compile, or restore emitted artifacts —
+  do not weaken gates in prose.
+- **Verify.** Re-run \`aisdlc maintain\` until setup-ready or a different skill
+  handoff replaces this one.
+
+## Flow
+
+1. Read \`.sdlc/maintenance-report.json\` and \`aisdlc status\` output.
+2. If compile artifacts are missing → \`aisdlc compile --overlay … --out .\`.
+3. If smoke checks fail → read \`.sdlc/smoke/\` logs; fix overlay/schema issues.
+4. If blocking gaps remain → invoke \`close-gaps\` instead of guessing here.
+5. Re-run \`aisdlc maintain\`.
 ",
   ".kiro/skills/track-select/SKILL.md": "---
 name: track-select
@@ -4282,9 +5770,18 @@ prose.
   ".sdlc/emitted.json": "{
   "version": 1,
   "files": [
+    ".agents/skills/architecture-grounding/SKILL.md",
+    ".agents/skills/bench-triage/SKILL.md",
+    ".agents/skills/bind-integrations/SKILL.md",
+    ".agents/skills/close-gaps/SKILL.md",
+    ".agents/skills/compound-learnings/SKILL.md",
     ".agents/skills/customize/SKILL.md",
     ".agents/skills/garden-docs/SKILL.md",
+    ".agents/skills/pack-workflows/SKILL.md",
+    ".agents/skills/resolve-upgrade/SKILL.md",
+    ".agents/skills/review-standards-drift/SKILL.md",
     ".agents/skills/sdlc-loop/SKILL.md",
+    ".agents/skills/setup-triage/SKILL.md",
     ".agents/skills/track-select/SKILL.md",
     ".agents/skills/tune-roles/SKILL.md",
     ".claude/agents/architect.md",
@@ -4294,9 +5791,18 @@ prose.
     ".claude/agents/tester.md",
     ".claude/hooks/approved-gate.mjs",
     ".claude/settings.json",
+    ".claude/skills/architecture-grounding/SKILL.md",
+    ".claude/skills/bench-triage/SKILL.md",
+    ".claude/skills/bind-integrations/SKILL.md",
+    ".claude/skills/close-gaps/SKILL.md",
+    ".claude/skills/compound-learnings/SKILL.md",
     ".claude/skills/customize/SKILL.md",
     ".claude/skills/garden-docs/SKILL.md",
+    ".claude/skills/pack-workflows/SKILL.md",
+    ".claude/skills/resolve-upgrade/SKILL.md",
+    ".claude/skills/review-standards-drift/SKILL.md",
     ".claude/skills/sdlc-loop/SKILL.md",
+    ".claude/skills/setup-triage/SKILL.md",
     ".claude/skills/track-select/SKILL.md",
     ".claude/skills/tune-roles/SKILL.md",
     ".codex/agents/architect.toml",
@@ -4308,9 +5814,18 @@ prose.
     ".codex/hooks/approved-gate.mjs",
     ".codex/hooks/mcp-gate.mjs",
     ".codex/sdlc/role-policy.json",
+    ".codex/skills/architecture-grounding/SKILL.md",
+    ".codex/skills/bench-triage/SKILL.md",
+    ".codex/skills/bind-integrations/SKILL.md",
+    ".codex/skills/close-gaps/SKILL.md",
+    ".codex/skills/compound-learnings/SKILL.md",
     ".codex/skills/customize/SKILL.md",
     ".codex/skills/garden-docs/SKILL.md",
+    ".codex/skills/pack-workflows/SKILL.md",
+    ".codex/skills/resolve-upgrade/SKILL.md",
+    ".codex/skills/review-standards-drift/SKILL.md",
     ".codex/skills/sdlc-loop/SKILL.md",
+    ".codex/skills/setup-triage/SKILL.md",
     ".codex/skills/track-select/SKILL.md",
     ".codex/skills/tune-roles/SKILL.md",
     ".cursor/agents/architect.md",
@@ -4324,9 +5839,18 @@ prose.
     ".cursor/mcp.json",
     ".cursor/permissions.json",
     ".cursor/sdlc/role-policy.json",
+    ".cursor/skills/architecture-grounding/SKILL.md",
+    ".cursor/skills/bench-triage/SKILL.md",
+    ".cursor/skills/bind-integrations/SKILL.md",
+    ".cursor/skills/close-gaps/SKILL.md",
+    ".cursor/skills/compound-learnings/SKILL.md",
     ".cursor/skills/customize/SKILL.md",
     ".cursor/skills/garden-docs/SKILL.md",
+    ".cursor/skills/pack-workflows/SKILL.md",
+    ".cursor/skills/resolve-upgrade/SKILL.md",
+    ".cursor/skills/review-standards-drift/SKILL.md",
     ".cursor/skills/sdlc-loop/SKILL.md",
+    ".cursor/skills/setup-triage/SKILL.md",
     ".cursor/skills/track-select/SKILL.md",
     ".cursor/skills/tune-roles/SKILL.md",
     ".github/agents/architect.agent.md",
@@ -4338,9 +5862,18 @@ prose.
     ".github/copilot-instructions.md",
     ".github/hooks/approved-gate.json",
     ".github/hooks/approved-gate.mjs",
+    ".github/skills/architecture-grounding/SKILL.md",
+    ".github/skills/bench-triage/SKILL.md",
+    ".github/skills/bind-integrations/SKILL.md",
+    ".github/skills/close-gaps/SKILL.md",
+    ".github/skills/compound-learnings/SKILL.md",
     ".github/skills/customize/SKILL.md",
     ".github/skills/garden-docs/SKILL.md",
+    ".github/skills/pack-workflows/SKILL.md",
+    ".github/skills/resolve-upgrade/SKILL.md",
+    ".github/skills/review-standards-drift/SKILL.md",
     ".github/skills/sdlc-loop/SKILL.md",
+    ".github/skills/setup-triage/SKILL.md",
     ".github/skills/track-select/SKILL.md",
     ".github/skills/tune-roles/SKILL.md",
     ".github/workflows/sdlc-gate.yml",
@@ -4355,9 +5888,18 @@ prose.
     ".kiro/hooks/tool-gate.mjs",
     ".kiro/sdlc/role-policy.json",
     ".kiro/settings/mcp.json",
+    ".kiro/skills/architecture-grounding/SKILL.md",
+    ".kiro/skills/bench-triage/SKILL.md",
+    ".kiro/skills/bind-integrations/SKILL.md",
+    ".kiro/skills/close-gaps/SKILL.md",
+    ".kiro/skills/compound-learnings/SKILL.md",
     ".kiro/skills/customize/SKILL.md",
     ".kiro/skills/garden-docs/SKILL.md",
+    ".kiro/skills/pack-workflows/SKILL.md",
+    ".kiro/skills/resolve-upgrade/SKILL.md",
+    ".kiro/skills/review-standards-drift/SKILL.md",
     ".kiro/skills/sdlc-loop/SKILL.md",
+    ".kiro/skills/setup-triage/SKILL.md",
     ".kiro/skills/track-select/SKILL.md",
     ".kiro/skills/tune-roles/SKILL.md",
     ".mcp.json",

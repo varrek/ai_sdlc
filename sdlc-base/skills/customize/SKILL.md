@@ -67,6 +67,11 @@ freshness makes the no-op cheap.
      blocking gap) plus the resume entrypoint: re-run `/customize` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
 
+   For ongoing maintenance after setup, prefer `aisdlc maintain --repo .` — it
+   runs customize → compile → smoke → garden and writes
+   `.sdlc/maintenance-report.json` with host skill handoffs (`close-gaps`,
+   `setup-triage`, `garden-docs`, etc.).
+
 6. **Read host activation guidance.** After compile, `.sdlc/host-setup.md`
    lists every enabled host, the files it should load, activation/trust notes,
    and honest degradation such as Copilot's IDE gate fallback. This guide is

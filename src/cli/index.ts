@@ -23,6 +23,7 @@ import { loadAnswersFile, runCustomize } from "./customize.js";
 import { EXPLAIN_CLAIM_KEYS, explainClaim, explainStandard, isExplainClaimKey } from "./explain.js";
 import { runGardenCli } from "./garden.js";
 import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "./garden-docs.js";
+import { runMaintainCli } from "./maintain.js";
 import { RecordLoopEventError, recordLoopEventFromJson } from "./record-loop-event.js";
 import { runSetupCli } from "./setup.js";
 import { runSmokeCli } from "./smoke.js";
@@ -34,10 +35,12 @@ const HELP = `aisdlc — internal AI SDLC framework compiler
 Usage:
   aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot,codex,kiro]
   aisdlc setup --repo <dir> [--hosts cursor,claude-code,copilot,codex,kiro]
+  aisdlc maintain --repo <dir>
   aisdlc garden --repo <dir>
 
 Commands:
   setup       Run customize -> compile -> smoke for a target repo (alias: init).
+  maintain    Run customize -> compile -> smoke -> garden; write maintenance report and skill handoffs.
   garden      Run doc-garden deterministic fixes and write .sdlc/doc-gardening-report.json.
   compile     Compile the host-neutral base (+ overlay) to host-native config.
   gen-matrix  Regenerate docs/capability-matrix.md from adapter capabilities.
@@ -61,6 +64,10 @@ Garden-docs flags:
 
 Garden flags:
   --repo <dir> --config <dir> --overlay <file> --overlay-dir <dir> --fail-on warning|error
+
+Maintain flags:
+  --repo <dir> --base <dir> --packs <dir,dir> --hosts <host,host>
+  --mode plugin|deterministic --force --bench [--bench-seed <n>] [--bench-count <n>]
 `;
 
 function fail(message: string): never {
@@ -467,6 +474,44 @@ function cmdGarden(rest: string[]): void {
   process.exit(result.exitCode);
 }
 
+function cmdMaintain(rest: string[]): void {
+  const { options, flags } = parseArgs(rest);
+  let operatingMode: OperatingModeValue | undefined;
+  try {
+    const rawMode = options.get("mode");
+    operatingMode = rawMode ? OperatingMode.parse(rawMode) : undefined;
+  } catch (error) {
+    fail(`maintain: invalid --mode (${(error as Error).message})`);
+  }
+  const hostsRaw = options.get("hosts");
+  const hosts = hostsRaw ? hostsRaw.split(",").map((h) => HostId.parse(h.trim())) : undefined;
+  const benchSeedRaw = options.get("bench-seed");
+  const benchCountRaw = options.get("bench-count");
+  const benchSeed = benchSeedRaw ? Number(benchSeedRaw) : undefined;
+  const benchCount = benchCountRaw ? Number(benchCountRaw) : undefined;
+  if (benchSeedRaw && !Number.isInteger(benchSeed))
+    fail("maintain: --bench-seed must be an integer");
+  if (benchCountRaw && (!Number.isInteger(benchCount) || (benchCount ?? 0) < 1)) {
+    fail("maintain: --bench-count must be a positive integer");
+  }
+  const result = runMaintainCli({
+    repoRoot: options.get("repo") ?? process.cwd(),
+    baseDir: resolveBaseOption(options.get("base")),
+    packDirs: parseList(options.get("packs")),
+    hosts,
+    operatingMode,
+    force: flags.has("force"),
+    withBench: flags.has("bench"),
+    benchSeed,
+    benchCount,
+  });
+  process.stdout.write(`${result.output}\n`);
+  if (result.writtenPaths.length > 0) {
+    process.stdout.write(`Wrote: ${result.writtenPaths.join(", ")}\n`);
+  }
+  process.exit(result.exitCode);
+}
+
 function cmdUpgrade(rest: string[]): void {
   const { options } = parseArgs(rest);
   const oldBaseDir = options.get("old-base");
@@ -526,6 +571,9 @@ function main(): void {
       return;
     case "record-event":
       cmdRecordEvent(rest);
+      return;
+    case "maintain":
+      cmdMaintain(rest);
       return;
     case "garden":
       cmdGarden(rest);
