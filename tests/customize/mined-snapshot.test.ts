@@ -3,10 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCustomize } from "../../src/cli/customize.js";
-import {
-  loadMinedProfile,
-  saveMinedProfile,
-} from "../../src/customize/mined-snapshot.js";
+import { loadMinedProfile, saveMinedProfile } from "../../src/customize/mined-snapshot.js";
 import { mineRepo } from "../../src/customize/repo-miner.js";
 
 describe("mined snapshot cache", () => {
