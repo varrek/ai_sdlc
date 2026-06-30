@@ -27,11 +27,10 @@ function readEvents(sdlcDir) {
 
 function approvalEventKey(event) {
   if (event.type !== "approval_gate" || event.verdict !== "approved") return undefined;
-  if (event.taskId === "unknown") return undefined;
   const evidence = [...(event.evidence ?? [])].sort().join("\\0");
   const checkpoint = event.checkpoint ?? event.stage;
   if (!checkpoint) return undefined;
-  return [event.taskId, event.role ?? "", checkpoint, evidence].join("\\0");
+  return [event.taskId ?? "unknown", event.role ?? "", checkpoint, evidence].join("\\0");
 }
 
 const eventJson = option("--event");

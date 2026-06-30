@@ -162,6 +162,17 @@ describe("setup chain idempotency", () => {
     });
     expect(repaired.freshnessSkipped).toBe(false);
     expect(existsSync(join(root, ".sdlc", "host-setup.md"))).toBe(true);
+
+    rmSync(join(root, ".sdlc", "hooks", "record-loop-event.mjs"));
+    const repairedRecorder = runCompileCli({
+      baseDir,
+      overlayPath,
+      outDir: root,
+      sdlcDir,
+      hosts: ["claude-code"],
+    });
+    expect(repairedRecorder.freshnessSkipped).toBe(false);
+    expect(existsSync(join(root, ".sdlc", "hooks", "record-loop-event.mjs"))).toBe(true);
   });
 
   it("a base upgrade (project.lock change) makes smoke-passed stale even if the overlay is unchanged", () => {

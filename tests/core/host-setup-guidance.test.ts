@@ -26,6 +26,14 @@ describe("host setup guidance", () => {
     expect(guide).not.toContain("## Claude Code");
     expect(guide).toContain("approved-gate-hook: Copilot IDE has no PreToolUse hook.");
     expect(guide).toContain("`.cursor/agents/`");
+    expect(guide).toContain("`.cursor/hooks/`");
     expect(guide).toContain("`.cursor-plugin/plugin.json` (conditional or not emitted");
+
+    const claudeGuide = renderHostSetupGuide(
+      ["claude-code"],
+      [{ path: ".claude/hooks/approved-gate.mjs", contents: "" }],
+      [],
+    );
+    expect(claudeGuide).toContain("`.claude/hooks/`");
   });
 });

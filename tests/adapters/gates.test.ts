@@ -191,6 +191,24 @@ describe("approved gate runtime", () => {
     expect(events).toHaveLength(1);
   });
 
+  it("dedupes repeated unknown-task approvals for the same checkpoint", () => {
+    const files = byPath(new CursorAdapter().emit(model).files);
+    const script = install(files, ".cursor/hooks/approved-gate.mjs");
+    const env = {
+      SDLC_APPROVED: "1",
+      SDLC_ACTIVE_ROLE: "engineer",
+      SDLC_CHECKPOINT: "before-reviewer",
+    };
+
+    expect(runApprovedGate(script, env)).toBe(0);
+    expect(runApprovedGate(script, env)).toBe(0);
+
+    const events = readFileSync(join(dir, ".sdlc", "loop_history", "events.jsonl"), "utf8")
+      .split("\n")
+      .filter(Boolean);
+    expect(events).toHaveLength(1);
+  });
+
   it("allows approved actions when local recording fails", () => {
     const files = byPath(new CursorAdapter().emit(model).files);
     const script = installGateOnly(files, ".cursor/hooks/approved-gate.mjs");

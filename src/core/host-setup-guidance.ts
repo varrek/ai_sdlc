@@ -19,6 +19,7 @@ const HOST_GUIDES: Record<HostId, HostGuide> = {
       ".cursor/skills/",
       ".agents/skills/",
       ".cursor/hooks.json",
+      ".cursor/hooks/",
       ".cursor/mcp.json",
       ".cursor/permissions.json",
       ".cursor/sdlc/role-policy.json",
@@ -41,6 +42,7 @@ const HOST_GUIDES: Record<HostId, HostGuide> = {
       ".claude/agents/",
       ".claude/skills/",
       ".claude/settings.json",
+      ".claude/hooks/",
       ".mcp.json",
     ],
     activation: [
