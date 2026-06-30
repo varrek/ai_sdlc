@@ -134,7 +134,8 @@ Common flags:
   `--hosts cursor,claude-code,copilot,codex,kiro`, `--mode plugin|deterministic`,
   `--force`
 - `customize`: `--repo <dir>` (default: cwd), `--answers-file <file>`,
-  `--mode plugin|deterministic` (default: plugin), `--force`
+  `--mode plugin|deterministic` (default: plugin), `--force` (bypass freshness and
+  mined snapshot cache; use after in-place file edits that do not add/remove paths)
 - `compile`: `--base <dir>` (default: bundled `sdlc-base/`, with source-checkout
   fallback to `./sdlc-base`), `--packs <dir,dir>`, `--out <dir>` (required), `--overlay <file>`,
   `--hosts cursor,claude-code,copilot,codex,kiro`, `--force`
