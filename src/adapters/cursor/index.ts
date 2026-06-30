@@ -5,10 +5,12 @@ import { emitInstructions } from "./instructions.js";
 import { emitLspGuidance } from "./lsp-guidance.js";
 import { emitMcp } from "./mcp.js";
 import { emitPluginManifest } from "./plugin-manifest.js";
+import { emitHierarchyRules } from "./rules.js";
 import { emitSkills } from "./skills.js";
 
 const CAPABILITIES: HostCapabilities = {
   instructions: "native",
+  hierarchicalInstructions: "native",
   skills: "native",
   roleSubagents: "native",
   perRoleToolRestriction: "fallback", // global mcpAllowlist only; per-role via hook
@@ -25,6 +27,7 @@ export class CursorAdapter implements Adapter {
   emit(model: NeutralModel): EmitResult {
     const files = [
       ...emitInstructions(model),
+      ...emitHierarchyRules(model),
       ...emitSkills(model),
       ...emitAgents(model),
       ...emitGates(model),

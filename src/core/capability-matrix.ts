@@ -3,6 +3,7 @@ import type { Adapter, CapabilityLevel, HostCapabilities } from "./types.js";
 
 const ROWS: { key: keyof HostCapabilities; label: string }[] = [
   { key: "instructions", label: "Project instructions (AGENTS.md)" },
+  { key: "hierarchicalInstructions", label: "Hierarchical / scoped instructions" },
   { key: "skills", label: "Agent Skills (SKILL.md)" },
   { key: "roleSubagents", label: "Role subagents + dispatch" },
   { key: "perRoleToolRestriction", label: "Per-role tool restriction" },

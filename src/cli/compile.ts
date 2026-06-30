@@ -5,12 +5,19 @@ import { readAcceptedLearnings } from "../core/accepted-learnings.js";
 import { type CompileResult, compile, EMITTED_MANIFEST_PATH } from "../core/engine.js";
 import { HOST_SETUP_GUIDE_PATH } from "../core/host-setup-guidance.js";
 import {
+  instructionHierarchyPathFor,
   loadBase,
+  loadInstructionHierarchy,
   loadOverlay,
   loadProjectContext,
   projectContextPathFor,
 } from "../core/loader.js";
 import { mergeOverlay } from "../core/merge.js";
+import {
+  DEFAULT_EXCLUSIONS,
+  type InstructionHierarchy,
+  type ProjectContext,
+} from "../core/project-context.js";
 import { isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
 import type { HostId } from "../schema/index.js";
 import { baseFingerprint, compiledFingerprint, overlayFingerprint } from "./phase-fingerprints.js";
@@ -63,15 +70,34 @@ export function runCompile(options: CompileCliOptions): CompileResult {
   const base = loadBase(options.baseDir, options.packDirs);
   const overlay = loadOverlay(options.overlayPath);
   const projectContext = loadProjectContext(projectContextPathFor(options.overlayPath));
+  const instructionHierarchy = loadInstructionHierarchy(
+    instructionHierarchyPathFor(options.overlayPath),
+  );
+  const compileContext =
+    projectContext && instructionHierarchy
+      ? { ...projectContext, instructionHierarchy }
+      : (projectContext ?? hierarchyOnlyProjectContext(instructionHierarchy));
   const sdlcDir = options.sdlcDir ?? join(options.outDir, ".sdlc");
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
-  const model = mergeOverlay(base, overlay, projectContext, acceptedLearnings);
+  const model = mergeOverlay(base, overlay, compileContext, acceptedLearnings);
   const registry = buildRegistry();
   return compile(model, registry, {
     outDir: options.outDir,
     hosts: options.hosts,
     packDirs: options.packDirs,
   });
+}
+
+function hierarchyOnlyProjectContext(
+  instructionHierarchy: InstructionHierarchy | undefined,
+): ProjectContext | undefined {
+  if (!instructionHierarchy) return undefined;
+  return {
+    packages: [],
+    map: [],
+    exclusions: DEFAULT_EXCLUSIONS,
+    instructionHierarchy,
+  };
 }
 
 export function compiledArtifactsPresent(outDir: string): boolean {

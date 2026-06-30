@@ -56,6 +56,8 @@ export type CapabilityLevel = "native" | "partial" | "fallback" | "none";
 export interface HostCapabilities {
   /** Project-wide instructions (AGENTS.md and friends). */
   instructions: CapabilityLevel;
+  /** Folder- or glob-scoped instruction hierarchy. */
+  hierarchicalInstructions: CapabilityLevel;
   /** Agent Skills (SKILL.md). */
   skills: CapabilityLevel;
   /** Role subagents + dispatch. */

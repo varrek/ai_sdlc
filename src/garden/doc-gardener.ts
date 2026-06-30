@@ -2,8 +2,21 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
-import { loadProjectContext, PROJECT_CONTEXT_FILE, projectContextPathFor } from "../core/loader.js";
-import { DEFAULT_EXCLUSIONS } from "../core/project-context.js";
+import {
+  INSTRUCTION_HIERARCHY_FILE,
+  instructionHierarchyPathFor,
+  loadInstructionHierarchy,
+  loadProjectContext,
+  PROJECT_CONTEXT_FILE,
+  projectContextPathFor,
+} from "../core/loader.js";
+import {
+  acceptedInstructionScopes,
+  DEFAULT_EXCLUSIONS,
+  type InstructionHierarchy,
+  type InstructionScope,
+  type ProjectContext,
+} from "../core/project-context.js";
 import { redactUntrustedText } from "../eval/redact.js";
 import type { DocGardenFinding, DocGardenReport, DocGardenSeverity } from "./types.js";
 
@@ -17,6 +30,7 @@ export interface AnalyzeDocGardenOptions {
 const ROOT_DOCS = ["AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"];
 const ROOT_LINE_LIMIT = 120;
 const ROOT_CHAR_LIMIT = 12_000;
+const CODEX_CHAIN_WARN_BYTES = 32 * 1024;
 const DOC_WALK_LIMIT = 1000;
 const DOC_DIR_WALK_LIMIT = 2000;
 
@@ -37,11 +51,20 @@ interface MarkdownWalkResult {
 
 export function analyzeDocGarden(options: AnalyzeDocGardenOptions): DocGardenReport {
   const repoRoot = resolve(options.repoRoot);
+  const projectContext = loadProjectContext(resolveProjectContextPath(options));
+  const instructionHierarchy = loadInstructionHierarchy(resolveInstructionHierarchyPath(options));
+  const gardenContext =
+    projectContext && instructionHierarchy
+      ? { ...projectContext, instructionHierarchy }
+      : (projectContext ?? hierarchyOnlyProjectContext(instructionHierarchy));
+  const instructionScopes = acceptedInstructionScopes(gardenContext);
   const findings: DocGardenFinding[] = [];
 
   findings.push(...findRootBloat(repoRoot));
   findings.push(...findBrokenLinks(repoRoot));
-  findings.push(...findMissingCodebaseMap(repoRoot, options));
+  findings.push(...findMissingCodebaseMap(repoRoot, gardenContext));
+  findings.push(...findMissingHierarchyScopeDocs(repoRoot, instructionScopes));
+  findings.push(...findCodexBudgetRisk(repoRoot, instructionScopes));
   findings.push(...findStaleCapabilityMatrix(repoRoot));
 
   const sorted = findings.map(redactFinding).sort((a, b) => {
@@ -180,9 +203,8 @@ function findBrokenLinks(repoRoot: string): DocGardenFinding[] {
 
 function findMissingCodebaseMap(
   repoRoot: string,
-  options: AnalyzeDocGardenOptions,
+  context: ProjectContext | undefined,
 ): DocGardenFinding[] {
-  const context = loadProjectContext(resolveProjectContextPath(options));
   if (!context || context.map.length === 0) return [];
   let firstRootDoc: string | undefined;
   for (const path of ROOT_DOCS) {
@@ -203,6 +225,58 @@ function findMissingCodebaseMap(
   ];
 }
 
+function findMissingHierarchyScopeDocs(
+  repoRoot: string,
+  scopes: InstructionScope[],
+): DocGardenFinding[] {
+  return scopes.flatMap((scope) => {
+    const localTargets = localInstructionTargets(scope);
+    if (localTargets.some((target) => existsSync(join(repoRoot, target)))) return [];
+    const displayPath =
+      localTargets.find((target) => target.endsWith("AGENTS.md")) ?? localTargets[0];
+    return [
+      {
+        id: "hierarchy-scope-missing" as const,
+        severity: "warning" as const,
+        path: displayPath ?? `${scope.path}/AGENTS.md`,
+        message: `accepted instruction scope '${scope.path}' has no local AGENTS.md or CLAUDE.md`,
+        suggestion: "Re-run compile so accepted hierarchy scopes emit local instruction files.",
+      },
+    ];
+  });
+}
+
+function localInstructionTargets(scope: InstructionScope): string[] {
+  const localPrefix = `${scope.path}/`;
+  const targets = scope.hostTargets.filter(
+    (target) =>
+      target.startsWith(localPrefix) &&
+      (target.endsWith("/AGENTS.md") || target.endsWith("/CLAUDE.md")),
+  );
+  return targets.length > 0 ? targets : [`${scope.path}/AGENTS.md`, `${scope.path}/CLAUDE.md`];
+}
+
+function findCodexBudgetRisk(repoRoot: string, scopes: InstructionScope[]): DocGardenFinding[] {
+  const root = readIfExists(join(repoRoot, "AGENTS.md"));
+  if (!root || scopes.length === 0) return [];
+  const findings: DocGardenFinding[] = [];
+  for (const scope of scopes) {
+    const local = readIfExists(join(repoRoot, scope.path, "AGENTS.md")) ?? scope.instructionBody;
+    const bytes = Buffer.byteLength(`${root}\n\n${local}`, "utf8");
+    if (bytes > CODEX_CHAIN_WARN_BYTES) {
+      findings.push({
+        id: "hierarchy-codex-budget",
+        severity: "warning",
+        path: `${scope.path}/AGENTS.md`,
+        message: `Codex instruction chain for '${scope.path}' is about ${bytes} byte(s)`,
+        suggestion:
+          "Keep root instructions as a table of contents or split local guidance before Codex truncates specific rules.",
+      });
+    }
+  }
+  return findings;
+}
+
 function findStaleCapabilityMatrix(repoRoot: string): DocGardenFinding[] {
   const matrixPath = join(repoRoot, "docs", "capability-matrix.md");
   if (!existsSync(matrixPath)) return [];
@@ -218,6 +292,10 @@ function findStaleCapabilityMatrix(repoRoot: string): DocGardenFinding[] {
       suggestion: "Run `aisdlc gen-matrix` and review the generated diff.",
     },
   ];
+}
+
+function readIfExists(path: string): string | undefined {
+  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
 }
 
 function markdownFiles(repoRoot: string): MarkdownInventory {
@@ -336,6 +414,25 @@ function resolveProjectContextPath(options: AnalyzeDocGardenOptions): string | u
   if (options.overlayDir) return join(resolve(options.overlayDir), PROJECT_CONTEXT_FILE);
   const configDir = resolve(options.configDir ?? options.repoRoot);
   return projectContextPathFor(join(configDir, ".sdlc", "overlay", ".customize.yaml"));
+}
+
+function resolveInstructionHierarchyPath(options: AnalyzeDocGardenOptions): string | undefined {
+  if (options.overlayPath) return instructionHierarchyPathFor(resolve(options.overlayPath));
+  if (options.overlayDir) return join(resolve(options.overlayDir), INSTRUCTION_HIERARCHY_FILE);
+  const configDir = resolve(options.configDir ?? options.repoRoot);
+  return instructionHierarchyPathFor(join(configDir, ".sdlc", "overlay", ".customize.yaml"));
+}
+
+function hierarchyOnlyProjectContext(
+  instructionHierarchy: InstructionHierarchy | undefined,
+): ProjectContext | undefined {
+  if (!instructionHierarchy) return undefined;
+  return {
+    packages: [],
+    map: [],
+    exclusions: DEFAULT_EXCLUSIONS,
+    instructionHierarchy,
+  };
 }
 
 function redactFinding(finding: DocGardenFinding): DocGardenFinding {

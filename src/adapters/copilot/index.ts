@@ -8,6 +8,7 @@ import { emitSkills } from "./skills.js";
 
 const CAPABILITIES: HostCapabilities = {
   instructions: "native",
+  hierarchicalInstructions: "native",
   skills: "native",
   roleSubagents: "partial", // custom agents + native handoffs; no parallel subagent dispatch
   perRoleToolRestriction: "partial", // agent `tools` + server/* MCP scoping; partial enforcement

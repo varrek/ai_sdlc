@@ -75,8 +75,15 @@ function guidanceSurfaces(bundle: AgentGuidanceBundle): WeightedSurface[] {
   const mapText = bundle.projectContext.map
     .map((entry) => `${entry.path} ${entry.role}`)
     .join("\n");
+  const hierarchyScopes =
+    bundle.projectContext.instructionHierarchy?.scopes.filter((scope) => scope.accepted) ?? [];
+  const hierarchyPaths = new Set(hierarchyScopes.map((scope) => scope.path));
   const packageText = bundle.projectContext.packages
+    .filter((pkg) => !hierarchyPaths.has(pkg.path))
     .map((pkg) => `${pkg.path} ${pkg.testCommand ?? ""}\n${pkg.instructionBody}`)
+    .join("\n");
+  const hierarchyText = hierarchyScopes
+    .map((scope) => `${scope.path} ${scope.role}\n${scope.instructionBody}`)
     .join("\n");
   return [
     { label: "architect", text: bundle.architect, moduleWeight: 4, commandWeight: 2 },
@@ -84,6 +91,7 @@ function guidanceSurfaces(bundle: AgentGuidanceBundle): WeightedSurface[] {
     { label: "standards", text: bundle.standardsIndex, moduleWeight: 2, commandWeight: 4 },
     { label: "map", text: mapText, moduleWeight: 5, commandWeight: 2 },
     { label: "packages", text: packageText, moduleWeight: 4, commandWeight: 5 },
+    { label: "hierarchy", text: hierarchyText, moduleWeight: 5, commandWeight: 5 },
   ];
 }
 

@@ -4,6 +4,7 @@ import type { HostId } from "../schema/index.js";
 import type { AdapterRegistry } from "./adapter-registry.js";
 import { serializeGapReport } from "./gap-report.js";
 import { HOST_SETUP_GUIDE_PATH, renderHostSetupGuide } from "./host-setup-guidance.js";
+import { GENERATED_INSTRUCTION_MARKER } from "./project-context.js";
 import type { EmittedFile, Gap, NeutralModel } from "./types.js";
 
 const GAP_REPORT_PATH = "portability.gap.yml";
@@ -95,6 +96,7 @@ function writeOutput(
 
   for (const file of files) {
     const abs = join(outDir, file.path);
+    assertSafeOverwrite(abs, file);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, normalizeTrailingNewline(file.contents), "utf8");
   }
@@ -116,6 +118,21 @@ function writeOutput(
 
 function normalizeTrailingNewline(contents: string): string {
   return contents.endsWith("\n") ? contents : `${contents}\n`;
+}
+
+function assertSafeOverwrite(abs: string, file: EmittedFile): void {
+  if (!containsGeneratedInstructionMarker(file.contents)) return;
+  if (!existsSync(abs)) return;
+  const existing = readFileSync(abs, "utf8");
+  if (containsGeneratedInstructionMarker(existing)) return;
+  throw new Error(
+    `Refusing to overwrite user-authored instruction file '${file.path}'. ` +
+      "Move the file, add it to the accepted hierarchy, or remove it before re-running compile.",
+  );
+}
+
+function containsGeneratedInstructionMarker(contents: string): boolean {
+  return contents.includes(GENERATED_INSTRUCTION_MARKER);
 }
 
 function readEmittedManifest(outDir: string): string[] {

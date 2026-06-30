@@ -8,6 +8,7 @@ Levels: **Native** (first-class), **Partial** (supported with limits),
 | Capability | cursor | claude-code | copilot | codex |
 |---|---|---|---|---|
 | Project instructions (AGENTS.md) | Native | Native | Native | Native |
+| Hierarchical / scoped instructions | Native | Native | Native | Native |
 | Agent Skills (SKILL.md) | Native | Native | Native | Native |
 | Role subagents + dispatch | Native | Native | Partial | Native |
 | Per-role tool restriction | Fallback | Native | Partial | Partial |

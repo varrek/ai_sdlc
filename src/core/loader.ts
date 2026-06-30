@@ -10,11 +10,18 @@ import {
   Role,
   Skill,
 } from "../schema/index.js";
-import { type ProjectContext, parseProjectContext } from "./project-context.js";
+import {
+  type InstructionHierarchy,
+  type ProjectContext,
+  parseInstructionHierarchy,
+  parseProjectContext,
+} from "./project-context.js";
 import type { NeutralModel } from "./types.js";
 
 /** Filename of the persisted ProjectContext, written beside the overlay. */
 export const PROJECT_CONTEXT_FILE = "project-context.json";
+/** Reviewable accepted instruction hierarchy, written beside the overlay. */
+export const INSTRUCTION_HIERARCHY_FILE = "instruction-hierarchy.json";
 
 /** Default empty overlay (a repo that has not run /customize yet). */
 const EMPTY_OVERLAY: Overlay = Overlay.parse({ version: 1 });
@@ -147,10 +154,28 @@ export function projectContextPathFor(overlayPath: string | undefined): string |
   return join(dirname(overlayPath), PROJECT_CONTEXT_FILE);
 }
 
+/** The InstructionHierarchy path that sits beside a given overlay file, if any. */
+export function instructionHierarchyPathFor(overlayPath: string | undefined): string | undefined {
+  if (!overlayPath) return undefined;
+  return join(dirname(overlayPath), INSTRUCTION_HIERARCHY_FILE);
+}
+
 /** Load a persisted ProjectContext, or `undefined` when absent or malformed. */
 export function loadProjectContext(path: string | undefined): ProjectContext | undefined {
   if (!path || !existsSync(path)) return undefined;
   return parseProjectContext(readFileSync(path, "utf8"));
+}
+
+/** Load a persisted InstructionHierarchy, or `undefined` when absent or malformed. */
+export function loadInstructionHierarchy(
+  path: string | undefined,
+): InstructionHierarchy | undefined {
+  if (!path || !existsSync(path)) return undefined;
+  try {
+    return parseInstructionHierarchy(JSON.parse(readFileSync(path, "utf8")));
+  } catch {
+    return undefined;
+  }
 }
 
 export type { NeutralModel };
