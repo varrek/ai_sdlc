@@ -31,6 +31,7 @@ export interface CorpusExpectation {
   testerMustNotInclude?: string[];
   reviewerMustInclude?: string[];
   debuggerMustInclude?: string[];
+  roleAddendaRoles?: string[];
   constitutionMustInclude?: string[];
   constitutionMustNotInclude?: string[];
   standardsMustInclude?: string[];
@@ -53,6 +54,7 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testerHasGrounding: true,
     architectMustInclude: ["src"],
     testerMustInclude: ["pytest", "provenance: miner"],
+    roleAddendaRoles: ["engineer", "tester", "architect", "reviewer", "debugger"],
     constitutionMustInclude: ["pytest", "src"],
     standardsMustInclude: ["pytest", "Project architecture"],
   },
@@ -431,6 +433,14 @@ export function assertCorpusExpectation(
   }
   for (const text of expected.debuggerMustInclude ?? []) {
     expect(debuggerAgent, `${expected.fixture} debugger includes ${text}`).toContain(text);
+  }
+  if (expected.roleAddendaRoles) {
+    for (const role of expected.roleAddendaRoles) {
+      expect(
+        overlay.roleAddenda[role]?.trim(),
+        `${expected.fixture} overlay.roleAddenda.${role}`,
+      ).toBeTruthy();
+    }
   }
   for (const text of expected.architectMustInclude ?? []) {
     expect(architect, `${expected.fixture} architect includes ${text}`).toContain(text);

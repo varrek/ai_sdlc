@@ -31,6 +31,7 @@ import {
   evidenceCoverage,
   evidenceQuality,
 } from "../customize/emitters.js";
+import { buildTemplateRoleAddenda } from "../customize/role-addenda-templates.js";
 import { readSetupState, type SetupPhase } from "../customize/setup-state.js";
 import {
   readLoopBehaviorEvalState,
@@ -162,21 +163,32 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const reviewerDeterministic = hasDeterministicReviewerGrounding(groundingInput);
   const debuggerDeterministic = hasDeterministicDebuggerGrounding(groundingInput);
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
+  const templateAddenda = buildTemplateRoleAddenda(
+    inspection.profile,
+    projectContext,
+    inspection.overlay.interviewAnswers,
+    inspection.overlay.gapClosureProvenance,
+  );
+  const hasUserAuthoredAddendum = (role: string): boolean => {
+    const text = inspection.overlay.roleAddenda[role]?.trim();
+    if (!text) return false;
+    return text !== templateAddenda[role as keyof typeof templateAddenda];
+  };
   const roleStates = {
     architect: roleState(
       architectDeterministic || hasRelevantLearning(acceptedLearnings, "architect"),
-      Boolean(inspection.overlay.roleAddenda.architect),
+      hasUserAuthoredAddendum("architect"),
     ),
-    engineer: roleState(engineerDeterministic, Boolean(inspection.overlay.roleAddenda.engineer)),
+    engineer: roleState(engineerDeterministic, hasUserAuthoredAddendum("engineer")),
     tester: roleState(
       testerDeterministic || hasRelevantLearning(acceptedLearnings, "tester"),
-      Boolean(inspection.overlay.roleAddenda.tester),
+      hasUserAuthoredAddendum("tester"),
     ),
     reviewer: roleState(
       reviewerDeterministic || hasRelevantLearning(acceptedLearnings, "reviewer"),
-      Boolean(inspection.overlay.roleAddenda.reviewer),
+      hasUserAuthoredAddendum("reviewer"),
     ),
-    debugger: roleState(debuggerDeterministic, Boolean(inspection.overlay.roleAddenda.debugger)),
+    debugger: roleState(debuggerDeterministic, hasUserAuthoredAddendum("debugger")),
   };
   const totalRoles = Object.keys(roleStates).length;
   const groundedRoles = Object.values(roleStates).filter((state) => state !== "generic").length;
