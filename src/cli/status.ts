@@ -33,6 +33,7 @@ import {
   baseFingerprint,
   compiledFingerprint,
   emittedFingerprint,
+  emittedHostSelection,
   overlayFingerprint,
 } from "./phase-fingerprints.js";
 
@@ -100,6 +101,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const sdlcDir = options.sdlcDir ?? dirname(overlayDir);
   const overlayPath = join(overlayDir, ".customize.yaml");
   const outDir = options.outDir ?? options.repoRoot;
+  const statusHosts = options.hosts ?? emittedHostSelection(outDir);
   const state = readSetupState(sdlcDir);
   const phaseStatus = setupPhaseStatus({
     state,
@@ -108,7 +110,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
     sdlcDir,
     baseDir: options.baseDir,
     outDir,
-    hosts: options.hosts,
+    hosts: statusHosts,
   });
   const hostSetupGuidePresent = existsSync(join(outDir, HOST_SETUP_GUIDE_PATH));
   const setupReady =

@@ -5,7 +5,7 @@ import { EMITTED_MANIFEST_PATH } from "../core/engine.js";
 import { PROJECT_CONTEXT_FILE } from "../core/loader.js";
 import { readProjectLock } from "../core/overlay.js";
 import { fingerprint } from "../customize/setup-state.js";
-import type { HostId } from "../schema/index.js";
+import { HostId, type HostId as HostIdValue } from "../schema/index.js";
 
 /**
  * Bump when compiler/adapters emit materially different files for the same base
@@ -46,7 +46,11 @@ export function overlayFingerprint(overlayPath: string | undefined, sdlcDir?: st
 }
 
 /** `compiled` phase fingerprint: project inputs plus emitter semantics. */
-export function compiledFingerprint(overlayFp: string, baseFp: string, hosts?: HostId[]): string {
+export function compiledFingerprint(
+  overlayFp: string,
+  baseFp: string,
+  hosts?: HostIdValue[],
+): string {
   return fingerprint([
     "compiled",
     COMPILE_EMITTER_VERSION,
@@ -72,6 +76,22 @@ export function emittedFingerprint(outDir: string, baseFp: string): string {
   return fingerprint(parts);
 }
 
+export function emittedHostSelection(outDir: string): HostIdValue[] | undefined {
+  const abs = join(outDir, EMITTED_MANIFEST_PATH);
+  if (!existsSync(abs)) return undefined;
+  try {
+    const parsed = JSON.parse(readFileSync(abs, "utf8")) as { hosts?: unknown };
+    if (!Array.isArray(parsed.hosts)) return undefined;
+    const hosts = parsed.hosts
+      .map((host) => HostId.safeParse(host))
+      .filter((result) => result.success)
+      .map((result) => result.data);
+    return hosts.length > 0 ? hosts : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function readEmittedFiles(outDir: string): string[] {
   const abs = join(outDir, EMITTED_MANIFEST_PATH);
   if (!existsSync(abs)) return [];
@@ -86,7 +106,7 @@ function readEmittedFiles(outDir: string): string[] {
   return [];
 }
 
-function hostSelectionFingerprint(hosts: HostId[] | undefined): string {
+function hostSelectionFingerprint(hosts: HostIdValue[] | undefined): string {
   return hosts ? `hosts:${[...hosts].sort().join(",")}` : "hosts:default";
 }
 

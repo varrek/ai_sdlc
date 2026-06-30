@@ -8,6 +8,7 @@ import { runCompileCli } from "../../src/cli/compile.js";
 import { runCustomize } from "../../src/cli/customize.js";
 import { runSetupCli } from "../../src/cli/setup.js";
 import { runSmokeCli } from "../../src/cli/smoke.js";
+import { buildStatus } from "../../src/cli/status.js";
 import { PHASE_ORDER } from "../../src/customize/setup-state.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -57,6 +58,10 @@ describe("setup chain idempotency", () => {
     expect(result.output).toContain("Setup-ready");
     expect(existsSync(join(root, ".sdlc", "host-setup.md"))).toBe(true);
     expect(existsSync(join(sdlcDir, "setup-state.yaml"))).toBe(true);
+
+    const status = buildStatus({ repoRoot: root, baseDir });
+    expect(status.setupReady).toBe(true);
+    expect(status.stalePhases).not.toContain("compiled");
   });
 
   it("records all four phases and re-running the chain is a full no-op", () => {

@@ -58,7 +58,7 @@ export function compile(
   files.push({ path: GAP_REPORT_PATH, contents: serializeGapReport(gaps) });
 
   const sortedFiles = sortFiles(dedupeFiles(files));
-  const pruned = writeOutput(options.outDir, sortedFiles);
+  const pruned = writeOutput(options.outDir, sortedFiles, options.hosts);
 
   return { files: sortedFiles, gaps, pruned };
 }
@@ -82,7 +82,7 @@ function sortFiles(files: EmittedFile[]): EmittedFile[] {
   return [...files].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
-function writeOutput(outDir: string, files: EmittedFile[]): string[] {
+function writeOutput(outDir: string, files: EmittedFile[], hosts?: HostId[]): string[] {
   const previous = readEmittedManifest(outDir);
   const current = new Set(files.map((f) => f.path));
 
@@ -103,7 +103,7 @@ function writeOutput(outDir: string, files: EmittedFile[]): string[] {
   }
   pruned.sort();
 
-  writeEmittedManifest(outDir, [...current].sort());
+  writeEmittedManifest(outDir, [...current].sort(), hosts);
   return pruned;
 }
 
@@ -124,10 +124,15 @@ function readEmittedManifest(outDir: string): string[] {
   return [];
 }
 
-function writeEmittedManifest(outDir: string, paths: string[]): void {
+function writeEmittedManifest(outDir: string, paths: string[], hosts?: HostId[]): void {
   const abs = join(outDir, EMITTED_MANIFEST_PATH);
   mkdirSync(dirname(abs), { recursive: true });
-  writeFileSync(abs, `${JSON.stringify({ version: 1, files: paths }, null, 2)}\n`, "utf8");
+  const manifest = {
+    version: 1,
+    files: paths,
+    ...(hosts ? { hosts: [...hosts].sort() } : {}),
+  };
+  writeFileSync(abs, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }
 
 export { EMITTED_MANIFEST_PATH, GAP_REPORT_PATH };

@@ -298,7 +298,7 @@ function cmdStatus(rest: string[]): void {
     repoRoot: options.get("repo") ?? process.cwd(),
     overlayDir: options.get("overlay-dir"),
     sdlcDir: options.get("sdlc-dir"),
-    baseDir: options.get("base"),
+    baseDir: resolveBaseOption(options.get("base")),
     outDir: options.get("out"),
     hosts,
   });
