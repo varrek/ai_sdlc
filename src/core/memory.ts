@@ -1,6 +1,8 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { readJsonlFile } from "./jsonl.js";
 import type { LoopTraceEvent } from "../eval/loop-trace.js";
+import { parseLoopTraceEvent } from "../eval/loop-trace.js";
 import { upsertGateOutcomeLearning } from "./accepted-learnings.js";
 
 /**
@@ -36,7 +38,7 @@ export function appendGateOutcome(sdlcDir: string, outcome: GateOutcome): string
 }
 
 export function readGateHistory(sdlcDir: string): GateOutcome[] {
-  return readJsonl<GateOutcome>(join(sdlcDir, GATE_HISTORY));
+  return readJsonlFile(join(sdlcDir, GATE_HISTORY));
 }
 
 export interface StandardsDelta {
@@ -60,7 +62,7 @@ export function recordStandardsDelta(
 }
 
 export function readStandardsDeltas(sdlcDir: string): StandardsDelta[] {
-  return readJsonl<StandardsDelta>(join(sdlcDir, STANDARDS_DELTAS));
+  return readJsonlFile(join(sdlcDir, STANDARDS_DELTAS));
 }
 
 /** Append a loop trace event to the history log (`.sdlc/loop_history/events.jsonl`). */
@@ -74,29 +76,10 @@ export function appendLoopEvent(sdlcDir: string, event: LoopTraceEvent): string 
 }
 
 export function readLoopEvents(sdlcDir: string): LoopTraceEvent[] {
-  return readJsonl<LoopTraceEvent>(join(sdlcDir, LOOP_EVENTS));
+  return readJsonlFile(join(sdlcDir, LOOP_EVENTS), parseLoopTraceEvent);
 }
 
 function appendLine(path: string, line: string): void {
   mkdirSync(dirname(path), { recursive: true });
   appendFileSync(path, `${line}\n`, "utf8");
-}
-
-/**
- * Read a JSONL log, skipping blank and corrupt lines. An append-only log can be
- * left half-written by a crash; one bad line must not make the whole history
- * unreadable.
- */
-function readJsonl<T>(path: string): T[] {
-  if (!existsSync(path)) return [];
-  const out: T[] = [];
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (line.trim().length === 0) continue;
-    try {
-      out.push(JSON.parse(line) as T);
-    } catch {
-      // Skip a corrupt/partial line rather than throwing on the whole log.
-    }
-  }
-  return out;
 }

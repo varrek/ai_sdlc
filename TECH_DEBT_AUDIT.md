@@ -1,19 +1,12 @@
 # Tech Debt Audit - ai-sdlc
 
-Generated: 2026-06-29
+Generated: 2026-06-30 (repeat-run refresh)
 
 ## Executive Summary
 
-- 0 Critical findings, 11 High, 25 Medium, 9 Low.
-- The largest debt concentration is the customization miner and setup/eval pipeline: `src/customize/repo-miner.ts` is the largest product file and `src/cli/index.ts`, `src/cli/status.ts`, `src/customize/emitters.ts`, and `src/eval/loop-score.ts` are high-churn.
-- The most important architectural issue is duplicated enforcement code across host adapters. Approved-gate behavior, stage allowlists, and event recording are copied across Cursor, Claude Code, Copilot, and Codex emitters.
-- The most important correctness issue is weak validation at persisted or external boundaries: loop events, project context, eval state, catalog JSON, and setup artifacts are often cast after parsing.
-- Test and type checks are currently green: `npm run typecheck` passed and `npm test` passed 360 tests with 1 skipped test.
-- `madge` found no circular dependencies and `depcheck` found no dependency issues.
-- `knip` reported unused files, exports, and exported types; some are likely intentional public/testing surfaces, but several are real cleanup candidates.
-- `npm audit` reported 7 vulnerabilities, including a critical transitive dependency path through current dev/runtime dependencies.
-- `garden-docs` reported a broken-link error in `docs/packs.md`, but the evidence points to a doc-gardener false positive on regex text inside a code span.
-- No hardcoded secrets, SQL construction, weak crypto, or CORS/auth surfaces were material in this static pass.
+- **RESOLVED in this pass:** F002, F009, F011, F012, F017, F018, F022, F023, F026, F027, F028, F029, F030, F034, F036, F041, F042, plus previously fixed F003, F005, F008, F010, F019, F020, F021, F024, F031, F033, F043.
+- **Remaining (deferred):** F001 (full repo-miner modularization), F013–F016 (CLI/perf refactors), F025 (accepted-learnings-sync layering), F037–F038 (eval framework docs / snapshot split), F039–F040 (breaking dependency upgrades), F044–F045 (historical plan doc drift).
+- Test and type checks are green on this branch: `npm run typecheck` passed and `npm test` passed 474 tests with 1 skipped.
 
 ## Architectural Mental Model
 

@@ -1,4 +1,5 @@
 import type { EmittedFile } from "../../core/types.js";
+import { APPROVAL_GATE_STAGES } from "../../core/loop.js";
 
 export const LOOP_EVENT_RECORDER_PATH = ".sdlc/hooks/record-loop-event.mjs";
 
@@ -65,6 +66,7 @@ export function emitLoopEventRecorder(): EmittedFile {
 }
 
 export function approvedGateScript(hostLabel: string): string {
+  const approvalStages = `[${APPROVAL_GATE_STAGES.map((stage) => `"${stage}"`).join(", ")}]`;
   return `#!/usr/bin/env node
 // ${hostLabel} Approved? gate. Blocks mutating actions until the orchestration
 // loop sets SDLC_APPROVED=1 (after human approval).
@@ -87,7 +89,7 @@ function findSdlcDir() {
 
 function gateStage() {
   const stage = process.env.SDLC_GATE_STAGE || process.env.SDLC_STAGE;
-  return ["architect", "engineer", "test", "reviewer", "wrap-up"].includes(stage) ? stage : undefined;
+  return ${approvalStages}.includes(stage) ? stage : undefined;
 }
 
 if (!approved) {

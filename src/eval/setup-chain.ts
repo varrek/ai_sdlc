@@ -7,6 +7,7 @@ import { type CustomizeResult, runCustomize } from "../cli/customize.js";
 import { runSmokeCli, type SmokeCliResult } from "../cli/smoke.js";
 import { buildStatus, type StatusReport } from "../cli/status.js";
 import type { ProjectContext } from "../core/project-context.js";
+import { parseProjectContext } from "../core/project-context.js";
 import type { HostId, OperatingMode } from "../schema/index.js";
 
 export interface OverlaySnapshot {
@@ -57,6 +58,13 @@ export interface SetupChainOptions {
 }
 
 const EMPTY_PROJECT_CONTEXT: ProjectContext = { packages: [], map: [], exclusions: [] };
+
+export class SetupChainArtifactError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SetupChainArtifactError";
+  }
+}
 
 export function runSetupChain(root: string, options: SetupChainOptions): SetupChainResult {
   const totalStart = performance.now();
@@ -163,22 +171,30 @@ function readSetupArtifacts(
   smoke: SmokeCliResult,
   status: StatusReport,
 ): SetupArtifacts {
-  const overlayRaw = YAML.parse(readFileSync(overlayPath, "utf8")) as {
+  let overlayRaw: {
     interviewAnswers?: Record<string, string>;
     gapClosureProvenance?: Record<string, string>;
     roleAddenda?: Record<string, string>;
   };
+  try {
+    overlayRaw = YAML.parse(readRequiredUtf8(overlayPath, overlayPath)) as typeof overlayRaw;
+  } catch (error) {
+    if (error instanceof SetupChainArtifactError) throw error;
+    throw new SetupChainArtifactError(
+      `overlay parse failed at ${overlayPath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   return {
     smoke,
     status,
     projectContext: readProjectContext(overlayDir),
-    standardsIndex: readFileSync(join(overlayDir, "standards-index.yaml"), "utf8"),
-    architect: readFileSync(join(root, ".cursor", "agents", "architect.md"), "utf8"),
-    engineer: readFileSync(join(root, ".cursor", "agents", "engineer.md"), "utf8"),
-    tester: readFileSync(join(root, ".cursor", "agents", "tester.md"), "utf8"),
-    reviewer: readFileSync(join(root, ".cursor", "agents", "reviewer.md"), "utf8"),
-    debugger: readFileSync(join(root, ".cursor", "agents", "debugger.md"), "utf8"),
-    constitution: readFileSync(join(root, "AGENTS.md"), "utf8"),
+    standardsIndex: readRequiredUtf8(join(overlayDir, "standards-index.yaml"), "standards-index.yaml"),
+    architect: readRequiredUtf8(join(root, ".cursor", "agents", "architect.md"), "architect agent"),
+    engineer: readRequiredUtf8(join(root, ".cursor", "agents", "engineer.md"), "engineer agent"),
+    tester: readRequiredUtf8(join(root, ".cursor", "agents", "tester.md"), "tester agent"),
+    reviewer: readRequiredUtf8(join(root, ".cursor", "agents", "reviewer.md"), "reviewer agent"),
+    debugger: readRequiredUtf8(join(root, ".cursor", "agents", "debugger.md"), "debugger agent"),
+    constitution: readRequiredUtf8(join(root, "AGENTS.md"), "AGENTS.md"),
     overlay: {
       interviewAnswers: overlayRaw.interviewAnswers ?? {},
       gapClosureProvenance: overlayRaw.gapClosureProvenance ?? {},
@@ -205,9 +221,19 @@ function emptySetupArtifacts(smoke: SmokeCliResult, status: StatusReport): Setup
 
 function readProjectContext(overlayDir: string): ProjectContext {
   const path = join(overlayDir, "project-context.json");
-  return existsSync(path)
-    ? (JSON.parse(readFileSync(path, "utf8")) as ProjectContext)
-    : EMPTY_PROJECT_CONTEXT;
+  if (!existsSync(path)) return EMPTY_PROJECT_CONTEXT;
+  const parsed = parseProjectContext(readFileSync(path, "utf8"));
+  return parsed ?? EMPTY_PROJECT_CONTEXT;
+}
+
+function readRequiredUtf8(path: string, label: string): string {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    throw new SetupChainArtifactError(
+      `missing or unreadable setup artifact '${label}': ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 function readOptionalUtf8(path: string): string {

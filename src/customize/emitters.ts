@@ -196,11 +196,13 @@ export function buildOverlay(
   const integrations: Record<string, IntegrationBinding> = { ...(prior?.integrations ?? {}) };
   // Synthesize a binding from an interview answer only when the user has not
   // already provided (or hand-edited) one — prior bindings are authoritative.
-  if (answers["gitlab-server"] && !integrations.gitlab) {
-    integrations.gitlab = { serverId: answers["gitlab-server"], allowedRoles: ["engineer"] };
+  const gitlabServer = answers["gitlab-server"]?.trim();
+  if (gitlabServer && !integrations.gitlab && isIntegrationServerId(gitlabServer)) {
+    integrations.gitlab = { serverId: gitlabServer, allowedRoles: ["engineer"] };
   }
-  if (answers["jira-server"] && !integrations.jira) {
-    integrations.jira = { serverId: answers["jira-server"], allowedRoles: [] };
+  const jiraServer = answers["jira-server"]?.trim();
+  if (jiraServer && !integrations.jira && isIntegrationServerId(jiraServer)) {
+    integrations.jira = { serverId: jiraServer, allowedRoles: [] };
   }
 
   const projectContext = buildProjectContext(profile, index, repoRoot);
@@ -524,4 +526,10 @@ function standardMetadataKey(standard: StandardEntry): string {
     scope: standard.scope ?? "",
     sources: [...new Set(standard.sources)].sort(),
   });
+}
+
+const INTEGRATION_SERVER_ID = /^[A-Za-z0-9._-]+$/;
+
+function isIntegrationServerId(value: string): boolean {
+  return value.length > 0 && INTEGRATION_SERVER_ID.test(value);
 }

@@ -2,39 +2,10 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse as parseYaml } from "yaml";
+import { MINER_IGNORE_DIR_SET } from "../core/miner-exclusions.js";
 
-/** Directories never mined — vendored deps, virtualenvs, caches, build output, SDLC state. */
-const IGNORE_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "venv",
-  ".venv",
-  "env",
-  "__pycache__",
-  ".mypy_cache",
-  ".pytest_cache",
-  ".ruff_cache",
-  "dist",
-  "build",
-  ".next",
-  "coverage",
-  ".tox",
-  // Agent-host config dirs: emitted by the compiler (constitution skills/agents/
-  // hooks) or pre-existing host setup, never user source. Excluded so a re-mine
-  // after an in-repo compile stays stable — including when a host dir symlinks
-  // into a generated skills tree (e.g. `.codex/skills` -> the emitted skills).
-  // See isGeneratedArtifact for the file-level companions (AGENTS.md, …).
-  ".claude",
-  ".cursor",
-  ".codex",
-  ".kiro",
-  ".windsurf",
-  ".aider",
-  ".agents",
-  // SDLC phase cache + overlay + logs: state, never user source. Skipping it
-  // also makes the emitted-config exclusion below the single source of truth.
-  ".sdlc",
-]);
+/** Directories never mined — see `MINER_IGNORE_DIR_SET` in core/miner-exclusions. */
+const IGNORE_DIRS = MINER_IGNORE_DIR_SET;
 
 const WALK_DEPTH = 8;
 
@@ -122,6 +93,8 @@ export interface MineOptions {
    * when mining a single package in isolation to avoid infinite recursion.
    */
   detectPackages?: boolean;
+  /** When set, skip the directory walk and mine from this repo-relative inventory. */
+  prefetchedRelativeFiles?: string[];
 }
 
 /** Top-level dirs that are not source modules — excluded from the architecture map. */
@@ -570,7 +543,8 @@ function mineConventions(
  * downstream artifacts are evidence-backed.
  */
 export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
-  const files = walk(root, readEmittedPaths(root));
+  const files =
+    options.prefetchedRelativeFiles ?? walk(root, readEmittedPaths(root));
   const fileSet = new Set(files);
   const evidence: Record<string, string[]> = {};
 
@@ -1037,7 +1011,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
   let packages: PackageProfile[] | undefined;
   if (options.detectPackages !== false) {
     const pkgDirs = detectWorkspacePackages(root, files, fileSet);
-    if (pkgDirs.length >= 2) packages = pkgDirs.map((dir) => minePackage(root, dir));
+    if (pkgDirs.length >= 2) packages = pkgDirs.map((dir) => minePackage(root, dir, files));
   }
 
   return {
@@ -1232,8 +1206,15 @@ function globToRegExp(glob: string): RegExp {
  * directory (without package detection, to avoid recursion), then re-prefixing
  * its evidence paths so they remain repo-relative.
  */
-function minePackage(root: string, pkgDir: string): PackageProfile {
-  const sub = mineRepo(join(root, pkgDir), { detectPackages: false });
+function minePackage(root: string, pkgDir: string, repoFiles: string[]): PackageProfile {
+  const prefix = `${pkgDir}/`;
+  const subFiles = repoFiles
+    .filter((file) => file.startsWith(prefix))
+    .map((file) => file.slice(prefix.length));
+  const sub = mineRepo(join(root, pkgDir), {
+    detectPackages: false,
+    prefetchedRelativeFiles: subFiles,
+  });
   const evidence: Record<string, string[]> = {};
   for (const [claim, paths] of Object.entries(sub.evidence)) {
     // Git-derived evidence (commit subjects) has no repo path to prefix.
@@ -1819,4 +1800,3 @@ function testCommandFromMakefile(makefile: string): string | undefined {
   return undefined;
 }
 
-export { IGNORE_DIRS };

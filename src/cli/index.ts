@@ -3,10 +3,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
-import { appendLoopEvent, readLoopEvents } from "../core/memory.js";
 import { resolveDefaultBaseDir } from "../core/package-root.js";
 import { buildStandardsIndex, evidenceCoverage } from "../customize/emitters.js";
-import type { LoopTraceEvent } from "../eval/loop-trace.js";
 import {
   HostId,
   OperatingMode,
@@ -27,6 +25,7 @@ import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "./g
 import { runSetupCli } from "./setup.js";
 import { runSmokeCli } from "./smoke.js";
 import { buildStatus, formatStatus } from "./status.js";
+import { RecordLoopEventError, recordLoopEventFromJson } from "./record-loop-event.js";
 import { runUpgrade } from "./upgrade.js";
 
 const HELP = `aisdlc — internal AI SDLC framework compiler
@@ -63,35 +62,29 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function isLoopTraceEvent(value: unknown): value is LoopTraceEvent {
-  if (!value || typeof value !== "object") return false;
-  const type = (value as { type?: unknown }).type;
-  switch (type) {
-    case "plan_created":
-    case "handoff":
-    case "tool_attempt":
-    case "test_run":
-    case "approval_gate":
-    case "review_verdict":
-    case "replan":
-    case "done":
-    case "stuck":
-      return true;
-    default:
-      return false;
+function cmdRecordEvent(rest: string[]): void {
+  const { options } = parseArgs(rest);
+  const eventJson = options.get("event");
+  const sdlcDir = options.get("sdlc-dir") ?? join(process.cwd(), ".sdlc");
+
+  if (!eventJson) {
+    fail("record-event: --event <json> is required");
+  }
+
+  try {
+    const result = recordLoopEventFromJson(eventJson, sdlcDir);
+    if (result.skippedDuplicate && result.event) {
+      process.stdout.write(`Skipped duplicate ${result.event.type} event in ${sdlcDir}\n`);
+      return;
+    }
+    process.stdout.write(`Recorded ${result.event!.type} event to ${result.path}\n`);
+  } catch (error) {
+    if (error instanceof RecordLoopEventError) {
+      fail(`record-event: ${error.message}`);
+    }
+    fail(`record-event: ${error}`);
   }
 }
-
-function approvalEventKey(event: LoopTraceEvent): string | undefined {
-  if (event.type !== "approval_gate" || event.verdict !== "approved") return undefined;
-  if (event.taskId === "unknown") return undefined;
-  const evidence = [...(event.evidence ?? [])].sort().join("\0");
-  const checkpoint = event.checkpoint ?? event.stage;
-  if (!checkpoint) return undefined;
-  return [event.taskId, event.role ?? "", checkpoint, evidence].join("\0");
-}
-
-/** Where `customize` writes the project overlay. */
 const DEFAULT_OVERLAY = join(".sdlc", "overlay", ".customize.yaml");
 
 /**
@@ -468,41 +461,6 @@ function cmdUpgrade(rest: string[]): void {
     );
   }
   process.stdout.write(`Upgraded base to ${result.lock!.baseVersion}.\n`);
-}
-
-function cmdRecordEvent(rest: string[]): void {
-  const { options } = parseArgs(rest);
-  const eventJson = options.get("event");
-  const sdlcDir = options.get("sdlc-dir") ?? join(process.cwd(), ".sdlc");
-
-  if (!eventJson) {
-    fail("record-event: --event <json> is required");
-  }
-
-  let event: LoopTraceEvent;
-  try {
-    const parsed = JSON.parse(eventJson!);
-    if (!isLoopTraceEvent(parsed)) {
-      fail("record-event: event must include a valid loop trace type");
-    }
-    event = parsed;
-  } catch (err) {
-    fail(`record-event: invalid JSON in --event: ${err}`);
-  }
-
-  const approvalKey = approvalEventKey(event);
-  if (approvalKey) {
-    const alreadyRecorded = readLoopEvents(sdlcDir).some(
-      (recorded) => approvalEventKey(recorded) === approvalKey,
-    );
-    if (alreadyRecorded) {
-      process.stdout.write(`Skipped duplicate ${event.type} event in ${sdlcDir}\n`);
-      return;
-    }
-  }
-
-  const path = appendLoopEvent(sdlcDir, event);
-  process.stdout.write(`Recorded ${event.type} event to ${path}\n`);
 }
 
 function main(): void {

@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { isLoopTerminalEvent, type LoopTraceEvent } from "../../src/eval/loop-trace.js";
+import { isLoopTerminalEvent, parseLoopTraceEvent, type LoopTraceEvent } from "../../src/eval/loop-trace.js";
 
 describe("loop trace events", () => {
+  it("parses valid terminal events and rejects malformed payloads", () => {
+    expect(
+      parseLoopTraceEvent({
+        type: "done",
+        taskId: "task-1",
+        role: "reviewer",
+        outcome: "success",
+      }),
+    ).toMatchObject({ type: "done", taskId: "task-1" });
+    expect(parseLoopTraceEvent({ type: "done", taskId: "task-1" })).toBeUndefined();
+  });
+
   it("classifies done and stuck as terminal events", () => {
     const done: LoopTraceEvent = {
       type: "done",

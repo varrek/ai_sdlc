@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { GapClosureProvenance } from "../schema/index.js";
+import { readJsonlFile } from "./jsonl.js";
 import type { GateOutcome } from "./memory.js";
 
 export const ACCEPTED_LEARNINGS_DIR = "memory";
@@ -41,7 +42,11 @@ export function acceptedLearningsPath(sdlcDir: string): string {
 
 export function readAcceptedLearnings(sdlcDir: string): AcceptedLearningEntry[] {
   const path = acceptedLearningsPath(sdlcDir);
-  const raw = readJsonl<AcceptedLearningEntry>(path);
+  const raw = readJsonlFile(path, (value) =>
+    isAcceptedLearningEntry(value as AcceptedLearningEntry)
+      ? (value as AcceptedLearningEntry)
+      : undefined,
+  );
   const byKey = new Map<string, AcceptedLearningEntry>();
   for (const entry of raw) {
     if (isAcceptedLearningEntry(entry)) {
@@ -157,20 +162,6 @@ function isAcceptedLearningEntry(value: AcceptedLearningEntry): value is Accepte
     Array.isArray(value.sources) &&
     typeof value.provenance === "string"
   );
-}
-
-function readJsonl<T>(path: string): T[] {
-  if (!existsSync(path)) return [];
-  const out: T[] = [];
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (line.trim().length === 0) continue;
-    try {
-      out.push(JSON.parse(line) as T);
-    } catch {
-      // Skip a corrupt/partial line rather than throwing on the whole log.
-    }
-  }
-  return out;
 }
 
 function slug(value: string): string {
