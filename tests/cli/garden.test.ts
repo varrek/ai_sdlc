@@ -47,6 +47,25 @@ describe("garden workflow command", () => {
     expect(result.report.summary.total).toBe(0);
     expect(result.output).toContain("Doc garden clean");
   });
+
+  it("hands off when a fixable finding could not be applied", () => {
+    const root = tmpRepo();
+    mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
+    writeFileSync(
+      join(root, ".sdlc", "overlay", "project-context.json"),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src", role: "Source", sources: ["src"] }],
+        exclusions: [],
+      }),
+      "utf8",
+    );
+
+    const result = runGardenCli({ repoRoot: root });
+
+    expect(result.report.findings.map((finding) => finding.id)).toEqual(["missing-codebase-map"]);
+    expect(result.output).toContain("garden-docs` skill");
+  });
 });
 
 function tmpRepo(): string {

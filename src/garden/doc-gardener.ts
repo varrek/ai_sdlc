@@ -25,7 +25,7 @@ import type {
   DocGardenReport,
   DocGardenSeverity,
 } from "./types.js";
-import { JUDGMENT_DOC_GARDEN_FINDING_IDS } from "./types.js";
+import { FIXABLE_DOC_GARDEN_FINDING_IDS, JUDGMENT_DOC_GARDEN_FINDING_IDS } from "./types.js";
 
 export interface AnalyzeDocGardenOptions {
   repoRoot: string;
@@ -126,6 +126,15 @@ export function applyDocGardenFixes(options: AnalyzeDocGardenOptions): DocGarden
 export function judgmentFindings(report: DocGardenReport): DocGardenFinding[] {
   const judgmentIds = new Set<string>(JUDGMENT_DOC_GARDEN_FINDING_IDS);
   return report.findings.filter((finding) => judgmentIds.has(finding.id));
+}
+
+/** Findings the CLI cannot clear alone — host skill or compile may be required. */
+export function handoffFindings(report: DocGardenReport): DocGardenFinding[] {
+  const fixableIds = new Set<string>(FIXABLE_DOC_GARDEN_FINDING_IDS);
+  const judgmentIds = new Set<string>(JUDGMENT_DOC_GARDEN_FINDING_IDS);
+  return report.findings.filter(
+    (finding) => judgmentIds.has(finding.id) || fixableIds.has(finding.id),
+  );
 }
 
 export function renderDocGardenText(

@@ -3,8 +3,8 @@ import { join } from "node:path";
 import type { AnalyzeDocGardenOptions } from "../garden/doc-gardener.js";
 import {
   applyDocGardenFixes,
+  handoffFindings,
   hasSeverityAtLeast,
-  judgmentFindings,
   renderDocGardenMarkdown,
   renderDocGardenText,
   serializeDocGardenReport,
@@ -38,7 +38,7 @@ export function runGardenCli(options: GardenCliOptions): GardenCliResult {
     "Doc garden workflow: applied deterministic fixes and wrote the report.",
     ...renderDocGardenText(report, fixResult).split("\n"),
   ];
-  const remaining = judgmentFindings(report);
+  const remaining = handoffFindings(report);
   if (remaining.length > 0) {
     lines.push(
       `${remaining.length} finding(s) need host-agent judgment — invoke the \`garden-docs\` skill and re-run \`aisdlc garden\`.`,
