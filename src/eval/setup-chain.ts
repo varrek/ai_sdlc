@@ -12,6 +12,7 @@ import type { HostId, OperatingMode } from "../schema/index.js";
 export interface OverlaySnapshot {
   interviewAnswers: Record<string, string>;
   gapClosureProvenance: Record<string, string>;
+  roleAddenda: Record<string, string>;
 }
 
 export interface SetupArtifacts {
@@ -151,7 +152,7 @@ export function runGenericSetupChain(
     reviewer: readOptionalUtf8(join(root, ".cursor", "agents", "reviewer.md")),
     debugger: readOptionalUtf8(join(root, ".cursor", "agents", "debugger.md")),
     constitution: readFileSync(join(root, "AGENTS.md"), "utf8"),
-    overlay: { interviewAnswers: {}, gapClosureProvenance: {} },
+    overlay: { interviewAnswers: {}, gapClosureProvenance: {}, roleAddenda: {} },
   };
 }
 
@@ -165,6 +166,7 @@ function readSetupArtifacts(
   const overlayRaw = YAML.parse(readFileSync(overlayPath, "utf8")) as {
     interviewAnswers?: Record<string, string>;
     gapClosureProvenance?: Record<string, string>;
+    roleAddenda?: Record<string, string>;
   };
   return {
     smoke,
@@ -180,6 +182,7 @@ function readSetupArtifacts(
     overlay: {
       interviewAnswers: overlayRaw.interviewAnswers ?? {},
       gapClosureProvenance: overlayRaw.gapClosureProvenance ?? {},
+      roleAddenda: overlayRaw.roleAddenda ?? {},
     },
   };
 }
@@ -196,7 +199,7 @@ function emptySetupArtifacts(smoke: SmokeCliResult, status: StatusReport): Setup
     reviewer: "",
     debugger: "",
     constitution: "",
-    overlay: { interviewAnswers: {}, gapClosureProvenance: {} },
+    overlay: { interviewAnswers: {}, gapClosureProvenance: {}, roleAddenda: {} },
   };
 }
 

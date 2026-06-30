@@ -15,6 +15,7 @@ import {
   type OperatingMode,
   Overlay,
 } from "../schema/index.js";
+import { buildTemplateRoleAddenda } from "./role-addenda-templates.js";
 import type { PackageProfile, RepoProfile } from "./repo-miner.js";
 
 export interface StandardEntry {
@@ -200,6 +201,14 @@ export function buildOverlay(
     integrations.jira = { serverId: answers["jira-server"], allowedRoles: [] };
   }
 
+  const projectContext = buildProjectContext(profile, index);
+  const templateAddenda = buildTemplateRoleAddenda(
+    profile,
+    projectContext,
+    answers,
+    { ...(prior?.gapClosureProvenance ?? {}), ...gapClosureProvenance },
+  );
+
   return Overlay.parse({
     version: 1,
     operatingMode: operatingMode ?? prior?.operatingMode ?? "plugin",
@@ -210,10 +219,22 @@ export function buildOverlay(
     standards: index.standards.filter((s) => !s.scope).map((s) => s.statement),
     integrations,
     roleModels: prior?.roleModels ?? {},
-    roleAddenda: prior?.roleAddenda ?? {},
+    roleAddenda: mergeRoleAddenda(prior?.roleAddenda, templateAddenda),
     interviewAnswers: answers,
     gapClosureProvenance: { ...(prior?.gapClosureProvenance ?? {}), ...gapClosureProvenance },
   });
+}
+
+/** Prior user/plugin addenda win per role; templates fill only empty keys. */
+export function mergeRoleAddenda(
+  prior: Overlay["roleAddenda"] | undefined,
+  templates: Partial<Record<string, string>>,
+): Overlay["roleAddenda"] {
+  const merged: Overlay["roleAddenda"] = { ...(prior ?? {}) };
+  for (const [role, text] of Object.entries(templates)) {
+    if (!merged[role]?.trim()) merged[role] = text;
+  }
+  return merged;
 }
 
 /**
