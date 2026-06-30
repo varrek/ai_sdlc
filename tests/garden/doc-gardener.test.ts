@@ -91,6 +91,78 @@ describe("doc gardener", () => {
     expect(finding?.path).toBe("CLAUDE.md");
   });
 
+  it("warns when accepted hierarchy scopes have no local instruction file", () => {
+    const root = tmpRepo();
+    writeFileSync(join(root, "AGENTS.md"), "# Agent map\n\n## Codebase map\n", "utf8");
+    mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
+    writeFileSync(
+      join(root, ".sdlc", "overlay", "project-context.json"),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src/core", role: "Source module", sources: ["src/core"] }],
+        exclusions: [],
+        instructionHierarchy: {
+          version: 1,
+          scopes: [
+            {
+              path: "src/core",
+              kind: "module",
+              role: "Source module",
+              sources: ["src/core"],
+              instructionBody: "# `src/core` — local module guidance\n",
+              hostTargets: ["src/core/AGENTS.md"],
+              ownership: "generated",
+              accepted: true,
+            },
+          ],
+        },
+      }),
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root });
+
+    const finding = report.findings.find((item) => item.id === "hierarchy-scope-missing");
+    expect(finding?.path).toBe("src/core/AGENTS.md");
+  });
+
+  it("warns when a Codex hierarchy instruction chain exceeds the budget", () => {
+    const root = tmpRepo();
+    writeFileSync(join(root, "AGENTS.md"), `# Agent map\n\n${"root\n".repeat(20_000)}`, "utf8");
+    mkdirSync(join(root, "src", "core"), { recursive: true });
+    writeFileSync(join(root, "src", "core", "AGENTS.md"), "local\n".repeat(14_000), "utf8");
+    mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
+    writeFileSync(
+      join(root, ".sdlc", "overlay", "project-context.json"),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src/core", role: "Source module", sources: ["src/core"] }],
+        exclusions: [],
+        instructionHierarchy: {
+          version: 1,
+          scopes: [
+            {
+              path: "src/core",
+              kind: "module",
+              role: "Source module",
+              sources: ["src/core"],
+              instructionBody: "local\n",
+              hostTargets: ["src/core/AGENTS.md"],
+              ownership: "generated",
+              accepted: true,
+            },
+          ],
+        },
+      }),
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root });
+
+    const finding = report.findings.find((item) => item.id === "hierarchy-codex-budget");
+    expect(finding?.path).toBe("src/core/AGENTS.md");
+  });
+
   it("redacts secrets in broken link findings", () => {
     const root = tmpRepo();
     writeFileSync(join(root, "AGENTS.md"), "[Secret](missing.md?token=abc123)\n", "utf8");

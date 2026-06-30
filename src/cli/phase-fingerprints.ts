@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { acceptedLearningsPath } from "../core/accepted-learnings.js";
 import { EMITTED_MANIFEST_PATH } from "../core/engine.js";
-import { PROJECT_CONTEXT_FILE } from "../core/loader.js";
+import { INSTRUCTION_HIERARCHY_FILE, PROJECT_CONTEXT_FILE } from "../core/loader.js";
 import { readProjectLock } from "../core/overlay.js";
 import { fingerprint } from "../customize/setup-state.js";
 
@@ -31,10 +31,22 @@ export function overlayFingerprint(overlayPath: string | undefined, sdlcDir?: st
   const overlayDir = overlayPath ? dirname(overlayPath) : undefined;
   const ctxPath = overlayDir ? join(overlayDir, PROJECT_CONTEXT_FILE) : undefined;
   const ctx = ctxPath && existsSync(ctxPath) ? readFileSync(ctxPath, "utf8") : "";
+  const hierarchyPath = overlayDir ? join(overlayDir, INSTRUCTION_HIERARCHY_FILE) : undefined;
+  const hierarchy =
+    hierarchyPath && existsSync(hierarchyPath) ? readFileSync(hierarchyPath, "utf8") : "";
   const learningsPath = sdlcDir ? acceptedLearningsPath(sdlcDir) : "";
   const learnings =
     learningsPath && existsSync(learningsPath) ? readFileSync(learningsPath, "utf8") : "";
-  return fingerprint(["overlay", overlay, "project-context", ctx, "accepted-learnings", learnings]);
+  return fingerprint([
+    "overlay",
+    overlay,
+    "project-context",
+    ctx,
+    "instruction-hierarchy",
+    hierarchy,
+    "accepted-learnings",
+    learnings,
+  ]);
 }
 
 /** `compiled` phase fingerprint: overlay content folded with the base hash. */

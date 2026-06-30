@@ -1,6 +1,10 @@
 import { stringify } from "yaml";
 import {
   DEFAULT_EXCLUSIONS,
+  GENERATED_INSTRUCTION_MARKER,
+  hostTargetsForScope,
+  type InstructionHierarchy,
+  type InstructionScope,
   type MapEntry,
   type PackageContext,
   type ProjectContext,
@@ -290,33 +294,97 @@ function capitalize(s: string): string {
  * repo `packages` is empty and only the map + exclusions carry information.
  */
 export function buildProjectContext(profile: RepoProfile, index: StandardsIndex): ProjectContext {
+  const map = buildCodebaseMap(profile);
+  const scopedStandards = standardsByScope(index);
+  const instructionHierarchy = buildInstructionHierarchy(profile, index, map, scopedStandards);
+  const instructionBodyByPath = new Map(
+    instructionHierarchy.scopes.map((scope) => [scope.path, scope.instructionBody]),
+  );
   const packages: PackageContext[] = (profile.packages ?? []).map((pkg) => {
-    const scoped = index.standards.filter((s) => s.scope === pkg.path);
+    const scoped = scopedStandards.get(pkg.path) ?? [];
     return {
       path: pkg.path,
       languages: pkg.languages,
       testCommand: pkg.testCommand,
-      instructionBody: renderPackageInstructionBody(pkg.path, scoped),
+      instructionBody:
+        instructionBodyByPath.get(pkg.path) ?? renderPackageInstructionBody(pkg.path, scoped),
     };
   });
   return {
     languages: profile.languages,
     packages,
-    map: buildCodebaseMap(profile),
+    instructionHierarchy,
+    map,
     exclusions: [...DEFAULT_EXCLUSIONS],
   };
 }
 
+export function buildInstructionHierarchy(
+  profile: RepoProfile,
+  index: StandardsIndex,
+  map: MapEntry[] = buildCodebaseMap(profile),
+  scopedStandards: Map<string, StandardEntry[]> = standardsByScope(index),
+): InstructionHierarchy {
+  const packagePaths = new Set((profile.packages ?? []).map((pkg) => pkg.path));
+  const scopes: InstructionScope[] = [];
+  for (const entry of map) {
+    if (entry.path === ".") continue;
+    const scoped = scopedStandards.get(entry.path) ?? [];
+    const kind = packagePaths.has(entry.path) ? "package" : "module";
+    scopes.push({
+      path: entry.path,
+      kind,
+      role: entry.role,
+      sources: entry.sources,
+      instructionBody: renderScopeInstructionBody(entry, kind, scoped),
+      hostTargets: hostTargetsForScope(entry.path),
+      ownership: "generated",
+      accepted: true,
+    });
+  }
+  return { version: 1, scopes };
+}
+
+function standardsByScope(index: StandardsIndex): Map<string, StandardEntry[]> {
+  const byScope = new Map<string, StandardEntry[]>();
+  for (const standard of index.standards) {
+    if (!standard.scope) continue;
+    const scoped = byScope.get(standard.scope) ?? [];
+    scoped.push(standard);
+    byScope.set(standard.scope, scoped);
+  }
+  return byScope;
+}
+
 function renderPackageInstructionBody(pkgPath: string, scoped: StandardEntry[]): string {
+  const entry: MapEntry = { path: pkgPath, role: "Package", sources: [pkgPath] };
+  return renderScopeInstructionBody(entry, "package", scoped);
+}
+
+function renderScopeInstructionBody(
+  entry: MapEntry,
+  kind: InstructionScope["kind"],
+  scoped: StandardEntry[],
+): string {
   const lines = [
-    `# \`${pkgPath}\` — local conventions`,
+    GENERATED_INSTRUCTION_MARKER,
     "",
-    "Conventions specific to this package, compiled from its own evidence. The",
-    "repo-wide constitution still applies; this file adds package-local detail.",
+    `# \`${entry.path}\` — local ${kind} guidance`,
+    "",
+    `Role: ${entry.role}.`,
+    "",
+    "The repo-wide constitution still applies; this file adds local detail compiled",
+    "from evidence for this scope.",
+    "",
+    "## Evidence",
+    "",
+    ...entry.sources.map((source) => `- \`${source}\``),
+    "",
+    "## Local standards",
     "",
   ];
   if (scoped.length === 0) {
-    lines.push("- No package-specific standards were mined; follow the root constitution.");
+    lines.push("- No scope-specific standards were mined; follow the root constitution.");
   } else {
     for (const s of scoped) lines.push(`- ${s.statement}`);
   }

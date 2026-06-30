@@ -219,6 +219,7 @@ function isGeneratedArtifact(rel: string): boolean {
   if (rel === ".github/copilot-instructions.md") return true;
   if (rel === ".github/workflows/sdlc-gate.yml") return true;
   return (
+    rel.startsWith(".cursor/rules/") ||
     rel.startsWith(".github/agents/") ||
     rel.startsWith(".github/skills/") ||
     rel.startsWith(".github/hooks/") ||

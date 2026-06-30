@@ -10,6 +10,11 @@ import { AdapterRegistry } from "../../src/core/adapter-registry.js";
 import { compile, EMITTED_MANIFEST_PATH, GAP_REPORT_PATH } from "../../src/core/engine.js";
 import { loadBase, loadOverlay } from "../../src/core/loader.js";
 import { mergeOverlay } from "../../src/core/merge.js";
+import {
+  GENERATED_INSTRUCTION_MARKER,
+  type ProjectContext,
+} from "../../src/core/project-context.js";
+import { makeModel } from "../helpers/model.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
@@ -99,4 +104,87 @@ describe("compile engine", () => {
     expect(existsSync(stalePath)).toBe(false);
     expect(result.pruned).toContain("stale/old.txt");
   });
+
+  it("refuses to overwrite user-authored nested hierarchy files", () => {
+    const out = freshOut();
+    const userPath = join(out, "src/core/CLAUDE.md");
+    mkdirSync(dirname(userPath), { recursive: true });
+    writeFileSync(userPath, "# User-owned Claude guidance\n", "utf8");
+
+    expect(() =>
+      compile(hierarchyModel(), buildRegistry(), { outDir: out, hosts: ["claude-code"] }),
+    ).toThrow(/Refusing to overwrite user-authored instruction file 'src\/core\/CLAUDE\.md'/);
+  });
+
+  it.each([
+    ["copilot", ".github/instructions/src-core.instructions.md"],
+    ["cursor", ".cursor/rules/src-core.mdc"],
+  ] as const)("refuses to overwrite user-authored %s hierarchy files", (host, path) => {
+    const out = freshOut();
+    const userPath = join(out, path);
+    mkdirSync(dirname(userPath), { recursive: true });
+    writeFileSync(userPath, "# User-owned scoped guidance\n", "utf8");
+
+    expect(() =>
+      compile(hierarchyModel(), buildRegistry(), { outDir: out, hosts: [host] }),
+    ).toThrow(
+      new RegExp(`Refusing to overwrite user-authored instruction file '${escapeRegExp(path)}'`),
+    );
+  });
+
+  it("refuses to overwrite a previously emitted hierarchy file after the marker is removed", () => {
+    const out = freshOut();
+    const registry = buildRegistry();
+    compile(hierarchyModel(), registry, { outDir: out, hosts: ["cursor"] });
+    const scopedAgents = join(out, "src/core/AGENTS.md");
+    writeFileSync(scopedAgents, "# User replacement without generated marker\n", "utf8");
+
+    expect(() => compile(hierarchyModel(), registry, { outDir: out, hosts: ["cursor"] })).toThrow(
+      /Refusing to overwrite user-authored instruction file 'src\/core\/AGENTS\.md'/,
+    );
+  });
 });
+
+function hierarchyModel() {
+  return makeModel({ projectContext: hierarchyContext() });
+}
+
+function hierarchyContext(): ProjectContext {
+  const body = [
+    GENERATED_INSTRUCTION_MARKER,
+    "",
+    "# `src/core` local guidance",
+    "",
+    "Role: Source module.",
+    "",
+  ].join("\n");
+  return {
+    packages: [],
+    map: [{ path: "src/core", role: "Source module", sources: ["src/core"] }],
+    exclusions: [],
+    instructionHierarchy: {
+      version: 1,
+      scopes: [
+        {
+          path: "src/core",
+          kind: "module",
+          role: "Source module",
+          sources: ["src/core"],
+          instructionBody: body,
+          hostTargets: [
+            "src/core/CLAUDE.md",
+            "src/core/AGENTS.md",
+            ".cursor/rules/src-core.mdc",
+            ".github/instructions/src-core.instructions.md",
+          ],
+          ownership: "generated",
+          accepted: true,
+        },
+      ],
+    },
+  };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

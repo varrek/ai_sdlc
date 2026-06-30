@@ -2,8 +2,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { syncAcceptedLearningsFromCustomize } from "../core/accepted-learnings-sync.js";
-import { loadOverlay, PROJECT_CONTEXT_FILE } from "../core/loader.js";
-import { renderCodebaseMap, serializeProjectContext } from "../core/project-context.js";
+import { INSTRUCTION_HIERARCHY_FILE, loadOverlay, PROJECT_CONTEXT_FILE } from "../core/loader.js";
+import {
+  renderCodebaseMap,
+  serializeInstructionHierarchy,
+  serializeProjectContext,
+} from "../core/project-context.js";
 import {
   buildOverlay,
   buildProjectContext,
@@ -88,6 +92,7 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   const overlayPath = join(overlayDir, OVERLAY_FILE);
   const standardsPath = join(overlayDir, STANDARDS_FILE);
   const projectContextPath = join(overlayDir, PROJECT_CONTEXT_FILE);
+  const instructionHierarchyPath = join(overlayDir, INSTRUCTION_HIERARCHY_FILE);
 
   const priorOverlay = existsSync(overlayPath) ? loadOverlay(overlayPath) : undefined;
   const answers = mergeAnswers(priorOverlay, options.answers ?? {});
@@ -117,24 +122,26 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   );
   const overlaySerialized = serializeOverlay(overlay);
   const projectContext = buildProjectContext(profile, standardsIndex);
+  const hierarchySerialized = serializeInstructionHierarchy(projectContext.instructionHierarchy!);
 
   // Freshness: compare the mined inputs and the *would-be* overlay (which folds
   // in prior edits + any --answers-file) against recorded fingerprints. A
   // changed answers file or a hand-edited overlay both shift the overlay
   // fingerprint, so resume re-runs from the overlay phase forward.
   const minedFp = fingerprint([stableProfileJson(profile)]);
-  const overlayFp = fingerprint([overlaySerialized]);
+  const overlayFp = fingerprint([overlaySerialized, hierarchySerialized]);
   const state = readSetupState(sdlcDir);
   const fresh =
     !options.force &&
     isPhaseFresh(state, "mined", minedFp) &&
-    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath)) &&
+    isPhaseFresh(state, "overlay-written", overlayFp, overlayArtifactsExist(overlayDir)) &&
     !drift.changed;
 
   if (!fresh) {
     write(overlayPath, overlaySerialized);
     write(standardsPath, serializeStandardsIndex(standardsIndex));
     write(projectContextPath, serializeProjectContext(projectContext));
+    write(instructionHierarchyPath, hierarchySerialized);
     syncAcceptedLearningsFromCustomize(sdlcDir, profile, overlay, standardsIndex, drift);
     writeSetupPhases(sdlcDir, { mined: minedFp, "overlay-written": overlayFp });
   }
@@ -157,7 +164,7 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
     standardsCount: standardsIndex.standards.length,
     packageCount: profile.packages?.length ?? 0,
     rootAdvisory: rootInstructionAdvisory(rootSurface),
-    writtenPaths: [overlayPath, standardsPath, projectContextPath],
+    writtenPaths: [overlayPath, standardsPath, projectContextPath, instructionHierarchyPath],
   };
 }
 
@@ -189,6 +196,7 @@ export function inspectRepo(options: {
   const sdlcDir = options.sdlcDir ?? dirname(overlayDir);
   const overlayPath = join(overlayDir, OVERLAY_FILE);
   const standardsPath = join(overlayDir, STANDARDS_FILE);
+  const instructionHierarchyPath = join(overlayDir, INSTRUCTION_HIERARCHY_FILE);
 
   const priorOverlay = existsSync(overlayPath) ? loadOverlay(overlayPath) : undefined;
   const answers = mergeAnswers(priorOverlay, {});
@@ -200,12 +208,21 @@ export function inspectRepo(options: {
   const drift = diffStandardsIndex(standardsIndex, readPriorStandards(standardsPath));
 
   const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance);
+  const projectContext = buildProjectContext(profile, standardsIndex);
   const minedFp = fingerprint([stableProfileJson(profile)]);
-  const overlayFp = fingerprint([serializeOverlay(overlay)]);
+  const overlayFp = fingerprint([
+    serializeOverlay(overlay),
+    serializeInstructionHierarchy(projectContext.instructionHierarchy!),
+  ]);
   const state = readSetupState(sdlcDir);
   const upToDate =
     isPhaseFresh(state, "mined", minedFp) &&
-    isPhaseFresh(state, "overlay-written", overlayFp, existsSync(overlayPath)) &&
+    isPhaseFresh(
+      state,
+      "overlay-written",
+      overlayFp,
+      existsSync(overlayPath) && existsSync(instructionHierarchyPath),
+    ) &&
     !drift.changed;
 
   return {
@@ -316,4 +333,10 @@ function readPriorStandards(path: string): StandardsIndex | undefined {
 function write(path: string, contents: string): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, contents, "utf8");
+}
+
+function overlayArtifactsExist(overlayDir: string): boolean {
+  return [OVERLAY_FILE, STANDARDS_FILE, PROJECT_CONTEXT_FILE, INSTRUCTION_HIERARCHY_FILE].every(
+    (file) => existsSync(join(overlayDir, file)),
+  );
 }

@@ -7,6 +7,7 @@ import { emitSkills } from "./skills.js";
 
 const CAPABILITIES: HostCapabilities = {
   instructions: "native",
+  hierarchicalInstructions: "native",
   skills: "native",
   roleSubagents: "native",
   perRoleToolRestriction: "native", // tools/disallowedTools frontmatter

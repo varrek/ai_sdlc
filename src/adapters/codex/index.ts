@@ -6,6 +6,7 @@ import { emitSkills } from "./skills.js";
 
 const CAPABILITIES: HostCapabilities = {
   instructions: "native",
+  hierarchicalInstructions: "native",
   skills: "native",
   roleSubagents: "native",
   perRoleToolRestriction: "partial", // sandbox_mode + per-agent MCP; no tool allowlist

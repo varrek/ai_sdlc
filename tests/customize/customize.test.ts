@@ -15,7 +15,11 @@ import { parse as parseYaml, stringify } from "yaml";
 import { runCompileCli } from "../../src/cli/compile.js";
 import { loadAnswersFile, runCustomize } from "../../src/cli/customize.js";
 import { buildStatus } from "../../src/cli/status.js";
-import { parseProjectContext } from "../../src/core/project-context.js";
+import {
+  GENERATED_INSTRUCTION_MARKER,
+  parseInstructionHierarchy,
+  parseProjectContext,
+} from "../../src/core/project-context.js";
 import {
   buildCodebaseMap,
   buildProjectContext,
@@ -428,6 +432,24 @@ describe("workspace mining (monorepo)", () => {
     );
   });
 
+  it("promotes high-confidence single-package modules into instruction scopes", () => {
+    const p = mineRepo(repo("go-app"));
+    const ctx = buildProjectContext(p, buildStandardsIndex(p));
+    const scopes = ctx.instructionHierarchy?.scopes ?? [];
+
+    expect(scopes.length).toBeGreaterThan(0);
+    expect(scopes.every((scope) => scope.kind === "module")).toBe(true);
+    expect(scopes.map((scope) => scope.path)).toEqual(expect.arrayContaining(["internal", "pkg"]));
+  });
+
+  it("does not fabricate instruction scopes for low-confidence architecture", () => {
+    const p = mineRepo(repo("ambiguous-architecture"));
+    const ctx = buildProjectContext(p, buildStandardsIndex(p));
+
+    expect(p.architecture?.confidence).toBe("low");
+    expect(ctx.instructionHierarchy?.scopes).toEqual([]);
+  });
+
   it("excludes playground/demo/__tests__ dirs matched by a declared workspace glob", () => {
     // Mirrors Vite: `playground/**` and `packages/**/__tests__/**` globs also
     // match demo apps and test fixtures — those must not each become a package.
@@ -484,6 +506,27 @@ describe("workspace customize → compile handoff", () => {
     const ctxPath = join(overlayDir, "project-context.json");
     const ctx = parseProjectContext(readFileSync(ctxPath, "utf8"));
     expect(ctx?.packages.map((p) => p.path).sort()).toEqual(["packages/api", "packages/web"]);
+    expect(ctx?.instructionHierarchy?.scopes.map((scope) => scope.path).sort()).toEqual([
+      "packages/api",
+      "packages/web",
+    ]);
+    expect(existsSync(join(overlayDir, "instruction-hierarchy.json"))).toBe(true);
+    const hierarchy = parseInstructionHierarchy(
+      JSON.parse(readFileSync(join(overlayDir, "instruction-hierarchy.json"), "utf8")),
+    );
+    expect(hierarchy?.scopes).toHaveLength(2);
+    expect(hierarchy?.scopes[0]).toMatchObject({
+      accepted: true,
+      ownership: "generated",
+      hostTargets: expect.arrayContaining([
+        "packages/api/CLAUDE.md",
+        "packages/api/AGENTS.md",
+        ".cursor/rules/packages-api.mdc",
+        ".github/instructions/packages-api.instructions.md",
+      ]),
+    });
+    expect(hierarchy?.scopes[0]?.sources.length).toBeGreaterThan(0);
+    expect(hierarchy?.scopes[0]?.instructionBody).toContain(GENERATED_INSTRUCTION_MARKER);
 
     // Compile reads the context and writes nested instruction files per host.
     const outDir = mkdtempSync(join(tmpdir(), "aisdlc-mono-out-"));
@@ -496,6 +539,7 @@ describe("workspace customize → compile handoff", () => {
     });
     expect(existsSync(join(outDir, "packages", "api", "CLAUDE.md"))).toBe(true);
     expect(existsSync(join(outDir, "packages", "web", "AGENTS.md"))).toBe(true);
+    expect(existsSync(join(outDir, ".cursor", "rules", "packages-api.mdc"))).toBe(true);
     expect(
       existsSync(join(outDir, ".github", "instructions", "packages-api.instructions.md")),
     ).toBe(true);

@@ -68,6 +68,37 @@ describe("status", () => {
     expect(report.loopQuality.groundedRoles).toBeGreaterThanOrEqual(2);
   });
 
+  it("reports accepted instruction hierarchy scopes", () => {
+    const work = tmpWork("monorepo");
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+
+    expect(report.hierarchy.acceptedScopes).toBe(2);
+    expect(report.hierarchy.packageScopes).toBe(2);
+    expect(formatStatus(report)).toContain("Instruction hierarchy: 2 accepted scope");
+  });
+
+  it("reports accepted hierarchy scopes from the persisted review artifact", () => {
+    const work = tmpWork("monorepo");
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+    const hierarchyPath = join(overlayDir, "instruction-hierarchy.json");
+    const hierarchy = JSON.parse(readFileSync(hierarchyPath, "utf8")) as {
+      scopes: { accepted: boolean }[];
+    };
+    hierarchy.scopes.forEach((scope) => {
+      scope.accepted = false;
+    });
+    writeFileSync(hierarchyPath, `${JSON.stringify(hierarchy, null, 2)}\n`, "utf8");
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+
+    expect(report.hierarchy.acceptedScopes).toBe(0);
+    expect(formatStatus(report)).not.toContain("Instruction hierarchy:");
+  });
+
   it("reports generic tester grounding when test-command gap is open", () => {
     const work = tmpWork("streamlit-venv");
     const overlayDir = join(work, ".sdlc", "overlay");

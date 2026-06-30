@@ -7,7 +7,14 @@ import {
   readAcceptedLearnings,
   summarizeAcceptedLearnings,
 } from "../core/accepted-learnings.js";
+import {
+  INSTRUCTION_HIERARCHY_FILE,
+  loadInstructionHierarchy,
+  loadProjectContext,
+  PROJECT_CONTEXT_FILE,
+} from "../core/loader.js";
 import { stagesForTrack } from "../core/loop.js";
+import { acceptedInstructionScopes } from "../core/project-context.js";
 import {
   hasDeterministicEngineerGrounding,
   hasDeterministicTesterGrounding,
@@ -57,6 +64,11 @@ export interface StatusReport {
   coverage: EvidenceCoverage;
   /** Workspace packages detected (0 for a single-package repo). */
   packages: number;
+  hierarchy: {
+    acceptedScopes: number;
+    packageScopes: number;
+    moduleScopes: number;
+  };
   /** Standard statements, in the order `aisdlc explain <n>` numbers them (1-based). */
   standards: string[];
   acceptedLearnings: {
@@ -117,7 +129,16 @@ export function buildStatus(options: StatusOptions): StatusReport {
     setupReady &&
     provenanceValues.length > 0 &&
     provenanceValues.every((p) => p === "miner" || p === "ci");
-  const projectContext = buildProjectContext(inspection.profile, inspection.standardsIndex);
+  const minedProjectContext = buildProjectContext(inspection.profile, inspection.standardsIndex);
+  const persistedProjectContext = loadProjectContext(join(overlayDir, PROJECT_CONTEXT_FILE));
+  const persistedHierarchy = loadInstructionHierarchy(join(overlayDir, INSTRUCTION_HIERARCHY_FILE));
+  const projectContext = persistedProjectContext
+    ? {
+        ...persistedProjectContext,
+        instructionHierarchy: persistedHierarchy ?? persistedProjectContext.instructionHierarchy,
+      }
+    : minedProjectContext;
+  const hierarchyScopes = acceptedInstructionScopes(projectContext);
   const groundingInput = { overlay: inspection.overlay, projectContext };
   const engineerDeterministic = hasDeterministicEngineerGrounding(groundingInput);
   const testerDeterministic = hasDeterministicTesterGrounding(groundingInput);
@@ -174,6 +195,11 @@ export function buildStatus(options: StatusOptions): StatusReport {
     blockingGaps: inspection.gaps.length,
     coverage: evidenceCoverage(inspection.standardsIndex),
     packages: inspection.profile.packages?.length ?? 0,
+    hierarchy: {
+      acceptedScopes: hierarchyScopes.length,
+      packageScopes: hierarchyScopes.filter((scope) => scope.kind === "package").length,
+      moduleScopes: hierarchyScopes.filter((scope) => scope.kind === "module").length,
+    },
     standards: inspection.standardsIndex.standards.map((s) => s.statement),
     acceptedLearnings: {
       count: acceptedLearnings.length,
@@ -290,6 +316,11 @@ export function formatStatus(report: StatusReport): string {
   }
   if (report.packages > 0) {
     lines.push(`Workspace packages: ${report.packages} (per-package instructions emitted)`);
+  }
+  if (report.hierarchy.acceptedScopes > 0) {
+    lines.push(
+      `Instruction hierarchy: ${report.hierarchy.acceptedScopes} accepted scope(s) (${report.hierarchy.packageScopes} package, ${report.hierarchy.moduleScopes} module)`,
+    );
   }
   lines.push(
     `Evidence coverage: ${coverage.covered}/${coverage.total} standards cite a source (${pct(coverage.covered, coverage.total)})`,

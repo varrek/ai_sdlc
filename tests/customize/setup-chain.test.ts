@@ -103,6 +103,27 @@ describe("setup chain idempotency", () => {
     );
   });
 
+  it("recompiles when the accepted hierarchy review artifact changes", () => {
+    const { root, sdlcDir, overlayDir, overlayPath } = project();
+    runCustomize({ repoRoot: repo("monorepo"), overlayDir });
+    runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir });
+    expect(existsSync(join(root, "packages/api/AGENTS.md"))).toBe(true);
+
+    const hierarchyPath = join(overlayDir, "instruction-hierarchy.json");
+    const hierarchy = JSON.parse(readFileSync(hierarchyPath, "utf8")) as {
+      scopes: { accepted: boolean }[];
+    };
+    hierarchy.scopes.forEach((scope) => {
+      scope.accepted = false;
+    });
+    writeFileSync(hierarchyPath, `${JSON.stringify(hierarchy, null, 2)}\n`, "utf8");
+
+    const recompiled = runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir });
+
+    expect(recompiled.freshnessSkipped).toBe(false);
+    expect(existsSync(join(root, "packages/api/AGENTS.md"))).toBe(false);
+  });
+
   it("a base upgrade (project.lock change) makes smoke-passed stale even if the overlay is unchanged", () => {
     const { root, sdlcDir, overlayDir, overlayPath } = project();
     runCustomize({ repoRoot: repo("python-rags"), overlayDir });

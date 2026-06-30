@@ -1,33 +1,48 @@
 import { stringify } from "yaml";
+import {
+  acceptedInstructionScopes,
+  scopeApplyGlob,
+  slugifyScopePath,
+} from "../../core/project-context.js";
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
 
 /**
- * Per-package instruction files for hosts that read a nested instruction file by
- * name (Claude `CLAUDE.md`, Cursor `AGENTS.md`). One file per detected workspace
- * package, placed inside the package directory. Empty when there is no
- * ProjectContext or no packages — single-package repos are unaffected.
+ * Scoped instruction files for hosts that read nested instruction files by name
+ * (Claude `CLAUDE.md`, Cursor/Codex `AGENTS.md`). Backward-compatible export
+ * name; emission is driven by accepted hierarchy scopes when present.
  */
 export function packageInstructionFiles(model: NeutralModel, fileName: string): EmittedFile[] {
-  const packages = model.projectContext?.packages ?? [];
-  return packages.map((pkg) => ({
-    path: `${pkg.path}/${fileName}`,
-    contents: pkg.instructionBody,
+  return instructionScopeFiles(model, fileName);
+}
+
+export function instructionScopeFiles(model: NeutralModel, fileName: string): EmittedFile[] {
+  return acceptedInstructionScopes(model.projectContext).map((scope) => ({
+    path: `${scope.path}/${fileName}`,
+    contents: scope.instructionBody,
   }));
 }
 
 /**
- * Per-package instruction files for Copilot, which scopes instructions via a
+ * Scoped instruction files for Copilot, which scopes instructions via a
  * frontmatter `applyTo` glob in `.github/instructions/<slug>.instructions.md`
- * rather than nested files. The package path is slugified for a flat filename.
+ * rather than nested files. The scope path is slugified for a flat filename.
  */
 export function copilotPackageInstructionFiles(model: NeutralModel): EmittedFile[] {
-  const packages = model.projectContext?.packages ?? [];
-  return packages.map((pkg) => {
-    const slug = pkg.path.replace(/[/\\]+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "-");
-    const frontmatter = stringify({ applyTo: `${pkg.path}/**` }, { sortMapEntries: false }).trim();
+  return copilotInstructionScopeFiles(model);
+}
+
+export function copilotInstructionScopeFiles(model: NeutralModel): EmittedFile[] {
+  return acceptedInstructionScopes(model.projectContext).map((scope) => {
+    const slug = slugifyScopePath(scope.path);
+    const frontmatter = stringify(
+      { applyTo: scopeApplyGlob(scope.path) },
+      {
+        sortMapEntries: false,
+      },
+    ).trim();
     return {
       path: `.github/instructions/${slug}.instructions.md`,
-      contents: `---\n${frontmatter}\n---\n\n${pkg.instructionBody}`,
+      contents: `---\n${frontmatter}\n---\n\n${scope.instructionBody}`,
     };
   });
 }

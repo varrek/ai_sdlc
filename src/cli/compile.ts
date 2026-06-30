@@ -4,7 +4,9 @@ import { buildRegistry } from "../adapters/registry.js";
 import { readAcceptedLearnings } from "../core/accepted-learnings.js";
 import { type CompileResult, compile } from "../core/engine.js";
 import {
+  instructionHierarchyPathFor,
   loadBase,
+  loadInstructionHierarchy,
   loadOverlay,
   loadProjectContext,
   projectContextPathFor,
@@ -62,9 +64,16 @@ export function runCompile(options: CompileCliOptions): CompileResult {
   const base = loadBase(options.baseDir, options.packDirs);
   const overlay = loadOverlay(options.overlayPath);
   const projectContext = loadProjectContext(projectContextPathFor(options.overlayPath));
+  const instructionHierarchy = loadInstructionHierarchy(
+    instructionHierarchyPathFor(options.overlayPath),
+  );
+  const compileContext =
+    projectContext && instructionHierarchy
+      ? { ...projectContext, instructionHierarchy }
+      : projectContext;
   const sdlcDir = options.sdlcDir ?? join(options.outDir, ".sdlc");
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
-  const model = mergeOverlay(base, overlay, projectContext, acceptedLearnings);
+  const model = mergeOverlay(base, overlay, compileContext, acceptedLearnings);
   const registry = buildRegistry();
   return compile(model, registry, { outDir: options.outDir, hosts: options.hosts });
 }
