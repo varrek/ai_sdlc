@@ -9,6 +9,7 @@ import {
   serializeDocGardenReport,
 } from "../garden/doc-gardener.js";
 import type { DocGardenReport, DocGardenSeverity } from "../garden/types.js";
+import { DOC_GARDEN_REPORT_BASENAME } from "../garden/types.js";
 
 export interface GardenDocsOptions {
   repoRoot: string;
@@ -43,7 +44,7 @@ export function runGardenDocs(options: GardenDocsOptions): GardenDocsResult {
   if (options.writeReport) {
     const reportDir = join(options.configDir ?? options.repoRoot, ".sdlc");
     mkdirSync(reportDir, { recursive: true });
-    const jsonPath = join(reportDir, "doc-gardening-report.json");
+    const jsonPath = join(reportDir, DOC_GARDEN_REPORT_BASENAME);
     const markdownPath = join(reportDir, "doc-gardening-report.md");
     writeFileSync(jsonPath, serializedJson, "utf8");
     writeFileSync(markdownPath, renderDocGardenMarkdown(report), "utf8");
