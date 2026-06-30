@@ -406,7 +406,8 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("allows a known role calling a server it is permitted to reach", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { role: "engineer", tool_name: "@gitlab-prod/create_issue" })).toBe(0);
+    expect(run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" }))
+      .toBe(0);
   });
 
   it("allows MCP calls using SDLC_ACTIVE_ROLE when Kiro payload has no role field", () => {
@@ -428,13 +429,16 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("parses Codex-style MCP names defensively when Kiro reports them", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { role: "engineer", tool_name: "mcp__gitlab-prod__do_thing" })).toBe(0);
-    expect(run(s, { role: "engineer", tool_name: "mcp__jira-prod__do_thing" })).toBe(2);
+    expect(run(s, { tool_name: "mcp__gitlab-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }))
+      .toBe(0);
+    expect(run(s, { tool_name: "mcp__jira-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }))
+      .toBe(2);
   });
 
   it("denies a known role calling a server outside its allowlist", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { role: "engineer", tool_name: "@jira-prod/create_issue" })).toBe(2);
+    expect(run(s, { tool_name: "@jira-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" }))
+      .toBe(2);
   });
 
   it("denies (fail-closed) when the active role is missing", () => {
@@ -444,12 +448,14 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("denies (fail-closed) when the role is unknown to the policy", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { role: "ghost", tool_name: "@gitlab-prod/create_issue" })).toBe(2);
+    expect(run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "ghost" }))
+      .toBe(2);
   });
 
   it("denies malformed MCP tool names when a policy exists", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { role: "engineer", tool_name: "@" })).toBe(2);
+    expect(run(s, { tool_name: "@" }, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(2);
+    expect(run(s, {}, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(2);
   });
 
   it("is inert when no MCP policy file is present", () => {
@@ -459,30 +465,33 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("denies write and shell tools for read-only roles", () => {
     const s = install(".kiro/hooks/tool-gate.mjs", policy);
-    expect(run(s, { role: "reviewer", tool_name: "write" })).toBe(2);
-    expect(run(s, { role: "reviewer", tool_name: "shell" })).toBe(2);
-    expect(run(s, { role: "reviewer", tool_name: "fs_write" })).toBe(2);
-    expect(run(s, { role: "reviewer", tool_name: "str_replace" })).toBe(2);
-    expect(run(s, { role: "reviewer", tool_name: "edit" })).toBe(2);
-    expect(run(s, { role: "reviewer", tool_name: "execute_bash" })).toBe(2);
+    const env = { SDLC_ACTIVE_ROLE: "reviewer" };
+    expect(run(s, { tool_name: "write" }, env)).toBe(2);
+    expect(run(s, { tool_name: "shell" }, env)).toBe(2);
+    expect(run(s, { tool_name: "fs_write" }, env)).toBe(2);
+    expect(run(s, { tool_name: "str_replace" }, env)).toBe(2);
+    expect(run(s, { tool_name: "edit" }, env)).toBe(2);
+    expect(run(s, { tool_name: "execute_bash" }, env)).toBe(2);
   });
 
   it("denies mutating tools when the active role is missing or unknown", () => {
     const s = install(".kiro/hooks/tool-gate.mjs", policy);
     expect(run(s, { tool_name: "fs_write" })).toBe(2);
-    expect(run(s, { role: "ghost", tool_name: "execute_bash" })).toBe(2);
+    expect(run(s, { tool_name: "execute_bash" }, { SDLC_ACTIVE_ROLE: "ghost" })).toBe(2);
+    expect(run(s, {}, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(2);
   });
 
   it("allows shell but denies write tools for read-run roles", () => {
     const s = install(".kiro/hooks/tool-gate.mjs", policy);
-    expect(run(s, { role: "tester", tool_name: "execute_bash" })).toBe(0);
-    expect(run(s, { role: "tester", tool_name: "fs_write" })).toBe(2);
-    expect(run(s, { role: "tester", tool_name: "str_replace" })).toBe(2);
+    const env = { SDLC_ACTIVE_ROLE: "tester" };
+    expect(run(s, { tool_name: "execute_bash" }, env)).toBe(0);
+    expect(run(s, { tool_name: "fs_write" }, env)).toBe(2);
+    expect(run(s, { tool_name: "str_replace" }, env)).toBe(2);
   });
 
   it("allows write tools for write-posture roles", () => {
     const s = install(".kiro/hooks/tool-gate.mjs", policy);
-    expect(run(s, { role: "engineer", tool_name: "write" })).toBe(0);
+    expect(run(s, { tool_name: "write" }, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(0);
   });
 
   it("allows mutating tools when no posture policy file is present", () => {

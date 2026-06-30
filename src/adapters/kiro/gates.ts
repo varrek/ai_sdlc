@@ -27,14 +27,7 @@ function firstString(...values) {
 }
 
 const input = readStdin();
-const role = firstString(
-  process.env.SDLC_ACTIVE_ROLE,
-  input.role,
-  input.agent,
-  input.agent_name,
-  input.agentName,
-  input.agent_type,
-);
+const role = firstString(process.env.SDLC_ACTIVE_ROLE);
 
 let policy = {};
 try { policy = JSON.parse(readFileSync("${KIRO_POLICY_REL}", "utf8")); } catch {}
@@ -67,8 +60,7 @@ const server = firstString(
   serverFromToolName(toolName),
 );
 
-const maybeMcpTool = toolName.startsWith("@") || toolName.startsWith("mcp__") || Boolean(server);
-if (hasPolicy && maybeMcpTool) {
+if (hasPolicy) {
   if (!server) {
     console.error("SDLC gate: MCP tool invocation did not include a parseable server id.");
     process.exit(2);
@@ -114,7 +106,11 @@ function allowed(posture, tool) {
 
 const tool = normalizedTool(input);
 
-if ((tool === "write" || tool === "shell") && hasPolicy) {
+if (hasPolicy) {
+  if (tool !== "write" && tool !== "shell") {
+    console.error("SDLC gate: mutating tool invocation did not include a parseable tool name.");
+    process.exit(2);
+  }
   const entry = policy[role];
   if (!entry || !allowed(entry.posture, tool)) {
     console.error(\`SDLC gate: role '\${role || "(unset)"}' may not use Kiro tool '\${tool}'.\`);
