@@ -230,7 +230,8 @@ export function mergeRoleAddenda(
 ): Overlay["roleAddenda"] {
   const merged: Overlay["roleAddenda"] = { ...(prior ?? {}) };
   for (const [role, text] of Object.entries(templates)) {
-    if (!merged[role]?.trim()) merged[role] = text;
+    const trimmed = text?.trim();
+    if (trimmed && !merged[role]?.trim()) merged[role] = trimmed;
   }
   return merged;
 }
