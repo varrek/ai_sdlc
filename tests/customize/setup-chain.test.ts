@@ -154,9 +154,12 @@ describe("setup chain idempotency", () => {
       "utf8",
     );
 
-    runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir, hosts: ["cursor"] });
+    runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir, hosts: ["cursor", "copilot"] });
 
     expect(readFileSync(join(root, "src/core/AGENTS.md"), "utf8")).toContain("Core guidance");
+    expect(readFileSync(join(root, ".github/copilot-instructions.md"), "utf8")).toContain(
+      "`node_modules`",
+    );
   });
 
   it("a base upgrade (project.lock change) makes smoke-passed stale even if the overlay is unchanged", () => {

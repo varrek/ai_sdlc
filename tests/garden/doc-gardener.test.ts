@@ -126,6 +126,44 @@ describe("doc gardener", () => {
     expect(finding?.path).toBe("src/core/AGENTS.md");
   });
 
+  it("uses the reviewable hierarchy artifact for accepted scope state", () => {
+    const root = tmpRepo();
+    writeFileSync(join(root, "AGENTS.md"), "# Agent map\n\n## Codebase map\n", "utf8");
+    mkdirSync(join(root, ".sdlc", "overlay"), { recursive: true });
+    const acceptedScope = {
+      path: "src/core",
+      kind: "module",
+      role: "Source module",
+      sources: ["src/core"],
+      instructionBody: "# `src/core` local module guidance\n",
+      hostTargets: ["src/core/AGENTS.md"],
+      ownership: "generated",
+      accepted: true,
+    };
+    writeFileSync(
+      join(root, ".sdlc", "overlay", "project-context.json"),
+      JSON.stringify({
+        packages: [],
+        map: [{ path: "src/core", role: "Source module", sources: ["src/core"] }],
+        exclusions: [],
+        instructionHierarchy: { version: 1, scopes: [acceptedScope] },
+      }),
+      "utf8",
+    );
+    writeFileSync(
+      join(root, ".sdlc", "overlay", "instruction-hierarchy.json"),
+      JSON.stringify({
+        version: 1,
+        scopes: [{ ...acceptedScope, accepted: false }],
+      }),
+      "utf8",
+    );
+
+    const report = analyzeDocGarden({ repoRoot: root });
+
+    expect(report.findings.some((item) => item.id === "hierarchy-scope-missing")).toBe(false);
+  });
+
   it("warns when a Codex hierarchy instruction chain exceeds the budget", () => {
     const root = tmpRepo();
     writeFileSync(join(root, "AGENTS.md"), `# Agent map\n\n${"root\n".repeat(20_000)}`, "utf8");

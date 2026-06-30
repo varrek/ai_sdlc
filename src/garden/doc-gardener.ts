@@ -2,7 +2,14 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
-import { loadProjectContext, PROJECT_CONTEXT_FILE, projectContextPathFor } from "../core/loader.js";
+import {
+  INSTRUCTION_HIERARCHY_FILE,
+  instructionHierarchyPathFor,
+  loadInstructionHierarchy,
+  loadProjectContext,
+  PROJECT_CONTEXT_FILE,
+  projectContextPathFor,
+} from "../core/loader.js";
 import {
   acceptedInstructionScopes,
   DEFAULT_EXCLUSIONS,
@@ -44,12 +51,17 @@ interface MarkdownWalkResult {
 export function analyzeDocGarden(options: AnalyzeDocGardenOptions): DocGardenReport {
   const repoRoot = resolve(options.repoRoot);
   const projectContext = loadProjectContext(resolveProjectContextPath(options));
-  const instructionScopes = acceptedInstructionScopes(projectContext);
+  const instructionHierarchy = loadInstructionHierarchy(resolveInstructionHierarchyPath(options));
+  const gardenContext =
+    projectContext && instructionHierarchy
+      ? { ...projectContext, instructionHierarchy }
+      : projectContext;
+  const instructionScopes = acceptedInstructionScopes(gardenContext);
   const findings: DocGardenFinding[] = [];
 
   findings.push(...findRootBloat(repoRoot));
   findings.push(...findBrokenLinks(repoRoot));
-  findings.push(...findMissingCodebaseMap(repoRoot, projectContext));
+  findings.push(...findMissingCodebaseMap(repoRoot, gardenContext));
   findings.push(...findMissingHierarchyScopeDocs(repoRoot, instructionScopes));
   findings.push(...findCodexBudgetRisk(repoRoot, instructionScopes));
   findings.push(...findStaleCapabilityMatrix(repoRoot));
@@ -401,6 +413,13 @@ function resolveProjectContextPath(options: AnalyzeDocGardenOptions): string | u
   if (options.overlayDir) return join(resolve(options.overlayDir), PROJECT_CONTEXT_FILE);
   const configDir = resolve(options.configDir ?? options.repoRoot);
   return projectContextPathFor(join(configDir, ".sdlc", "overlay", ".customize.yaml"));
+}
+
+function resolveInstructionHierarchyPath(options: AnalyzeDocGardenOptions): string | undefined {
+  if (options.overlayPath) return instructionHierarchyPathFor(resolve(options.overlayPath));
+  if (options.overlayDir) return join(resolve(options.overlayDir), INSTRUCTION_HIERARCHY_FILE);
+  const configDir = resolve(options.configDir ?? options.repoRoot);
+  return instructionHierarchyPathFor(join(configDir, ".sdlc", "overlay", ".customize.yaml"));
 }
 
 function redactFinding(finding: DocGardenFinding): DocGardenFinding {

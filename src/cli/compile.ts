@@ -12,6 +12,11 @@ import {
   projectContextPathFor,
 } from "../core/loader.js";
 import { mergeOverlay } from "../core/merge.js";
+import {
+  DEFAULT_EXCLUSIONS,
+  type InstructionHierarchy,
+  type ProjectContext,
+} from "../core/project-context.js";
 import { isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
 import type { HostId } from "../schema/index.js";
 import { baseFingerprint, compiledFingerprint, overlayFingerprint } from "./phase-fingerprints.js";
@@ -79,13 +84,13 @@ export function runCompile(options: CompileCliOptions): CompileResult {
 }
 
 function hierarchyOnlyProjectContext(
-  instructionHierarchy: ReturnType<typeof loadInstructionHierarchy>,
-) {
+  instructionHierarchy: InstructionHierarchy | undefined,
+): ProjectContext | undefined {
   if (!instructionHierarchy) return undefined;
   return {
     packages: [],
     map: [],
-    exclusions: [],
+    exclusions: DEFAULT_EXCLUSIONS,
     instructionHierarchy,
   };
 }
