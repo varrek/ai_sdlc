@@ -92,6 +92,22 @@ describe("gate emit", () => {
     expect(workflow).toContain("Run the project test command here");
   });
 
+  it("copilot CI emits block scalars for multiline test commands", () => {
+    const m = makeModel({
+      roles: [makeRole("engineer", "write", [])],
+      overlay: Overlay.parse({
+        version: 1,
+        interviewAnswers: { "test-command": "make test\nmake lint" },
+      }),
+    });
+    const workflow = byPath(new CopilotAdapter().emit(m).files).get(
+      ".github/workflows/sdlc-gate.yml",
+    )!;
+    expect(workflow).toContain("run: |");
+    expect(workflow).toContain("make test");
+    expect(workflow).toContain("make lint");
+  });
+
   it("codex emits PreToolUse hooks in config.toml and role policy", () => {
     const result = new CodexAdapter().emit(model);
     const files = byPath(result.files);
@@ -304,6 +320,17 @@ describe("cursor MCP gate runtime (fail-closed least-privilege)", () => {
   it("is inert when no policy file is present (nothing to enforce)", () => {
     const s = install(null);
     expect(run(s, { role: "ghost", server_name: "gitlab-prod" })).toBe(0);
+  });
+
+  it("fails closed when the policy file exists but is malformed", () => {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-mcpgate-"));
+    const files = byPath(new CursorAdapter().emit(model).files);
+    const scriptRel = ".cursor/hooks/mcp-gate.mjs";
+    mkdirSync(join(dir, ".cursor", "hooks"), { recursive: true });
+    writeFileSync(join(dir, scriptRel), files.get(scriptRel)!);
+    mkdirSync(join(dir, ".cursor", "sdlc"), { recursive: true });
+    writeFileSync(join(dir, ".cursor", "sdlc", "role-policy.json"), "{not-json");
+    expect(run(join(dir, scriptRel), { role: "engineer", server_name: "gitlab-prod" })).toBe(2);
   });
 });
 

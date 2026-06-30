@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { minerDefaultExclusions } from "./miner-exclusions.js";
 
 /**
  * The structured, host-neutral context the customize phase mines about a repo's
@@ -99,26 +100,10 @@ export interface ProjectContext {
 
 /**
  * Static fallback exclusion set, emitted when no mined ProjectContext is present
- * (e.g. `compile` run without a prior `customize`). Mirrors the vendored/
- * generated/cache directories `repo-miner` ignores, minus `.git`. Sorted so
- * emitted host config is byte-stable.
+ * (e.g. `compile` run without a prior `customize`). Derived from the miner ignore
+ * registry minus `.git`. Sorted so emitted host config is byte-stable.
  */
-export const DEFAULT_EXCLUSIONS: string[] = [
-  ".mypy_cache",
-  ".next",
-  ".pytest_cache",
-  ".ruff_cache",
-  ".sdlc",
-  ".tox",
-  ".venv",
-  "__pycache__",
-  "build",
-  "coverage",
-  "dist",
-  "env",
-  "node_modules",
-  "venv",
-];
+export const DEFAULT_EXCLUSIONS: string[] = minerDefaultExclusions();
 
 /** Render the codebase map as a markdown section appended to the constitution. */
 export function renderCodebaseMap(map: MapEntry[]): string {
@@ -202,7 +187,10 @@ export function parseProjectContext(text: string): ProjectContext | undefined {
       parsed &&
       Array.isArray(parsed.packages) &&
       Array.isArray(parsed.map) &&
-      Array.isArray(parsed.exclusions)
+      Array.isArray(parsed.exclusions) &&
+      parsed.packages.every(isPackageContext) &&
+      parsed.map.every(isMapEntry) &&
+      parsed.exclusions.every((item) => typeof item === "string")
     ) {
       return {
         languages: Array.isArray(parsed.languages) ? parsed.languages : undefined,
@@ -225,6 +213,37 @@ export function parseInstructionHierarchy(value: unknown): InstructionHierarchy 
   const scopes = candidate.scopes.filter(isInstructionScope);
   if (scopes.length !== candidate.scopes.length) return undefined;
   return { version: 1, scopes };
+}
+
+function isMapEntry(value: unknown): value is MapEntry {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<MapEntry>;
+  return (
+    typeof candidate.path === "string" &&
+    typeof candidate.role === "string" &&
+    Array.isArray(candidate.sources) &&
+    candidate.sources.every((source) => typeof source === "string")
+  );
+}
+
+function isPackageContext(value: unknown): value is PackageContext {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<PackageContext>;
+  if (typeof candidate.path !== "string" || typeof candidate.instructionBody !== "string") {
+    return false;
+  }
+  if (candidate.languages !== undefined) {
+    if (
+      !Array.isArray(candidate.languages) ||
+      !candidate.languages.every((lang) => typeof lang === "string")
+    ) {
+      return false;
+    }
+  }
+  if (candidate.testCommand !== undefined && typeof candidate.testCommand !== "string") {
+    return false;
+  }
+  return true;
 }
 
 function isInstructionScope(value: unknown): value is InstructionScope {

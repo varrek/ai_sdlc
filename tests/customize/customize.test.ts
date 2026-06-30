@@ -517,7 +517,11 @@ describe("workspace mining (monorepo)", () => {
     tmpDirs.push(dir);
     writeFileSync(join(dir, "go.mod"), "module example.com/app\n", "utf8");
     mkdirSync(join(dir, "src", "Components"), { recursive: true });
-    writeFileSync(join(dir, "src", "AGENTS.md"), "# Working on Issues in the Components Area\n", "utf8");
+    writeFileSync(
+      join(dir, "src", "AGENTS.md"),
+      "# Working on Issues in the Components Area\n",
+      "utf8",
+    );
     writeFileSync(join(dir, "src", "Components", "widget.go"), "package components\n", "utf8");
     mkdirSync(join(dir, "pkg"), { recursive: true });
     writeFileSync(join(dir, "pkg", "cmd.go"), "package pkg\n", "utf8");
