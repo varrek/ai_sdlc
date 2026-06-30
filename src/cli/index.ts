@@ -306,6 +306,7 @@ function cmdStatus(rest: string[]): void {
     packDirs: parseList(options.get("packs")),
     outDir: options.get("out"),
     hosts,
+    refresh: options.has("refresh"),
   });
   process.stdout.write(`${formatStatus(report)}\n`);
   // Not-yet-set-up is a non-zero exit so scripts can gate on it.

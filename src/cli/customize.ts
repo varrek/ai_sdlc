@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { syncAcceptedLearningsFromCustomize } from "../core/accepted-learnings-sync.js";
 import { INSTRUCTION_HIERARCHY_FILE, loadOverlay, PROJECT_CONTEXT_FILE } from "../core/loader.js";
 import {
   renderCodebaseMap,
   serializeInstructionHierarchy,
   serializeProjectContext,
 } from "../core/project-context.js";
+import { syncAcceptedLearningsFromCustomize } from "../customize/accepted-learnings-sync.js";
 import {
   buildOverlay,
   buildProjectContext,
@@ -26,7 +26,8 @@ import {
   DEFERRED_INTEGRATIONS,
   type GapQuestion,
 } from "../customize/gap-interview.js";
-import { mineRepo, type RepoProfile } from "../customize/repo-miner.js";
+import { acquireMinedProfile, saveMinedProfile } from "../customize/mined-snapshot.js";
+import type { RepoProfile } from "../customize/repo-miner.js";
 import {
   fingerprint,
   isPhaseFresh,
@@ -100,9 +101,13 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
   const priorOverlay = existsSync(overlayPath) ? loadOverlay(overlayPath) : undefined;
   const answers = mergeAnswers(priorOverlay, options.answers ?? {});
 
-  // Always mine (it is cheap and load-bearing for freshness); freshness only
-  // skips the overlay/standards *writes*, never the scan itself.
-  const profile = mineRepo(options.repoRoot);
+  // Mine or reuse a persisted snapshot (inventory fingerprint); freshness only
+  // skips overlay/standards *writes*, not gap computation.
+  const profile = acquireMinedProfile({
+    repoRoot: options.repoRoot,
+    overlayDir,
+    force: options.force,
+  });
   seedMinedTestCommand(profile, answers);
   const gapClosureProvenance = resolveGapClosureProvenance(
     profile,
@@ -147,6 +152,7 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
     write(projectContextPath, serializeProjectContext(projectContext));
     write(instructionHierarchyPath, hierarchySerialized);
     syncAcceptedLearningsFromCustomize(sdlcDir, profile, overlay, standardsIndex, drift);
+    saveMinedProfile(options.repoRoot, overlayDir, profile);
     writeSetupPhases(sdlcDir, { mined: minedFp, "overlay-written": overlayFp });
   }
 
@@ -196,6 +202,8 @@ export function inspectRepo(options: {
   repoRoot: string;
   overlayDir?: string;
   sdlcDir?: string;
+  /** When true, ignore the persisted mined snapshot and re-scan the repo. */
+  refresh?: boolean;
 }): RepoInspection {
   const overlayDir = options.overlayDir ?? join(options.repoRoot, ".sdlc", "overlay");
   const sdlcDir = options.sdlcDir ?? dirname(overlayDir);
@@ -205,7 +213,11 @@ export function inspectRepo(options: {
 
   const priorOverlay = existsSync(overlayPath) ? loadOverlay(overlayPath) : undefined;
   const answers = mergeAnswers(priorOverlay, {});
-  const profile = mineRepo(options.repoRoot);
+  const profile = acquireMinedProfile({
+    repoRoot: options.repoRoot,
+    overlayDir,
+    refresh: options.refresh,
+  });
   seedMinedTestCommand(profile, answers);
   const gapClosureProvenance = resolveGapClosureProvenance(profile, answers, priorOverlay, {});
   const gaps = computeGaps(profile, answers);

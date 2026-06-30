@@ -1244,7 +1244,7 @@ process.exit(0);
 ",
   ".codex/hooks/mcp-gate.mjs": "#!/usr/bin/env node
 // Codex PreToolUse MCP gate: deny MCP calls a role is not permitted to make.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 function readStdin() {
   try { return JSON.parse(readFileSync(0, "utf8")); } catch { return {}; }
@@ -1261,8 +1261,14 @@ const role = input.agent_type ?? process.env.SDLC_ACTIVE_ROLE ?? "";
 const server = serverFromToolName(input.tool_name);
 
 let policy = {};
-try { policy = JSON.parse(readFileSync(".codex/sdlc/role-policy.json", "utf8")); } catch {}
-
+if (existsSync(".codex/sdlc/role-policy.json")) {
+  try {
+    policy = JSON.parse(readFileSync(".codex/sdlc/role-policy.json", "utf8"));
+  } catch {
+    console.error("SDLC gate: role policy exists but could not be parsed.");
+    process.exit(2);
+  }
+}
 const hasPolicy = Object.keys(policy).length > 0;
 if (server && hasPolicy) {
   const entry = policy[role];
@@ -1940,22 +1946,21 @@ const input = readStdin();
 const role = input.role ?? process.env.SDLC_ACTIVE_ROLE ?? "";
 const server = input.server_name ?? input.server ?? "";
 
-const policyPath = ".cursor/sdlc/role-policy.json";
 let policy = {};
-if (existsSync(policyPath)) {
+if (existsSync(".cursor/sdlc/role-policy.json")) {
   try {
-    policy = JSON.parse(readFileSync(policyPath, "utf8"));
+    policy = JSON.parse(readFileSync(".cursor/sdlc/role-policy.json", "utf8"));
   } catch {
     console.error("SDLC gate: role policy exists but could not be parsed.");
     process.exit(2);
   }
 }
+const hasPolicy = Object.keys(policy).length > 0;
 
 // Fail CLOSED: when a role policy exists, an MCP call is only allowed if the
 // active role is known AND explicitly permits this server. A missing/unknown
 // role (e.g. the orchestrator forgot to set SDLC_ACTIVE_ROLE) is denied rather
 // than granted blanket access — otherwise least-privilege silently disappears.
-const hasPolicy = Object.keys(policy).length > 0;
 if (server && hasPolicy) {
   const entry = policy[role];
   if (!entry || !entry.servers.includes(server)) {
@@ -3380,7 +3385,7 @@ process.exit(0);
 ",
   ".kiro/hooks/mcp-gate.mjs": "#!/usr/bin/env node
 // Kiro PreToolUse MCP gate: deny MCP calls a role is not permitted to make.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 function readStdin() {
   try { return JSON.parse(readFileSync(0, "utf8")); } catch { return {}; }
@@ -3394,8 +3399,14 @@ const input = readStdin();
 const role = firstString(process.env.SDLC_ACTIVE_ROLE);
 
 let policy = {};
-try { policy = JSON.parse(readFileSync(".kiro/sdlc/role-policy.json", "utf8")); } catch {}
-
+if (existsSync(".kiro/sdlc/role-policy.json")) {
+  try {
+    policy = JSON.parse(readFileSync(".kiro/sdlc/role-policy.json", "utf8"));
+  } catch {
+    console.error("SDLC gate: role policy exists but could not be parsed.");
+    process.exit(2);
+  }
+}
 const hasPolicy = Object.keys(policy).length > 0;
 
 function serverFromToolName(toolName) {
@@ -3476,7 +3487,7 @@ process.exit(0);
 ",
   ".kiro/hooks/tool-gate.mjs": "#!/usr/bin/env node
 // Kiro PreToolUse tool gate: enforce role posture for mutating built-in tools.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 function readStdin() {
   try { return JSON.parse(readFileSync(0, "utf8")); } catch { return {}; }
@@ -3490,8 +3501,14 @@ const input = readStdin();
 const role = firstString(process.env.SDLC_ACTIVE_ROLE);
 
 let policy = {};
-try { policy = JSON.parse(readFileSync(".kiro/sdlc/role-policy.json", "utf8")); } catch {}
-
+if (existsSync(".kiro/sdlc/role-policy.json")) {
+  try {
+    policy = JSON.parse(readFileSync(".kiro/sdlc/role-policy.json", "utf8"));
+  } catch {
+    console.error("SDLC gate: role policy exists but could not be parsed.");
+    process.exit(2);
+  }
+}
 const hasPolicy = Object.keys(policy).length > 0;
 
 function normalizedTool(input) {

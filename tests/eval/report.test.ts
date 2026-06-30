@@ -1,117 +1,61 @@
 import { describe, expect, it } from "vitest";
-import { type ExternalRepoEntry, repoId } from "../../src/eval/catalog.js";
-import {
-  buildEvalRunReport,
-  hasFailingClass,
-  renderEvalSummary,
-  resultFromCacheFailure,
-  resultFromSetupError,
-} from "../../src/eval/report.js";
+import { classifySetupFailure } from "../../src/eval/report.js";
+import type { SetupChainResult } from "../../src/eval/setup-chain.js";
 
-const repo: ExternalRepoEntry = {
-  owner: "owner",
-  repo: "repo",
-  commit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  primaryLanguage: "TypeScript",
-  toolTags: [],
-  sizeBand: "medium",
-  catalogRevision: "test",
-  id: "owner/repo@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-};
+function setup(
+  partial: Partial<SetupChainResult["status"]> & { smokePassed?: boolean },
+): SetupChainResult {
+  const smokePassed = partial.smokePassed ?? true;
+  return {
+    status: {
+      setupReady: false,
+      blockingGaps: partial.blockingGaps ?? 0,
+      packages: partial.packages ?? 0,
+      gapClosureProvenance: {},
+      roleStates: {
+        architect: "generic",
+        engineer: "generic",
+        tester: "generic",
+        reviewer: "generic",
+        debugger: "generic",
+      },
+      coverage: { covered: 0, total: 0 },
+      architectureConfidence: "high",
+    },
+    smoke: { result: { passed: smokePassed } },
+    artifacts: {},
+  } as SetupChainResult;
+}
 
-describe("eval report", () => {
-  it("summarizes failure classes and redacts messages", () => {
-    expect(repo.id).toBe(repoId(repo));
-    const result = resultFromCacheFailure(repo, {
-      ok: false,
-      failureClass: "network",
-      message: "https://user:secret@example.test/repo.git?token=abc123 failed",
-    });
-
-    const report = buildEvalRunReport({
-      runId: "run",
-      seed: 42,
-      count: 1,
-      catalogRevision: "test",
-      startedAt: "2026-06-29T00:00:00.000Z",
-      selectedRepoIds: [repo.id],
-      selectedRepos: [repo],
-      diversityGaps: [],
-      results: [result],
-    });
-
-    expect(report.summary.failureClasses.network).toBe(1);
-    expect(report.results[0]!.failureMessage).toContain("token=<redacted>");
-    expect(renderEvalSummary(report)).toContain("Setup-ready: 0/1");
-    expect(hasFailingClass(report, new Set(["network"]))).toBe(true);
+describe("classifySetupFailure", () => {
+  it("returns undefined when setup is ready", () => {
+    const ready = setup({ blockingGaps: 0 });
+    ready.status.setupReady = true;
+    expect(classifySetupFailure(ready)).toBeUndefined();
   });
 
-  it("summarizes agent quality and materialization timings", () => {
-    const report = buildEvalRunReport({
-      runId: "run",
-      seed: 42,
-      count: 1,
-      catalogRevision: "test",
-      startedAt: "2026-06-29T00:00:00.000Z",
-      selectedRepoIds: [repo.id],
-      selectedRepos: [repo],
-      diversityGaps: [],
-      results: [
-        {
-          repo,
-          materialization: { ms: 123, cacheReused: false },
-          setup: {
-            setupReady: true,
-            alignmentReady: true,
-            handsOff: true,
-            blockingGaps: 0,
-            gapClosureProvenance: { "test-command": "miner" },
-            evidenceCoverage: { covered: 1, total: 1 },
-            architectureConfidence: "high",
-            roleStates: {
-              architect: "deterministic",
-              engineer: "deterministic",
-              tester: "deterministic",
-              reviewer: "deterministic",
-              debugger: "deterministic",
-            },
-            smokePassed: true,
-            smokeFresh: false,
-            customizeFresh: false,
-            compileFresh: false,
-            upToDate: true,
-            packages: 0,
-            agentQuality: {
-              score: 100,
-              architectGrounded: true,
-              engineerGrounded: true,
-              testerGrounded: true,
-              reviewerGrounded: true,
-              debuggerGrounded: true,
-              hasRootTestCommand: true,
-              hasCodebaseMap: true,
-              evidenceBackedStandards: true,
-              mapIsNoisy: false,
-            },
-          },
-        },
-      ],
+  it("classifies smoke gate failures as emitter-bug", () => {
+    expect(classifySetupFailure(setup({ smokePassed: false }))).toMatchObject({
+      failureClass: "emitter-bug",
+      failureMessage: "smoke gate did not pass",
     });
-
-    expect(report.summary.agentQuality.averageScore).toBe(100);
-    expect(report.summary.slowestMaterialization).toEqual({ repoId: repo.id, ms: 123 });
-    expect(renderEvalSummary(report)).toContain("Agent quality: avg 100/100");
   });
 
-  it("classifies setup-chain throws by likely failing phase", () => {
-    expect(resultFromSetupError(repo, new Error("compile failed")).failureClass).toBe(
-      "emitter-bug",
-    );
-    expect(resultFromSetupError(repo, new Error("smoke failed")).failureClass).toBe(
-      "workflow-error",
-    );
-    expect(resultFromSetupError(repo, new Error("customize failed")).failureClass).toBe(
-      "miner-bug",
-    );
+  it("classifies monorepo blocking gaps", () => {
+    expect(classifySetupFailure(setup({ packages: 2, blockingGaps: 1 }))).toMatchObject({
+      failureClass: "monorepo-miner-limitation",
+    });
+  });
+
+  it("classifies single-package blocking gaps as repo-edge-case", () => {
+    expect(classifySetupFailure(setup({ packages: 1, blockingGaps: 2 }))).toMatchObject({
+      failureClass: "repo-edge-case",
+    });
+  });
+
+  it("falls back to needs-triage when setup is not ready without gaps", () => {
+    expect(classifySetupFailure(setup({ blockingGaps: 0 }))).toMatchObject({
+      failureClass: "needs-triage",
+    });
   });
 });

@@ -390,6 +390,19 @@ describe("codex MCP gate runtime (fail-closed least-privilege)", () => {
     const s = install(null);
     expect(run(s, { agent_type: "ghost", tool_name: "mcp__gitlab-prod__do_thing" })).toBe(0);
   });
+
+  it("fails closed when the policy file exists but is malformed", () => {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-codex-mcpgate-"));
+    const files = byPath(new CodexAdapter().emit(model).files);
+    const scriptRel = ".codex/hooks/mcp-gate.mjs";
+    mkdirSync(join(dir, ".codex", "hooks"), { recursive: true });
+    writeFileSync(join(dir, scriptRel), files.get(scriptRel)!);
+    mkdirSync(join(dir, ".codex", "sdlc"), { recursive: true });
+    writeFileSync(join(dir, ".codex/sdlc/role-policy.json"), "{not-json");
+    expect(
+      run(join(dir, scriptRel), { agent_type: "engineer", tool_name: "mcp__gitlab-prod__x" }),
+    ).toBe(2);
+  });
 });
 
 describe("kiro gates runtime (fail-closed least-privilege)", () => {
@@ -488,6 +501,23 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
     expect(run(s, { tool_name: "@" }, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(2);
     expect(run(s, {}, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(2);
+  });
+
+  it("fails closed when the MCP policy file exists but is malformed", () => {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-kiro-gate-"));
+    mkdirSync(join(dir, ".kiro", "hooks"), { recursive: true });
+    writeFileSync(join(dir, ".kiro/hooks/mcp-gate.mjs"), files.get(".kiro/hooks/mcp-gate.mjs")!);
+    mkdirSync(join(dir, ".kiro", "sdlc"), { recursive: true });
+    writeFileSync(join(dir, ".kiro/sdlc/role-policy.json"), "{not-json");
+    expect(
+      run(
+        join(dir, ".kiro/hooks/mcp-gate.mjs"),
+        { tool_name: "@gitlab-prod/x" },
+        {
+          SDLC_ACTIVE_ROLE: "engineer",
+        },
+      ),
+    ).toBe(2);
   });
 
   it("is inert when no MCP policy file is present", () => {

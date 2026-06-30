@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
-import type { StandardsDrift, StandardsIndex } from "../customize/emitters.js";
-import type { RepoProfile } from "../customize/repo-miner.js";
-import type { Overlay } from "../schema/index.js";
 import {
   type AcceptedLearningEntry,
   readAcceptedLearnings,
   writeAcceptedLearnings,
-} from "./accepted-learnings.js";
+} from "../core/accepted-learnings.js";
+import type { Overlay } from "../schema/index.js";
+import type { StandardsDrift, StandardsIndex } from "./emitters.js";
+import type { RepoProfile } from "./repo-miner.js";
 
 export function syncAcceptedLearningsFromCustomize(
   sdlcDir: string,

@@ -1,5 +1,6 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { approvedGateScript, emitLoopEventRecorder } from "../shared/approved-gate.js";
+import { mcpPolicyLoaderScript } from "../shared/mcp-policy-gate.js";
 import { buildRolePolicy, stableJson } from "../shared/roles.js";
 
 const KIRO_HOOK_DIR = ".kiro/hooks";
@@ -16,7 +17,7 @@ function commandFor(path: string): string {
 }
 
 function kiroGateRuntimePreamble(): string {
-  return `import { readFileSync } from "node:fs";
+  return `import { existsSync, readFileSync } from "node:fs";
 
 function readStdin() {
   try { return JSON.parse(readFileSync(0, "utf8")); } catch { return {}; }
@@ -29,10 +30,7 @@ function firstString(...values) {
 const input = readStdin();
 const role = firstString(process.env.SDLC_ACTIVE_ROLE);
 
-let policy = {};
-try { policy = JSON.parse(readFileSync("${KIRO_POLICY_REL}", "utf8")); } catch {}
-
-const hasPolicy = Object.keys(policy).length > 0;`;
+${mcpPolicyLoaderScript(KIRO_POLICY_REL)}`;
 }
 
 const MCP_GATE_SCRIPT = `#!/usr/bin/env node

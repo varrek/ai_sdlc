@@ -115,7 +115,7 @@ export function resultFromSetup(
   setup: SetupChainResult,
   checkpointPath?: string,
 ): RepoEvalResult {
-  const failure = classifySetup(setup);
+  const failure = classifySetupFailure(setup);
   return {
     repo,
     checkpointPath,
@@ -309,7 +309,7 @@ export function hasFailingClass(
   );
 }
 
-function classifySetup(
+export function classifySetupFailure(
   setup: SetupChainResult,
 ): Pick<RepoEvalResult, "failureClass" | "failureConfidence" | "failureMessage"> | undefined {
   if (setup.status.setupReady) return undefined;
