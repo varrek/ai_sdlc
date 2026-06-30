@@ -292,12 +292,15 @@ function notReadyReason(basePassed: boolean, blockingGapCount: number): string {
 
 function cmdStatus(rest: string[]): void {
   const { options } = parseArgs(rest);
+  const hostsRaw = options.get("hosts");
+  const hosts = hostsRaw ? hostsRaw.split(",").map((h) => HostId.parse(h.trim())) : undefined;
   const report = buildStatus({
     repoRoot: options.get("repo") ?? process.cwd(),
     overlayDir: options.get("overlay-dir"),
     sdlcDir: options.get("sdlc-dir"),
     baseDir: options.get("base"),
     outDir: options.get("out"),
+    hosts,
   });
   process.stdout.write(`${formatStatus(report)}\n`);
   // Not-yet-set-up is a non-zero exit so scripts can gate on it.

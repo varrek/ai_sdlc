@@ -125,6 +125,40 @@ describe("setup chain idempotency", () => {
     );
   });
 
+  it("recompiles when host selection changes or the host guide is missing", () => {
+    const { root, sdlcDir, overlayDir, overlayPath } = project();
+    runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+
+    const first = runCompileCli({
+      baseDir,
+      overlayPath,
+      outDir: root,
+      sdlcDir,
+      hosts: ["cursor"],
+    });
+    expect(first.freshnessSkipped).toBe(false);
+    expect(
+      runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir, hosts: ["cursor"] })
+        .freshnessSkipped,
+    ).toBe(true);
+
+    expect(
+      runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir, hosts: ["claude-code"] })
+        .freshnessSkipped,
+    ).toBe(false);
+
+    rmSync(join(root, ".sdlc", "host-setup.md"));
+    const repaired = runCompileCli({
+      baseDir,
+      overlayPath,
+      outDir: root,
+      sdlcDir,
+      hosts: ["claude-code"],
+    });
+    expect(repaired.freshnessSkipped).toBe(false);
+    expect(existsSync(join(root, ".sdlc", "host-setup.md"))).toBe(true);
+  });
+
   it("a base upgrade (project.lock change) makes smoke-passed stale even if the overlay is unchanged", () => {
     const { root, sdlcDir, overlayDir, overlayPath } = project();
     runCustomize({ repoRoot: repo("python-rags"), overlayDir });

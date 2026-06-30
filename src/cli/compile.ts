@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { readAcceptedLearnings } from "../core/accepted-learnings.js";
 import { type CompileResult, compile } from "../core/engine.js";
+import { HOST_SETUP_GUIDE_PATH } from "../core/host-setup-guidance.js";
 import {
   loadBase,
   loadOverlay,
@@ -44,11 +45,11 @@ export function runCompileCli(options: CompileCliOptions): CompileCliResult {
   const sdlcDir = options.sdlcDir ?? join(options.outDir, ".sdlc");
   const overlayFp = overlayFingerprint(options.overlayPath, sdlcDir);
   const baseFp = baseFingerprint(options.baseDir, sdlcDir, options.packDirs);
-  const compiledFp = compiledFingerprint(overlayFp, baseFp);
+  const compiledFp = compiledFingerprint(overlayFp, baseFp, options.hosts);
 
-  const manifestPresent = manifestExists(options.outDir);
+  const artifactsPresent = compiledArtifactsPresent(options.outDir);
   const state = readSetupState(sdlcDir);
-  if (!options.force && isPhaseFresh(state, "compiled", compiledFp, manifestPresent)) {
+  if (!options.force && isPhaseFresh(state, "compiled", compiledFp, artifactsPresent)) {
     return { freshnessSkipped: true };
   }
 
@@ -69,8 +70,12 @@ export function runCompile(options: CompileCliOptions): CompileResult {
   return compile(model, registry, { outDir: options.outDir, hosts: options.hosts });
 }
 
-function manifestExists(outDir: string): boolean {
+export function compiledArtifactsPresent(outDir: string): boolean {
   // The emitted manifest lives at `<outDir>/.sdlc/emitted.json`; its presence is
-  // the artifact-existence guard for the `compiled` phase.
-  return existsSync(join(outDir, ".sdlc", "emitted.json"));
+  // the primary artifact-existence guard for the `compiled` phase. The host setup
+  // guide is also load-bearing user guidance and must not be silently missing.
+  return (
+    existsSync(join(outDir, ".sdlc", "emitted.json")) &&
+    existsSync(join(outDir, HOST_SETUP_GUIDE_PATH))
+  );
 }

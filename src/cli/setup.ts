@@ -1,4 +1,6 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { HOST_SETUP_GUIDE_PATH } from "../core/host-setup-guidance.js";
 import type { HostId, OperatingMode } from "../schema/index.js";
 import { type CompileCliResult, runCompileCli } from "./compile.js";
 import { type CustomizeResult, runCustomize } from "./customize.js";
@@ -60,7 +62,7 @@ export function runSetupCli(options: SetupCliOptions): SetupCliResult {
     compile,
     smoke,
     overlayPath,
-    output: formatSetupResult(customize, compile, smoke, overlayPath),
+    output: formatSetupResult(customize, compile, smoke, overlayPath, options.repoRoot),
     exitCode: smoke.setupReady ? 0 : 1,
   };
 }
@@ -70,6 +72,7 @@ function formatSetupResult(
   compile: CompileCliResult,
   smoke: SmokeCliResult,
   overlayPath: string,
+  repoRoot: string,
 ): string {
   const lines: string[] = [];
   lines.push(
@@ -92,7 +95,11 @@ function formatSetupResult(
       ? ` (integrations deferred: ${smoke.deferredIntegrations.join(", ")})`
       : "";
     lines.push(`Setup-ready${deferred}.`);
-    lines.push("Host activation guide: .sdlc/host-setup.md");
+    if (existsSync(join(repoRoot, HOST_SETUP_GUIDE_PATH))) {
+      lines.push("Host activation guide: .sdlc/host-setup.md");
+    } else {
+      lines.push("Host activation guide missing; re-run `aisdlc compile --force`.");
+    }
   } else {
     lines.push(
       `Not setup-ready: ${smoke.blockingGapCount} blocking interview gap(s); overlay: ${overlayPath}`,

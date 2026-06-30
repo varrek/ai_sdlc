@@ -48,6 +48,7 @@ try {
   console.error("record-loop-event: invalid JSON:", error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
+if (!event.timestamp) event.timestamp = new Date().toISOString();
 
 const key = approvalEventKey(event);
 if (key && readEvents(sdlcDir).some((recorded) => approvalEventKey(recorded) === key)) {

@@ -168,6 +168,7 @@ describe("approved gate runtime", () => {
       const events = readFileSync(join(dir, ".sdlc", "loop_history", "events.jsonl"), "utf8");
       expect(events).toContain('"type":"approval_gate"');
       expect(events).toContain('"taskId":"T-123"');
+      expect(JSON.parse(events).timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     });
   }
 

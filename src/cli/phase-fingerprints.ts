@@ -5,6 +5,14 @@ import { EMITTED_MANIFEST_PATH } from "../core/engine.js";
 import { PROJECT_CONTEXT_FILE } from "../core/loader.js";
 import { readProjectLock } from "../core/overlay.js";
 import { fingerprint } from "../customize/setup-state.js";
+import type { HostId } from "../schema/index.js";
+
+/**
+ * Bump when compiler/adapters emit materially different files for the same base
+ * and overlay. This prevents package upgrades from reusing stale generated
+ * host config just because project inputs did not change.
+ */
+export const COMPILE_EMITTER_VERSION = "native-host-setup-v2";
 
 /**
  * Stable hash of the base the config was compiled against. Prefer the pinned
@@ -37,9 +45,15 @@ export function overlayFingerprint(overlayPath: string | undefined, sdlcDir?: st
   return fingerprint(["overlay", overlay, "project-context", ctx, "accepted-learnings", learnings]);
 }
 
-/** `compiled` phase fingerprint: overlay content folded with the base hash. */
-export function compiledFingerprint(overlayFp: string, baseFp: string): string {
-  return fingerprint(["compiled", overlayFp, baseFp]);
+/** `compiled` phase fingerprint: project inputs plus emitter semantics. */
+export function compiledFingerprint(overlayFp: string, baseFp: string, hosts?: HostId[]): string {
+  return fingerprint([
+    "compiled",
+    COMPILE_EMITTER_VERSION,
+    overlayFp,
+    baseFp,
+    hostSelectionFingerprint(hosts),
+  ]);
 }
 
 /**
@@ -70,6 +84,10 @@ function readEmittedFiles(outDir: string): string[] {
     return [];
   }
   return [];
+}
+
+function hostSelectionFingerprint(hosts: HostId[] | undefined): string {
+  return hosts ? `hosts:${[...hosts].sort().join(",")}` : "hosts:default";
 }
 
 /** Sorted [relpath, content, ...] pairs for every file under `dir`. */
