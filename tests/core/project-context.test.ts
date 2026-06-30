@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   acceptedInstructionScopes,
   GENERATED_INSTRUCTION_MARKER,
+  hostTargetsForScope,
   type InstructionHierarchy,
   parseInstructionHierarchy,
   parseProjectContext,
@@ -84,6 +85,10 @@ describe("project context hierarchy", () => {
   it("slugifies path separators distinctly from hyphens inside segments", () => {
     expect(slugifyScopePath("src/foo")).toBe("src-foo");
     expect(slugifyScopePath("src-foo")).toBe("src_2d_foo");
+  });
+
+  it("includes Kiro steering in scope host targets", () => {
+    expect(hostTargetsForScope("src/core")).toContain(".kiro/steering/src-core.md");
   });
 
   it("falls back to package scopes when hierarchy is absent or malformed", () => {

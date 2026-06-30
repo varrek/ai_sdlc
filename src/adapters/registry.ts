@@ -3,6 +3,7 @@ import { ClaudeCodeAdapter } from "./claude-code/index.js";
 import { CodexAdapter } from "./codex/index.js";
 import { CopilotAdapter } from "./copilot/index.js";
 import { CursorAdapter } from "./cursor/index.js";
+import { KiroAdapter } from "./kiro/index.js";
 
 /** Build the registry with every host adapter the framework ships. */
 export function buildRegistry(): AdapterRegistry {
@@ -10,5 +11,6 @@ export function buildRegistry(): AdapterRegistry {
     .register(new CursorAdapter())
     .register(new ClaudeCodeAdapter())
     .register(new CopilotAdapter())
-    .register(new CodexAdapter());
+    .register(new CodexAdapter())
+    .register(new KiroAdapter());
 }

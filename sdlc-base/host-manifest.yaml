@@ -1,12 +1,13 @@
 version: 1
 
 # Hosts this base compiles to. Cursor, Claude Code, and Codex reach full
-# orchestration depth in Milestone 1; Copilot runs degraded (gates enforced out-of-band).
+# orchestration depth; Kiro has partial hook enforcement; Copilot runs degraded.
 hosts:
   - cursor
   - claude-code
   - copilot
   - codex
+  - kiro
 
 options:
   copilot:

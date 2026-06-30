@@ -7,8 +7,8 @@ disableModelInvocation: true
 # /sdlc-loop
 
 Drive one task through the role loop. There is **no custom orchestrator** — the
-loop compiles to each host's native dispatch (Cursor/Claude subagents, Copilot
-handoffs). This skill encodes the discipline that dispatch must honor.
+loop compiles to each host's native dispatch (Cursor/Claude/Kiro subagents,
+Copilot handoffs). This skill encodes the discipline that dispatch must honor.
 
 ## Invariants (non-negotiable)
 
@@ -16,8 +16,8 @@ handoffs). This skill encodes the discipline that dispatch must honor.
   Debugger are read-only; the Tester is read-run (it executes tests but never
   writes).
 - **Approved? gate.** Nothing leaves the workspace (no MR, no remote push) until a
-  human approves. Enforced by a pre-tool hook on Cursor/Claude; by an instruction
-  checklist + CI on Copilot's IDE.
+  human approves. Enforced by a pre-tool hook on Cursor/Claude/Kiro; by an
+  instruction checklist + CI on Copilot's IDE.
 - **Fresh-context review.** The Reviewer runs in a clean context with no write
   access, so its verdict is independent of how the change was produced.
 
@@ -84,6 +84,9 @@ checkpoint ids when they represent distinct decisions.
 
 - **Cursor / Claude Code:** full depth — subagents with enforced postures and a
   hook-based gate.
+- **Kiro:** native agents, steering, skills, and MCP; hook-based gates are
+  partial because Kiro does not run PreToolUse hooks inside custom subagents.
+  Main-agent hook policy also needs `SDLC_ACTIVE_ROLE` for role-aware checks.
 - **Copilot:** sequential handoffs (`.github/agents/handoffs.json`); the gate
   degrades to the instruction checklist + CI; autonomous wrap-up uses the cloud
   agent. See `portability.gap.yml` and the capability matrix.

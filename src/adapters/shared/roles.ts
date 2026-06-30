@@ -22,6 +22,22 @@ export function toolsForPosture(posture: ToolPosture): string[] {
   }
 }
 
+/** Kiro uses lowercase built-in tool names in custom-agent frontmatter. */
+export function kiroToolsForPosture(posture: ToolPosture): string[] {
+  switch (posture) {
+    case "read-only":
+      return ["read", "web"];
+    case "read-run":
+      return ["read", "web", "shell"];
+    case "write":
+      return ["read", "web", "write", "shell"];
+    default: {
+      const _exhaustive: never = posture;
+      return _exhaustive;
+    }
+  }
+}
+
 /**
  * The concrete MCP server ids a role is permitted to reach: the contracts named
  * in the role's frontmatter, intersected with bindings whose `allowedRoles`
@@ -45,7 +61,7 @@ export interface RolePolicyEntry {
   servers: string[];
 }
 
-/** Role -> {posture, allowed servers}; consumed by hook-based hosts (Cursor/Copilot). */
+/** Role -> {posture, allowed servers}; consumed by hook-based hosts. */
 export function buildRolePolicy(model: NeutralModel): Record<string, RolePolicyEntry> {
   const policy: Record<string, RolePolicyEntry> = {};
   for (const role of model.roles) {

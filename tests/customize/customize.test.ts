@@ -338,6 +338,12 @@ describe("repo miner", () => {
     writeFileSync(join(work, ".claude", "settings.json"), "{}\n", "utf8");
     mkdirSync(join(work, ".vscode"), { recursive: true });
     writeFileSync(join(work, ".vscode", "mcp.json"), "{}\n", "utf8");
+    mkdirSync(join(work, ".kiro", "agents"), { recursive: true });
+    writeFileSync(join(work, ".kiro", "agents", "engineer.md"), "# generated\n", "utf8");
+    mkdirSync(join(work, ".kiro", "steering"), { recursive: true });
+    writeFileSync(join(work, ".kiro", "steering", "src-core.md"), "# generated\n", "utf8");
+    mkdirSync(join(work, ".kiro", "settings"), { recursive: true });
+    writeFileSync(join(work, ".kiro", "settings", "mcp.json"), "{}\n", "utf8");
 
     const before = mineRepo(work);
     runCompileCli({ baseDir, overlayPath: undefined, outDir: work, sdlcDir: join(work, ".sdlc") });
@@ -523,6 +529,7 @@ describe("workspace customize → compile handoff", () => {
         "packages/api/AGENTS.md",
         ".cursor/rules/packages-api.mdc",
         ".github/instructions/packages-api.instructions.md",
+        ".kiro/steering/packages-api.md",
       ]),
     });
     expect(hierarchy?.scopes[0]?.sources.length).toBeGreaterThan(0);
@@ -543,9 +550,16 @@ describe("workspace customize → compile handoff", () => {
     expect(
       existsSync(join(outDir, ".github", "instructions", "packages-api.instructions.md")),
     ).toBe(true);
+    expect(existsSync(join(outDir, ".kiro", "steering", "packages-api.md"))).toBe(true);
 
     const apiClaude = readFileSync(join(outDir, "packages", "api", "CLAUDE.md"), "utf8");
     expect(apiClaude).toContain("pytest");
+    const apiKiroSteering = readFileSync(
+      join(outDir, ".kiro", "steering", "packages-api.md"),
+      "utf8",
+    );
+    expect(apiKiroSteering).toContain("fileMatchPattern: packages/api/**");
+    expect(apiKiroSteering).toContain("Follow `packages/api/AGENTS.md`");
   });
 });
 

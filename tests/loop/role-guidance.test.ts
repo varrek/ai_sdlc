@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
 import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
+import { KiroAdapter } from "../../src/adapters/kiro/index.js";
 import { loadBase } from "../../src/core/loader.js";
 import { mergeOverlay } from "../../src/core/merge.js";
 import { Overlay } from "../../src/schema/index.js";
@@ -49,11 +50,13 @@ describe("base role loop guidance", () => {
     const cursor = byPath(new CursorAdapter().emit(model).files);
     const claude = byPath(new ClaudeCodeAdapter().emit(model).files);
     const codex = byPath(new CodexAdapter().emit(model).files);
+    const kiro = byPath(new KiroAdapter().emit(model).files);
 
     for (const body of [
       cursor.get(".cursor/agents/reviewer.md")!,
       claude.get(".claude/agents/reviewer.md")!,
       codex.get(".codex/agents/reviewer.toml")!,
+      kiro.get(".kiro/agents/reviewer.md")!,
     ]) {
       expect(body).toContain("## Operating loop");
       expect(body).toContain("## Evaluator gate");

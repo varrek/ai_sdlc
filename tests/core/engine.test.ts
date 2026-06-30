@@ -76,6 +76,18 @@ describe("compile engine", () => {
     const result = compile(model(), buildRegistry(), { outDir: out, hosts: ["cursor"] });
     // Cursor emits no gaps, so only the (empty) gap report should exist beyond AGENTS.md.
     expect(result.gaps).toHaveLength(0);
+    expect(existsSync(join(out, ".kiro", "hooks", "sdlc-gates.json"))).toBe(false);
+  });
+
+  it("dispatches to Kiro when it is the only requested host", () => {
+    const out = freshOut();
+    const result = compile(model(), buildRegistry(), { outDir: out, hosts: ["kiro"] });
+    expect(existsSync(join(out, ".kiro", "agents", "engineer.md"))).toBe(true);
+    expect(existsSync(join(out, ".kiro", "hooks", "sdlc-gates.json"))).toBe(true);
+    expect(existsSync(join(out, ".cursor", "agents", "engineer.md"))).toBe(false);
+    expect(result.gaps.map((gap) => gap.capability)).toEqual(
+      expect.arrayContaining(["approved-gate-hook", "per-role-hook-policy"]),
+    );
   });
 
   it("emits a gap when a requested host has no adapter", () => {
@@ -119,6 +131,7 @@ describe("compile engine", () => {
   it.each([
     ["copilot", ".github/instructions/src-core.instructions.md"],
     ["cursor", ".cursor/rules/src-core.mdc"],
+    ["kiro", ".kiro/steering/src-core.md"],
   ] as const)("refuses to overwrite user-authored %s hierarchy files", (host, path) => {
     const out = freshOut();
     const userPath = join(out, path);
@@ -176,6 +189,7 @@ function hierarchyContext(): ProjectContext {
             "src/core/AGENTS.md",
             ".cursor/rules/src-core.mdc",
             ".github/instructions/src-core.instructions.md",
+            ".kiro/steering/src-core.md",
           ],
           ownership: "generated",
           accepted: true,

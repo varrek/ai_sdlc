@@ -1,4 +1,4 @@
-import type { HostId } from "../schema/index.js";
+import { HostId } from "../schema/index.js";
 import type { Adapter, CapabilityLevel, HostCapabilities } from "./types.js";
 
 const ROWS: { key: keyof HostCapabilities; label: string }[] = [
@@ -20,7 +20,7 @@ const LEVEL_LABEL: Record<CapabilityLevel, string> = {
   none: "None",
 };
 
-const HOST_ORDER: HostId[] = ["cursor", "claude-code", "copilot", "codex"];
+const HOST_ORDER = HostId.options;
 
 function sortAdapters(adapters: Adapter[]): Adapter[] {
   return [...adapters].sort((a, b) => HOST_ORDER.indexOf(a.host) - HOST_ORDER.indexOf(b.host));

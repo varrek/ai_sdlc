@@ -27,6 +27,7 @@ const IGNORE_DIRS = new Set([
   ".claude",
   ".cursor",
   ".codex",
+  ".kiro",
   ".windsurf",
   ".aider",
   ".agents",
@@ -223,7 +224,8 @@ function isGeneratedArtifact(rel: string): boolean {
     rel.startsWith(".github/agents/") ||
     rel.startsWith(".github/skills/") ||
     rel.startsWith(".github/hooks/") ||
-    rel.startsWith(".github/instructions/")
+    rel.startsWith(".github/instructions/") ||
+    rel.startsWith(".kiro/")
   );
 }
 

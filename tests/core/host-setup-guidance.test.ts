@@ -9,6 +9,8 @@ describe("host setup guidance", () => {
       { path: ".cursor/agents/engineer.md", contents: "" },
       { path: ".github/hooks/approved-gate.json", contents: "" },
       { path: ".codex/config.toml", contents: "" },
+      { path: ".kiro/agents/engineer.md", contents: "" },
+      { path: ".kiro/hooks/approved-gate.json", contents: "" },
     ];
     const gaps: Gap[] = [
       {
@@ -18,16 +20,20 @@ describe("host setup guidance", () => {
       },
     ];
 
-    const guide = renderHostSetupGuide(["cursor", "copilot", "codex"], files, gaps);
+    const guide = renderHostSetupGuide(["cursor", "copilot", "codex", "kiro"], files, gaps);
 
     expect(guide).toContain("## Cursor");
     expect(guide).toContain("## GitHub Copilot");
     expect(guide).toContain("## Codex");
+    expect(guide).toContain("## Kiro");
     expect(guide).not.toContain("## Claude Code");
     expect(guide).toContain("approved-gate-hook: Copilot IDE has no PreToolUse hook.");
     expect(guide).toContain("`.cursor/agents/`");
     expect(guide).toContain("`.cursor/hooks/`");
     expect(guide).toContain("`.cursor-plugin/plugin.json` (conditional or not emitted");
+    expect(guide).toContain("`.kiro/agents/`");
+    expect(guide).toContain("Kiro PreToolUse hooks do not trigger inside custom subagents");
+    expect(guide).toContain("SDLC_ACTIVE_ROLE");
 
     const claudeGuide = renderHostSetupGuide(
       ["claude-code"],

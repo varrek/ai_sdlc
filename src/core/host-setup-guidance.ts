@@ -89,6 +89,29 @@ const HOST_GUIDES: Record<HostId, HostGuide> = {
       "Restart Codex or reload configuration after changing project-local `.codex/` files.",
     ],
   },
+  kiro: {
+    title: "Kiro",
+    artifacts: [
+      "AGENTS.md",
+      ".agents/skills/",
+      ".kiro/agents/",
+      ".kiro/skills/",
+      ".kiro/settings/mcp.json",
+      ".kiro/hooks/",
+      ".kiro/steering/",
+      ".kiro/sdlc/role-policy.json",
+    ],
+    activation: [
+      "Open the repository in Kiro as a trusted workspace so project-local AGENTS.md, steering, agents, skills, hooks, and MCP settings are loaded.",
+      "Review workspace MCP server definitions before enabling Kiro MCP support.",
+      "Restart Kiro or reload workspace configuration after changing project-local `.kiro/` files.",
+    ],
+    caveats: [
+      "Kiro workspace trust and MCP enablement are user actions; compile only proves the project-local files were emitted.",
+      "Kiro PreToolUse hooks do not trigger inside custom subagents; Approved? enforcement is partial and applies only where Kiro runs the generated hooks.",
+      "Main-agent per-role MCP and mutating-tool policy depends on the generated hooks, role policy, and `SDLC_ACTIVE_ROLE` identifying the active SDLC role.",
+    ],
+  },
 };
 
 export function renderHostSetupGuide(hosts: HostId[], files: EmittedFile[], gaps: Gap[]): string {

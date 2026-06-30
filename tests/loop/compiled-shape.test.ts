@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
+import { KiroAdapter } from "../../src/adapters/kiro/index.js";
 import { loadBase, loadOverlay } from "../../src/core/loader.js";
 import { mergeOverlay } from "../../src/core/merge.js";
 import { Overlay } from "../../src/schema/index.js";
@@ -38,10 +39,12 @@ describe("compiled loop shape", () => {
     );
     const cursor = byPath(new CursorAdapter().emit(m).files);
     const claude = byPath(new ClaudeCodeAdapter().emit(m).files);
+    const kiro = byPath(new KiroAdapter().emit(m).files);
 
     for (const file of [
       cursor.get(".cursor/agents/engineer.md")!,
       claude.get(".claude/agents/engineer.md")!,
+      kiro.get(".kiro/agents/engineer.md")!,
     ]) {
       expect(file).toContain("## Project-specific guidance (generated)");
       expect(file).toContain("REPO-MARKER: use Vitest, ESM only.");
@@ -56,18 +59,25 @@ describe("compiled loop shape", () => {
     const m = model();
     const cursor = byPath(new CursorAdapter().emit(m).files);
     const claude = byPath(new ClaudeCodeAdapter().emit(m).files);
+    const kiro = byPath(new KiroAdapter().emit(m).files);
 
     expect(matter(cursor.get(".cursor/agents/tester.md")!).data.posture).toBe("read-run");
     // read-run grants Bash (run tests) but never Write/Edit.
     const testerTools = String(matter(claude.get(".claude/agents/tester.md")!).data.tools);
     expect(testerTools).toMatch(/Bash/);
     expect(testerTools).not.toMatch(/Write|Edit/);
+    expect(matter(kiro.get(".kiro/agents/tester.md")!).data.tools).toEqual([
+      "read",
+      "web",
+      "shell",
+    ]);
   });
 
   it("cursor + claude dispatch the roles with correct tool postures", () => {
     const m = model();
     const cursor = byPath(new CursorAdapter().emit(m).files);
     const claude = byPath(new ClaudeCodeAdapter().emit(m).files);
+    const kiro = byPath(new KiroAdapter().emit(m).files);
 
     // Cursor records posture; Claude enforces via tools allowlist.
     expect(matter(cursor.get(".cursor/agents/engineer.md")!).data.posture).toBe("write");
@@ -77,6 +87,10 @@ describe("compiled loop shape", () => {
     expect(engineerTools).toMatch(/Write/);
     const architectTools = String(matter(claude.get(".claude/agents/architect.md")!).data.tools);
     expect(architectTools).not.toMatch(/Write|Edit/);
+    expect(matter(kiro.get(".kiro/agents/engineer.md")!).data.tools).toEqual(
+      expect.arrayContaining(["read", "web", "write", "shell"]),
+    );
+    expect(matter(kiro.get(".kiro/agents/architect.md")!).data.tools).toEqual(["read", "web"]);
   });
 
   it("reviewer is emitted read-only on every host", () => {
@@ -84,6 +98,7 @@ describe("compiled loop shape", () => {
     const cursor = byPath(new CursorAdapter().emit(m).files);
     const claude = byPath(new ClaudeCodeAdapter().emit(m).files);
     const copilot = byPath(new CopilotAdapter().emit(m).files);
+    const kiro = byPath(new KiroAdapter().emit(m).files);
 
     expect(matter(cursor.get(".cursor/agents/reviewer.md")!).data.posture).toBe("read-only");
     const claudeReviewer = String(matter(claude.get(".claude/agents/reviewer.md")!).data.tools);
@@ -92,6 +107,7 @@ describe("compiled loop shape", () => {
       .tools as string[];
     expect(copilotReviewer).not.toContain("Write");
     expect(copilotReviewer).not.toContain("Edit");
+    expect(matter(kiro.get(".kiro/agents/reviewer.md")!).data.tools).toEqual(["read", "web"]);
   });
 
   it("copilot emits sequential handoffs + the IDE-gate fallback note", () => {
@@ -177,9 +193,12 @@ describe("compiled loop shape", () => {
       loadBase(baseDir),
       Overlay.parse({ version: 1, defaultTrack: "full" }),
     );
-    const files = byPath(new CopilotAdapter().emit(full).files);
-    expect(files.has(".github/skills/wrap-up/SKILL.md")).toBe(true);
+    const copilot = byPath(new CopilotAdapter().emit(full).files);
+    const kiro = byPath(new KiroAdapter().emit(full).files);
+    expect(copilot.has(".github/skills/wrap-up/SKILL.md")).toBe(true);
+    expect(kiro.has(".kiro/skills/wrap-up/SKILL.md")).toBe(true);
     // The track directive is build-time only — it must not leak into emitted frontmatter.
-    expect(files.get(".github/skills/wrap-up/SKILL.md")).not.toMatch(/tracks:/);
+    expect(copilot.get(".github/skills/wrap-up/SKILL.md")).not.toMatch(/tracks:/);
+    expect(kiro.get(".kiro/skills/wrap-up/SKILL.md")).not.toMatch(/tracks:/);
   });
 });

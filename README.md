@@ -3,7 +3,7 @@
 An open, cross-host AI SDLC framework. You author your software
 development process **once** as a host-neutral base, and the `aisdlc` compiler
 emits native configuration for each AI coding host — **Cursor**, **Claude Code**,
-**GitHub Copilot**, and **OpenAI Codex** — so every host enforces the same gates, roles, and
+**GitHub Copilot**, **OpenAI Codex**, and **Kiro** — so every host enforces the same gates, roles, and
 standards.
 
 - **Base** — the host-neutral source of truth: the Constitution (non-negotiable
@@ -97,7 +97,7 @@ needs them, not during setup.
 
 Loop quality is evaluated offline from emitted guidance and synthetic loop
 traces. `ai-sdlc` does not run a custom SDLC orchestrator; Cursor, Claude Code,
-Copilot, and Codex continue to execute through their native dispatch surfaces.
+Copilot, Codex, and Kiro continue to execute through their native dispatch surfaces.
 
 If `customize` reports a blocking gap (e.g. it couldn't mine a test command),
 answer it in `.sdlc/overlay/.customize.yaml` (or pass `--answers-file`) and
@@ -128,13 +128,13 @@ hood.
 Common flags:
 
 - `setup`: `--repo <dir>` (default: cwd), `--base <dir>`, `--packs <dir,dir>`,
-  `--hosts cursor,claude-code,copilot,codex`, `--mode plugin|deterministic`,
+  `--hosts cursor,claude-code,copilot,codex,kiro`, `--mode plugin|deterministic`,
   `--force`
 - `customize`: `--repo <dir>` (default: cwd), `--answers-file <file>`,
   `--mode plugin|deterministic` (default: plugin), `--force`
 - `compile`: `--base <dir>` (default: bundled `sdlc-base/`, with source-checkout
   fallback to `./sdlc-base`), `--packs <dir,dir>`, `--out <dir>` (required), `--overlay <file>`,
-  `--hosts cursor,claude-code,copilot,codex`, `--force`
+  `--hosts cursor,claude-code,copilot,codex,kiro`, `--force`
 - `smoke`: `--repo <dir>`, `--config <dir>`, `--packs <dir,dir>`,
   `--overlay <file>`, `--compile`
 - `bench`: `--seed <n>`, `--count <n>`, `--catalog <file>`,
@@ -182,6 +182,11 @@ Compilation produces native config for each enabled host (plus a host-neutral
   `.codex/skills/`, `.codex/config.toml` (MCP + `PreToolUse` Approved? gate),
   and `.codex/hooks/` for least-privilege enforcement. Start Codex from a trusted
   project root so project `.codex/` config and hooks load.
+- **Kiro** — `AGENTS.md`, nested `AGENTS.md`, `.kiro/steering/` scoped guidance,
+  `.kiro/agents/` custom subagents, `.kiro/skills/`, `.kiro/settings/mcp.json`,
+  and `.kiro/hooks/` for Approved?, mutating-tool posture, and MCP least-privilege
+  gates. Open the repo in a trusted Kiro workspace and review MCP definitions
+  before enabling Kiro MCP support.
 
 Generated artifacts and per-project state live under `.sdlc/` and are
 git-ignored by default.

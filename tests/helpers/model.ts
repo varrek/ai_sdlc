@@ -44,7 +44,7 @@ export function makeModel(overrides: Partial<NeutralModel> = {}): NeutralModel {
   return {
     manifest: HostManifest.parse({
       version: 1,
-      hosts: ["cursor", "claude-code", "copilot", "codex"],
+      hosts: ["cursor", "claude-code", "copilot", "codex", "kiro"],
     }),
     constitution: [
       "# AI SDLC Constitution (base)",

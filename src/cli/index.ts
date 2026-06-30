@@ -32,8 +32,8 @@ import { runUpgrade } from "./upgrade.js";
 const HELP = `aisdlc — internal AI SDLC framework compiler
 
 Usage:
-  aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot,codex]
-  aisdlc setup --repo <dir> [--hosts cursor,claude-code,copilot,codex]
+  aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot,codex,kiro]
+  aisdlc setup --repo <dir> [--hosts cursor,claude-code,copilot,codex,kiro]
 
 Commands:
   setup       Run customize -> compile -> smoke for a target repo (alias: init).

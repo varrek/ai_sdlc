@@ -7,7 +7,8 @@ import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
 import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
-import { AdapterRegistry } from "../../src/core/adapter-registry.js";
+import { KiroAdapter } from "../../src/adapters/kiro/index.js";
+import { buildRegistry } from "../../src/adapters/registry.js";
 import { compile } from "../../src/core/engine.js";
 import { makeModel, makeSkill } from "../helpers/model.js";
 
@@ -21,14 +22,6 @@ function freshOut(): string {
   return dir;
 }
 
-function registry(): AdapterRegistry {
-  return new AdapterRegistry()
-    .register(new CursorAdapter())
-    .register(new ClaudeCodeAdapter())
-    .register(new CopilotAdapter())
-    .register(new CodexAdapter());
-}
-
 describe("skills emit", () => {
   it("emits a valid SKILL.md in each host path with required frontmatter", () => {
     const model = makeModel({ skills: [makeSkill("customize", { disableModelInvocation: true })] });
@@ -38,6 +31,7 @@ describe("skills emit", () => {
         ...new ClaudeCodeAdapter().emit(model).files,
         ...new CopilotAdapter().emit(model).files,
         ...new CodexAdapter().emit(model).files,
+        ...new KiroAdapter().emit(model).files,
       ].map((f) => [f.path, f.contents]),
     );
 
@@ -47,6 +41,7 @@ describe("skills emit", () => {
       ".claude/skills/customize/SKILL.md",
       ".github/skills/customize/SKILL.md",
       ".codex/skills/customize/SKILL.md",
+      ".kiro/skills/customize/SKILL.md",
     ];
     for (const path of expected) {
       expect(files.has(path), `missing ${path}`).toBe(true);
@@ -62,16 +57,18 @@ describe("skills emit", () => {
   it("re-emit after removing a skill prunes its files on every host (no orphans)", () => {
     const out = freshOut();
     const two = makeModel({ skills: [makeSkill("alpha"), makeSkill("beta")] });
-    compile(two, registry(), { outDir: out });
+    compile(two, buildRegistry(), { outDir: out });
     expect(existsSync(join(out, ".claude/skills/beta/SKILL.md"))).toBe(true);
+    expect(existsSync(join(out, ".kiro/skills/beta/SKILL.md"))).toBe(true);
 
     const one = makeModel({ skills: [makeSkill("alpha")] });
-    const result = compile(one, registry(), { outDir: out });
+    const result = compile(one, buildRegistry(), { outDir: out });
 
-    for (const host of [".agents", ".cursor", ".claude", ".github", ".codex"]) {
+    for (const host of [".agents", ".cursor", ".claude", ".github", ".codex", ".kiro"]) {
       expect(existsSync(join(out, host, "skills/beta/SKILL.md"))).toBe(false);
     }
     expect(result.pruned).toContain(".claude/skills/beta/SKILL.md");
+    expect(result.pruned).toContain(".kiro/skills/beta/SKILL.md");
     expect(existsSync(join(out, ".cursor/skills/alpha/SKILL.md"))).toBe(true);
   });
 });

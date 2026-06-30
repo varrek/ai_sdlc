@@ -22,7 +22,16 @@ describe("host manifest", () => {
     const manifest = loadYaml(base("host-manifest.yaml"), HostManifest);
     expect(manifest.hosts).toContain("cursor");
     expect(manifest.hosts).toContain("codex");
+    expect(manifest.hosts).toContain("kiro");
     expect(manifest.options?.copilot?.gateMode).toBe("ci");
+  });
+
+  it("accepts Kiro as a host id", () => {
+    const manifest = HostManifest.parse({
+      version: 1,
+      hosts: ["kiro"],
+    });
+    expect(manifest.hosts).toEqual(["kiro"]);
   });
 
   it("accepts cursor plugin manifest options", () => {

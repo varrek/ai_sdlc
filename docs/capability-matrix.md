@@ -5,14 +5,14 @@
 Levels: **Native** (first-class), **Partial** (supported with limits),
 **Fallback** (degraded path — see `portability.gap.yml`), **None**.
 
-| Capability | cursor | claude-code | copilot | codex |
-|---|---|---|---|---|
-| Project instructions (AGENTS.md) | Native | Native | Native | Native |
-| Hierarchical / scoped instructions | Native | Native | Native | Native |
-| Agent Skills (SKILL.md) | Native | Native | Native | Native |
-| Role subagents + dispatch | Native | Native | Partial | Native |
-| Per-role tool restriction | Fallback | Native | Partial | Partial |
-| Hooks / Approved? gate | Native | Native | Fallback | Native |
-| MCP | Native | Native | Native | Native |
-| Plugin distribution metadata | Partial | None | None | None |
-| LSP setup guidance | Partial | None | None | None |
+| Capability | cursor | claude-code | copilot | codex | kiro |
+|---|---|---|---|---|---|
+| Project instructions (AGENTS.md) | Native | Native | Native | Native | Native |
+| Hierarchical / scoped instructions | Native | Native | Native | Native | Native |
+| Agent Skills (SKILL.md) | Native | Native | Native | Native | Native |
+| Role subagents + dispatch | Native | Native | Partial | Native | Native |
+| Per-role tool restriction | Fallback | Native | Partial | Partial | Partial |
+| Hooks / Approved? gate | Native | Native | Fallback | Native | Partial |
+| MCP | Native | Native | Native | Native | Native |
+| Plugin distribution metadata | Partial | None | None | None | None |
+| LSP setup guidance | Partial | None | None | None | None |

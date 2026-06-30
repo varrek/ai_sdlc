@@ -4,6 +4,7 @@ import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
 import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
+import { KiroAdapter } from "../../src/adapters/kiro/index.js";
 import { Overlay } from "../../src/schema/index.js";
 import { makeContract, makeModel, makeRole } from "../helpers/model.js";
 
@@ -69,6 +70,20 @@ describe("agent emit (least-privilege)", () => {
     expect(engineer).toContain('sandbox_mode = "workspace-write"');
     expect(engineer).toContain("[mcp_servers.gitlab-mcp]");
     expect(engineer).toContain("enabled = true");
+  });
+
+  it("kiro reviewer has read-only tools and no broad MCP include", () => {
+    const files = byPath(new KiroAdapter().emit(loopModel()).files);
+    const reviewer = matter(files.get(".kiro/agents/reviewer.md")!);
+    expect(reviewer.data.tools).toEqual(["read", "web"]);
+    expect(reviewer.data.includeMcpJson).toBeUndefined();
+  });
+
+  it("kiro engineer receives write tools and only its bound MCP selector", () => {
+    const files = byPath(new KiroAdapter().emit(loopModel()).files);
+    const engineer = matter(files.get(".kiro/agents/engineer.md")!);
+    expect(engineer.data.tools).toEqual(["read", "web", "write", "shell", "@gitlab-mcp"]);
+    expect(engineer.data.includeMcpJson).toBeUndefined();
   });
 
   it("copilot agent profiles are vscode-targeted with posture tools and MCP scoping", () => {

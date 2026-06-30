@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 /**
- * Hosts the framework can compile to. Cursor and Claude Code reach full
- * orchestration depth in Milestone 1; Copilot runs degraded (see options).
+ * Hosts the framework can compile to. Hosts differ in orchestration depth;
+ * each adapter declares honest degradation through its capabilities.
  */
-export const HostId = z.enum(["cursor", "claude-code", "copilot", "codex"]);
+export const HostId = z.enum(["cursor", "claude-code", "copilot", "codex", "kiro"]);
 export type HostId = z.infer<typeof HostId>;
 
 /**

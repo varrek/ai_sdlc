@@ -27,7 +27,7 @@ function walk(dir: string, root = dir): string[] {
 }
 
 describe("golden compile output", () => {
-  it("emits a stable tree across all four adapters", () => {
+  it("emits a stable tree across all default hosts", () => {
     out = mkdtempSync(join(tmpdir(), "aisdlc-golden-"));
     const model = mergeOverlay(loadBase(baseDir), loadOverlay(undefined));
     compile(model, buildRegistry(), { outDir: out });

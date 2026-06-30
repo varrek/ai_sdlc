@@ -7,19 +7,19 @@ import {
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { renderHierarchyPointerMarkdown } from "../shared/hierarchy-pointer.js";
 
-export function emitHierarchyRules(model: NeutralModel): EmittedFile[] {
+/** Kiro-native scoped steering mirrors Cursor's file-match rule behavior. */
+export function emitSteering(model: NeutralModel): EmittedFile[] {
   return acceptedInstructionScopes(model.projectContext).map((scope) => {
     const slug = slugifyScopePath(scope.path);
     const frontmatter = stringify(
       {
-        description: `${scope.path} local ai-sdlc guidance`,
-        globs: scopeApplyGlob(scope.path),
-        alwaysApply: false,
+        inclusion: "fileMatch",
+        fileMatchPattern: scopeApplyGlob(scope.path),
       },
       { sortMapEntries: false },
     ).trim();
     return {
-      path: `.cursor/rules/${slug}.mdc`,
+      path: `.kiro/steering/${slug}.md`,
       contents: [
         "---",
         frontmatter,

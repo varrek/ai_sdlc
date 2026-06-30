@@ -3,6 +3,7 @@ import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
 import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
+import { KiroAdapter } from "../../src/adapters/kiro/index.js";
 import { Overlay } from "../../src/schema/index.js";
 import { makeContract, makeModel, makeRole } from "../helpers/model.js";
 
@@ -26,18 +27,21 @@ const model = makeModel({
 });
 
 describe("mcp emit", () => {
-  it("produces matching server defs across all four host files", () => {
+  it("produces matching server defs across all five host files", () => {
     const cursor = byPath(new CursorAdapter().emit(model).files);
     const claude = byPath(new ClaudeCodeAdapter().emit(model).files);
     const copilot = byPath(new CopilotAdapter().emit(model).files);
     const codex = byPath(new CodexAdapter().emit(model).files);
+    const kiro = byPath(new KiroAdapter().emit(model).files);
 
     const cursorServers = JSON.parse(cursor.get(".cursor/mcp.json")!).mcpServers;
     const claudeServers = JSON.parse(claude.get(".mcp.json")!).mcpServers;
     const copilotServers = JSON.parse(copilot.get(".vscode/mcp.json")!).servers;
+    const kiroServers = JSON.parse(kiro.get(".kiro/settings/mcp.json")!).mcpServers;
 
     expect(cursorServers).toEqual(claudeServers);
     expect(copilotServers).toEqual(claudeServers);
+    expect(kiroServers).toEqual(claudeServers);
     expect(cursorServers["gitlab-mcp"].command).toBe("gitlab-mcp-server");
     expect(cursorServers["gitlab-mcp"].env).toEqual({ GITLAB_TOKEN: "GITLAB_TOKEN" });
 

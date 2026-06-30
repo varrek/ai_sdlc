@@ -141,6 +141,7 @@ export function hostTargetsForScope(path: string): string[] {
     `${path}/AGENTS.md`,
     `.cursor/rules/${slug}.mdc`,
     `.github/instructions/${slug}.instructions.md`,
+    `.kiro/steering/${slug}.md`,
   ];
 }
 

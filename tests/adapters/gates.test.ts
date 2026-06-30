@@ -7,6 +7,7 @@ import { ClaudeCodeAdapter } from "../../src/adapters/claude-code/index.js";
 import { CodexAdapter } from "../../src/adapters/codex/index.js";
 import { CopilotAdapter } from "../../src/adapters/copilot/index.js";
 import { CursorAdapter } from "../../src/adapters/cursor/index.js";
+import { KiroAdapter } from "../../src/adapters/kiro/index.js";
 import { HostManifest, Overlay } from "../../src/schema/index.js";
 import { makeModel, makeRole } from "../helpers/model.js";
 
@@ -102,6 +103,34 @@ describe("gate emit", () => {
     expect(result.gaps).toHaveLength(0);
   });
 
+  it("kiro emits PreToolUse hooks and role policy", () => {
+    const result = new KiroAdapter().emit(model);
+    const files = byPath(result.files);
+    const hooks = JSON.parse(files.get(".kiro/hooks/sdlc-gates.json")!) as {
+      hooks: { name: string; trigger: string; matcher: string; action: { command: string } }[];
+    };
+    expect(hooks.hooks).toHaveLength(3);
+    expect(hooks.hooks.every((hook) => hook.trigger === "PreToolUse")).toBe(true);
+    expect(hooks.hooks.map((hook) => hook.action.command)).toEqual(
+      expect.arrayContaining([
+        "node ./.kiro/hooks/approved-gate.mjs",
+        "node ./.kiro/hooks/tool-gate.mjs",
+        "node ./.kiro/hooks/mcp-gate.mjs",
+      ]),
+    );
+    expect(hooks.hooks.find((hook) => hook.name === "sdlc-approved-gate")?.matcher).toContain(
+      "fs_write",
+    );
+    expect(hooks.hooks.find((hook) => hook.name === "sdlc-approved-gate")?.matcher).toContain(
+      "execute_bash",
+    );
+    expect(files.has(".kiro/sdlc/role-policy.json")).toBe(true);
+    expect(result.gaps.map((gap) => gap.capability)).toEqual(
+      expect.arrayContaining(["approved-gate-hook", "per-role-hook-policy"]),
+    );
+  });
+
+
   it("copilot omits the CI workflow under gateMode: instructions", () => {
     const instructionsModel = makeModel({
       roles: [makeRole("engineer", "write", [])],
@@ -128,6 +157,7 @@ describe("approved gate runtime", () => {
     ["cursor", new CursorAdapter(), ".cursor/hooks/approved-gate.mjs"],
     ["copilot", new CopilotAdapter(), ".github/hooks/approved-gate.mjs"],
     ["codex", new CodexAdapter(), ".codex/hooks/approved-gate.mjs"],
+    ["kiro", new KiroAdapter(), ".kiro/hooks/approved-gate.mjs"],
   ] as const;
 
   function install(files: Map<string, string>, scriptRel: string): string {
@@ -231,9 +261,13 @@ describe("cursor MCP gate runtime (fail-closed least-privilege)", () => {
     return join(dir, scriptRel);
   }
 
-  function run(script: string, input: object): number {
+  function run(script: string, input: object, env: Record<string, string> = {}): number {
     try {
-      execFileSync("node", [script], { cwd: dir, input: JSON.stringify(input) });
+      execFileSync("node", [script], {
+        cwd: dir,
+        input: JSON.stringify(input),
+        env: { ...process.env, ...env },
+      });
       return 0;
     } catch (e) {
       return (e as { status?: number }).status ?? 1;
@@ -285,9 +319,13 @@ describe("codex MCP gate runtime (fail-closed least-privilege)", () => {
     return join(dir, scriptRel);
   }
 
-  function run(script: string, input: object): number {
+  function run(script: string, input: object, env: Record<string, string> = {}): number {
     try {
-      execFileSync("node", [script], { cwd: dir, input: JSON.stringify(input) });
+      execFileSync("node", [script], {
+        cwd: dir,
+        input: JSON.stringify(input),
+        env: { ...process.env, ...env },
+      });
       return 0;
     } catch (e) {
       return (e as { status?: number }).status ?? 1;
@@ -319,5 +357,121 @@ describe("codex MCP gate runtime (fail-closed least-privilege)", () => {
   it("is inert when no policy file is present (nothing to enforce)", () => {
     const s = install(null);
     expect(run(s, { agent_type: "ghost", tool_name: "mcp__gitlab-prod__do_thing" })).toBe(0);
+  });
+});
+
+describe("kiro gates runtime (fail-closed least-privilege)", () => {
+  let dir: string;
+  afterEach(() => dir && rmSync(dir, { recursive: true, force: true }));
+  const files = byPath(new KiroAdapter().emit(model).files);
+
+  function install(
+    scriptRel: ".kiro/hooks/mcp-gate.mjs" | ".kiro/hooks/tool-gate.mjs",
+    policy: Record<string, { posture: string; servers: string[] }> | null,
+  ): string {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-kiro-gate-"));
+    mkdirSync(join(dir, ".kiro", "hooks"), { recursive: true });
+    writeFileSync(join(dir, scriptRel), files.get(scriptRel)!);
+    if (policy) {
+      mkdirSync(join(dir, ".kiro", "sdlc"), { recursive: true });
+      writeFileSync(join(dir, ".kiro", "sdlc", "role-policy.json"), JSON.stringify(policy));
+    }
+    return join(dir, scriptRel);
+  }
+
+  function run(script: string, input: object, env: Record<string, string> = {}): number {
+    try {
+      execFileSync("node", [script], {
+        cwd: dir,
+        input: JSON.stringify(input),
+        env: { ...process.env, ...env },
+      });
+      return 0;
+    } catch (e) {
+      return (e as { status?: number }).status ?? 1;
+    }
+  }
+
+  const policy = {
+    engineer: { posture: "write", servers: ["gitlab-prod"] },
+    reviewer: { posture: "read-only", servers: [] },
+    tester: { posture: "read-run", servers: [] },
+  };
+
+  it("allows a known role calling a server it is permitted to reach", () => {
+    const s = install(".kiro/hooks/mcp-gate.mjs", policy);
+    expect(run(s, { role: "engineer", tool_name: "@gitlab-prod/create_issue" })).toBe(0);
+  });
+
+  it("allows MCP calls using SDLC_ACTIVE_ROLE when Kiro payload has no role field", () => {
+    const s = install(".kiro/hooks/mcp-gate.mjs", policy);
+    expect(
+      run(
+        s,
+        { hook_event_name: "preToolUse", tool_name: "@gitlab-prod/create_issue", tool_input: {} },
+        { SDLC_ACTIVE_ROLE: "engineer" },
+      ),
+    ).toBe(0);
+  });
+
+  it("parses Codex-style MCP names defensively when Kiro reports them", () => {
+    const s = install(".kiro/hooks/mcp-gate.mjs", policy);
+    expect(run(s, { role: "engineer", tool_name: "mcp__gitlab-prod__do_thing" })).toBe(0);
+    expect(run(s, { role: "engineer", tool_name: "mcp__jira-prod__do_thing" })).toBe(2);
+  });
+
+  it("denies a known role calling a server outside its allowlist", () => {
+    const s = install(".kiro/hooks/mcp-gate.mjs", policy);
+    expect(run(s, { role: "engineer", tool_name: "@jira-prod/create_issue" })).toBe(2);
+  });
+
+  it("denies (fail-closed) when the active role is missing", () => {
+    const s = install(".kiro/hooks/mcp-gate.mjs", policy);
+    expect(run(s, { tool_name: "@gitlab-prod/create_issue" })).toBe(2);
+  });
+
+  it("denies (fail-closed) when the role is unknown to the policy", () => {
+    const s = install(".kiro/hooks/mcp-gate.mjs", policy);
+    expect(run(s, { role: "ghost", tool_name: "@gitlab-prod/create_issue" })).toBe(2);
+  });
+
+  it("denies malformed MCP tool names when a policy exists", () => {
+    const s = install(".kiro/hooks/mcp-gate.mjs", policy);
+    expect(run(s, { role: "engineer", tool_name: "@" })).toBe(2);
+  });
+
+  it("is inert when no MCP policy file is present", () => {
+    const s = install(".kiro/hooks/mcp-gate.mjs", null);
+    expect(run(s, { role: "ghost", tool_name: "@gitlab-prod/create_issue" })).toBe(0);
+  });
+
+  it("denies write and shell tools for read-only roles", () => {
+    const s = install(".kiro/hooks/tool-gate.mjs", policy);
+    expect(run(s, { role: "reviewer", tool_name: "write" })).toBe(2);
+    expect(run(s, { role: "reviewer", tool_name: "shell" })).toBe(2);
+    expect(run(s, { role: "reviewer", tool_name: "fs_write" })).toBe(2);
+    expect(run(s, { role: "reviewer", tool_name: "execute_bash" })).toBe(2);
+  });
+
+  it("denies mutating tools when the active role is missing or unknown", () => {
+    const s = install(".kiro/hooks/tool-gate.mjs", policy);
+    expect(run(s, { tool_name: "fs_write" })).toBe(2);
+    expect(run(s, { role: "ghost", tool_name: "execute_bash" })).toBe(2);
+  });
+
+  it("allows shell but denies write tools for read-run roles", () => {
+    const s = install(".kiro/hooks/tool-gate.mjs", policy);
+    expect(run(s, { role: "tester", tool_name: "execute_bash" })).toBe(0);
+    expect(run(s, { role: "tester", tool_name: "fs_write" })).toBe(2);
+  });
+
+  it("allows write tools for write-posture roles", () => {
+    const s = install(".kiro/hooks/tool-gate.mjs", policy);
+    expect(run(s, { role: "engineer", tool_name: "write" })).toBe(0);
+  });
+
+  it("allows mutating tools when no posture policy file is present", () => {
+    const s = install(".kiro/hooks/tool-gate.mjs", null);
+    expect(run(s, { role: "ghost", tool_name: "fs_write" })).toBe(0);
   });
 });
