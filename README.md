@@ -116,6 +116,7 @@ hood.
 | Command | What it does |
 | --- | --- |
 | `aisdlc setup` | Run `customize`, `compile`, and `smoke` as one native target-repo setup chain. |
+| `aisdlc maintain` | Run `customize`, `compile`, `smoke`, and `garden`; write `.sdlc/maintenance-report.json` and list host skills to invoke next. |
 | `aisdlc customize` | Mine the current repo, build the standards index, and write the project overlay. |
 | `aisdlc compile` | Compile the host-neutral base (+ overlay) to host-native config. |
 | `aisdlc smoke` | Run the smoke validation gate and report setup-readiness. |
@@ -134,6 +135,8 @@ Common flags:
 - `setup`: `--repo <dir>` (default: cwd), `--base <dir>`, `--packs <dir,dir>`,
   `--hosts cursor,claude-code,copilot,codex,kiro`, `--mode plugin|deterministic`,
   `--force`
+- `maintain`: same flags as `setup`, plus `--bench`, `--bench-seed <n>`,
+  `--bench-count <n>` (optional external corpus eval after the core chain)
 - `customize`: `--repo <dir>` (default: cwd), `--answers-file <file>`,
   `--mode plugin|deterministic` (default: plugin), `--force` (bypass freshness and
   mined snapshot cache; use after in-place file edits that do not add/remove paths)
@@ -230,6 +233,34 @@ aisdlc garden-docs --fix --write-report               # mechanical fixes only
 After `aisdlc garden`, use the host skill `/garden-docs` (see
 `sdlc-base/skills/garden-docs/SKILL.md`) to repair remaining findings with the
 host model, then re-run `aisdlc garden` to verify.
+
+## Project maintenance
+
+For ongoing health after initial setup, run the full deterministic chain and get
+structured skill handoffs for judgment-heavy follow-ups:
+
+```bash
+npm run maintain          # or: aisdlc maintain --repo .
+```
+
+`aisdlc maintain` runs **customize → compile → smoke → garden**, then writes
+`.sdlc/maintenance-report.json` listing which host skills to invoke next:
+
+| Skill | When |
+| --- | --- |
+| `close-gaps` | Blocking setup gaps (e.g. missing test command) |
+| `resolve-upgrade` | `upgrade-conflicts.yml` present |
+| `setup-triage` | Not setup-ready after the chain |
+| `review-standards-drift` | Standards index drift on re-mining |
+| `bind-integrations` | GitLab/Jira deferred but needed for wrap-up |
+| `compound-learnings` | New accepted learnings to review |
+| `pack-workflows` | Reference packs enabled via `--packs` |
+| `bench-triage` | When maintain was run with `--bench` and eval failed |
+| `architecture-grounding` | Low architecture confidence or generic role grounding |
+| `garden-docs` | Doc findings needing host-agent edits |
+
+Invoke listed skills in order, then re-run `aisdlc maintain` until the report
+shows no handoffs.
 
 ## Default Plugin Mode
 
