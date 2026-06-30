@@ -8,6 +8,7 @@ import {
   type MapEntry,
   type PackageContext,
   type ProjectContext,
+  scopeHasUserOwnedInstructionFiles,
 } from "../core/project-context.js";
 import {
   type CeremonyTrack,
@@ -189,6 +190,7 @@ export function buildOverlay(
   prior?: Overlay,
   gapClosureProvenance: Overlay["gapClosureProvenance"] = {},
   operatingMode?: OperatingMode,
+  repoRoot?: string,
 ): Overlay {
   const index = buildStandardsIndex(profile);
   const integrations: Record<string, IntegrationBinding> = { ...(prior?.integrations ?? {}) };
@@ -201,7 +203,7 @@ export function buildOverlay(
     integrations.jira = { serverId: answers["jira-server"], allowedRoles: [] };
   }
 
-  const projectContext = buildProjectContext(profile, index);
+  const projectContext = buildProjectContext(profile, index, repoRoot);
   const templateAddenda = buildTemplateRoleAddenda(profile, projectContext, answers, {
     ...(prior?.gapClosureProvenance ?? {}),
     ...gapClosureProvenance,
@@ -313,10 +315,20 @@ function capitalize(s: string): string {
  * standards), the codebase map, and the exclusion set. For a single-package
  * repo `packages` is empty and only the map + exclusions carry information.
  */
-export function buildProjectContext(profile: RepoProfile, index: StandardsIndex): ProjectContext {
+export function buildProjectContext(
+  profile: RepoProfile,
+  index: StandardsIndex,
+  repoRoot?: string,
+): ProjectContext {
   const map = buildCodebaseMap(profile);
   const scopedStandards = standardsByScope(index);
-  const instructionHierarchy = buildInstructionHierarchy(profile, index, map, scopedStandards);
+  const instructionHierarchy = buildInstructionHierarchy(
+    profile,
+    index,
+    map,
+    scopedStandards,
+    repoRoot,
+  );
   const instructionBodyByPath = new Map(
     instructionHierarchy.scopes.map((scope) => [scope.path, scope.instructionBody]),
   );
@@ -344,11 +356,14 @@ export function buildInstructionHierarchy(
   index: StandardsIndex,
   map: MapEntry[] = buildCodebaseMap(profile),
   scopedStandards: Map<string, StandardEntry[]> = standardsByScope(index),
+  repoRoot?: string,
 ): InstructionHierarchy {
   const packagePaths = new Set((profile.packages ?? []).map((pkg) => pkg.path));
   const scopes: InstructionScope[] = [];
   for (const entry of map) {
     if (entry.path === ".") continue;
+    const userOwned =
+      repoRoot !== undefined && scopeHasUserOwnedInstructionFiles(repoRoot, entry.path);
     const scoped = scopedStandards.get(entry.path) ?? [];
     const kind = packagePaths.has(entry.path) ? "package" : "module";
     scopes.push({
@@ -359,7 +374,7 @@ export function buildInstructionHierarchy(
       instructionBody: renderScopeInstructionBody(entry, kind, scoped),
       hostTargets: hostTargetsForScope(entry.path),
       ownership: "generated",
-      accepted: true,
+      accepted: !userOwned,
     });
   }
   return { version: 1, scopes };

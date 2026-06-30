@@ -122,9 +122,10 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
     priorOverlay,
     gapClosureProvenance,
     options.operatingMode,
+    options.repoRoot,
   );
   const overlaySerialized = serializeOverlay(overlay);
-  const projectContext = buildProjectContext(profile, standardsIndex);
+  const projectContext = buildProjectContext(profile, standardsIndex, options.repoRoot);
   const hierarchySerialized = serializeInstructionHierarchy(projectContext.instructionHierarchy!);
 
   // Freshness: compare the mined inputs and the *would-be* overlay (which folds
@@ -211,8 +212,8 @@ export function inspectRepo(options: {
   const standardsIndex = buildStandardsIndex(profile);
   const drift = diffStandardsIndex(standardsIndex, readPriorStandards(standardsPath));
 
-  const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance);
-  const projectContext = buildProjectContext(profile, standardsIndex);
+  const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance, undefined, options.repoRoot);
+  const projectContext = buildProjectContext(profile, standardsIndex, options.repoRoot);
   const minedFp = fingerprint([stableProfileJson(profile)]);
   const overlayFp = fingerprint([
     serializeOverlay(overlay),
