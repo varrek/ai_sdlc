@@ -21,6 +21,7 @@ import {
 import { runCompileCli } from "./compile.js";
 import { loadAnswersFile, runCustomize } from "./customize.js";
 import { EXPLAIN_CLAIM_KEYS, explainClaim, explainStandard, isExplainClaimKey } from "./explain.js";
+import { runGardenCli } from "./garden.js";
 import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "./garden-docs.js";
 import { RecordLoopEventError, recordLoopEventFromJson } from "./record-loop-event.js";
 import { runSetupCli } from "./setup.js";
@@ -33,9 +34,11 @@ const HELP = `aisdlc — internal AI SDLC framework compiler
 Usage:
   aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot,codex,kiro]
   aisdlc setup --repo <dir> [--hosts cursor,claude-code,copilot,codex,kiro]
+  aisdlc garden --repo <dir>
 
 Commands:
   setup       Run customize -> compile -> smoke for a target repo (alias: init).
+  garden      Run doc-garden deterministic fixes and write .sdlc/doc-gardening-report.json.
   compile     Compile the host-neutral base (+ overlay) to host-native config.
   gen-matrix  Regenerate docs/capability-matrix.md from adapter capabilities.
   customize   Adapt the base to the current repository (Plugin Mode by default; use --mode deterministic to opt out).
@@ -54,7 +57,10 @@ Bench flags:
 
 Garden-docs flags:
   --repo <dir> --config <dir> --overlay <file> --overlay-dir <dir>
-  --format text|json --write-report --fail-on warning|error
+  --format text|json --write-report --fail-on warning|error --fix
+
+Garden flags:
+  --repo <dir> --config <dir> --overlay <file> --overlay-dir <dir> --fail-on warning|error
 `;
 
 function fail(message: string): never {
@@ -430,6 +436,29 @@ function cmdGardenDocs(rest: string[]): void {
     format,
     failOn,
     writeReport: flags.has("write-report"),
+    fix: flags.has("fix"),
+  });
+  process.stdout.write(`${result.output}\n`);
+  if (result.writtenPaths.length > 0) {
+    process.stdout.write(`Wrote: ${result.writtenPaths.join(", ")}\n`);
+  }
+  process.exit(result.exitCode);
+}
+
+function cmdGarden(rest: string[]): void {
+  const { options } = parseArgs(rest);
+  let failOn;
+  try {
+    failOn = parseGardenDocsFailOn(options.get("fail-on"));
+  } catch (error) {
+    fail(`garden: ${(error as Error).message}`);
+  }
+  const result = runGardenCli({
+    repoRoot: options.get("repo") ?? process.cwd(),
+    configDir: options.get("config"),
+    overlayPath: options.get("overlay"),
+    overlayDir: options.get("overlay-dir"),
+    failOn,
   });
   process.stdout.write(`${result.output}\n`);
   if (result.writtenPaths.length > 0) {
@@ -497,6 +526,9 @@ function main(): void {
       return;
     case "record-event":
       cmdRecordEvent(rest);
+      return;
+    case "garden":
+      cmdGarden(rest);
       return;
     case "garden-docs":
       cmdGardenDocs(rest);
