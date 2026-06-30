@@ -17,7 +17,7 @@ export function resolveDefaultBaseDirFrom(packageRoot: string, cwd: string): str
   if (isBaseDir(bundledBase)) return bundledBase;
 
   const checkoutBase = join(cwd, "sdlc-base");
-  if (isBaseDir(checkoutBase)) return "sdlc-base";
+  if (isBaseDir(checkoutBase)) return checkoutBase;
 
   throw new Error(
     "Could not find bundled sdlc-base. Pass --base <dir> or reinstall ai-sdlc with runtime assets.",

@@ -29,7 +29,7 @@ describe("package root resolution", () => {
 
     const emptyPackageRoot = tmpDir("empty-package-root-");
     writeManifest(join(cwd, "sdlc-base"));
-    expect(resolveDefaultBaseDirFrom(emptyPackageRoot, cwd)).toBe("sdlc-base");
+    expect(resolveDefaultBaseDirFrom(emptyPackageRoot, cwd)).toBe(join(cwd, "sdlc-base"));
   });
 
   it("throws a clear error when no default base exists", () => {
