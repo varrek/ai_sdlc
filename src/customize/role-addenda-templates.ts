@@ -1,5 +1,5 @@
-import { assertRoleAddendumWithinContract } from "../core/role-addenda.js";
 import type { ProjectContext } from "../core/project-context.js";
+import { assertRoleAddendumWithinContract } from "../core/role-addenda.js";
 import {
   hasDeterministicArchitectGrounding,
   hasDeterministicDebuggerGrounding,

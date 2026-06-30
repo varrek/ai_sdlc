@@ -8,8 +8,8 @@ import {
   buildStandardsIndex,
   mergeRoleAddenda,
 } from "../../src/customize/emitters.js";
-import { buildTemplateRoleAddenda } from "../../src/customize/role-addenda-templates.js";
 import { mineRepo } from "../../src/customize/repo-miner.js";
+import { buildTemplateRoleAddenda } from "../../src/customize/role-addenda-templates.js";
 import { Overlay } from "../../src/schema/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,11 +38,7 @@ describe("buildTemplateRoleAddenda", () => {
 
     for (const [role, text] of Object.entries(addenda)) {
       const posture =
-        role === "engineer"
-          ? "write"
-          : role === "tester"
-            ? "read-run"
-            : ("read-only" as const);
+        role === "engineer" ? "write" : role === "tester" ? "read-run" : ("read-only" as const);
       expect(() => assertRoleAddendumWithinContract(role, posture, text!)).not.toThrow();
     }
   });
