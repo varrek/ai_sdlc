@@ -212,7 +212,14 @@ export function inspectRepo(options: {
   const standardsIndex = buildStandardsIndex(profile);
   const drift = diffStandardsIndex(standardsIndex, readPriorStandards(standardsPath));
 
-  const overlay = buildOverlay(profile, answers, priorOverlay, gapClosureProvenance, undefined, options.repoRoot);
+  const overlay = buildOverlay(
+    profile,
+    answers,
+    priorOverlay,
+    gapClosureProvenance,
+    undefined,
+    options.repoRoot,
+  );
   const projectContext = buildProjectContext(profile, standardsIndex, options.repoRoot);
   const minedFp = fingerprint([stableProfileJson(profile)]);
   const overlayFp = fingerprint([

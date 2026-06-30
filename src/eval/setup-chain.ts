@@ -188,7 +188,10 @@ function readSetupArtifacts(
     smoke,
     status,
     projectContext: readProjectContext(overlayDir),
-    standardsIndex: readRequiredUtf8(join(overlayDir, "standards-index.yaml"), "standards-index.yaml"),
+    standardsIndex: readRequiredUtf8(
+      join(overlayDir, "standards-index.yaml"),
+      "standards-index.yaml",
+    ),
     architect: readRequiredUtf8(join(root, ".cursor", "agents", "architect.md"), "architect agent"),
     engineer: readRequiredUtf8(join(root, ".cursor", "agents", "engineer.md"), "engineer agent"),
     tester: readRequiredUtf8(join(root, ".cursor", "agents", "tester.md"), "tester agent"),

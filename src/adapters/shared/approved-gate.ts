@@ -1,5 +1,5 @@
-import type { EmittedFile } from "../../core/types.js";
 import { APPROVAL_GATE_STAGES } from "../../core/loop.js";
+import type { EmittedFile } from "../../core/types.js";
 
 export const LOOP_EVENT_RECORDER_PATH = ".sdlc/hooks/record-loop-event.mjs";
 

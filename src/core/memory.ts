@@ -1,9 +1,9 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { readJsonlFile } from "./jsonl.js";
 import type { LoopTraceEvent } from "../eval/loop-trace.js";
 import { parseLoopTraceEvent } from "../eval/loop-trace.js";
 import { upsertGateOutcomeLearning } from "./accepted-learnings.js";
+import { readJsonlFile } from "./jsonl.js";
 
 /**
  * Minimal compounding memory (v1). We capture two things and defer the rest

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { appendLoopEvent, readLoopEvents } from "../core/memory.js";
-import { parseLoopTraceEvent, type LoopTraceEvent } from "../eval/loop-trace.js";
+import { type LoopTraceEvent, parseLoopTraceEvent } from "../eval/loop-trace.js";
 
 export function approvalEventKey(event: LoopTraceEvent): string | undefined {
   if (event.type !== "approval_gate" || event.verdict !== "approved") return undefined;

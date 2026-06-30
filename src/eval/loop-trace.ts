@@ -163,7 +163,13 @@ export function parseLoopTraceEvent(value: unknown): LoopTraceEvent | undefined 
       if (record.role !== "architect" && record.role !== "engineer") return undefined;
       if (record.stage !== "architect" && record.stage !== "engineer") return undefined;
       if (!isNonEmptyString(record.summary)) return undefined;
-      return { ...base, type: "plan_created", role: record.role, stage: record.stage, summary: record.summary };
+      return {
+        ...base,
+        type: "plan_created",
+        role: record.role,
+        stage: record.stage,
+        summary: record.summary,
+      };
     case "handoff":
       if (!isLoopRole(record.fromRole) || !isLoopRole(record.toRole)) return undefined;
       if (record.fromStage !== undefined && !isLoopStage(record.fromStage)) return undefined;
@@ -211,7 +217,8 @@ export function parseLoopTraceEvent(value: unknown): LoopTraceEvent | undefined 
     case "approval_gate":
       if (record.role !== undefined && !isLoopRole(record.role)) return undefined;
       if (record.stage !== undefined && !isLoopStage(record.stage)) return undefined;
-      if (record.checkpoint !== undefined && typeof record.checkpoint !== "string") return undefined;
+      if (record.checkpoint !== undefined && typeof record.checkpoint !== "string")
+        return undefined;
       if (!GATE_VERDICTS.has(String(record.verdict))) return undefined;
       if (record.reason !== undefined && typeof record.reason !== "string") return undefined;
       return {
@@ -239,7 +246,13 @@ export function parseLoopTraceEvent(value: unknown): LoopTraceEvent | undefined 
       if (!isLoopRole(record.role)) return undefined;
       if (record.stage !== undefined && !isLoopStage(record.stage)) return undefined;
       if (!isNonEmptyString(record.reason)) return undefined;
-      return { ...base, type: "replan", role: record.role, stage: record.stage, reason: record.reason };
+      return {
+        ...base,
+        type: "replan",
+        role: record.role,
+        stage: record.stage,
+        reason: record.reason,
+      };
     case "done":
       if (!isLoopRole(record.role)) return undefined;
       if (record.stage !== undefined && !isLoopStage(record.stage)) return undefined;
@@ -249,7 +262,13 @@ export function parseLoopTraceEvent(value: unknown): LoopTraceEvent | undefined 
       if (!isLoopRole(record.role)) return undefined;
       if (record.stage !== undefined && !isLoopStage(record.stage)) return undefined;
       if (!isNonEmptyString(record.reason)) return undefined;
-      return { ...base, type: "stuck", role: record.role, stage: record.stage, reason: record.reason };
+      return {
+        ...base,
+        type: "stuck",
+        role: record.role,
+        stage: record.stage,
+        reason: record.reason,
+      };
     default:
       return undefined;
   }

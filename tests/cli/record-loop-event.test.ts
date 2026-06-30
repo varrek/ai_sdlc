@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  RecordLoopEventError,
   parseRecordLoopEventInput,
+  RecordLoopEventError,
   recordLoopEventFromJson,
 } from "../../src/cli/record-loop-event.js";
 import { readLoopEvents } from "../../src/core/memory.js";

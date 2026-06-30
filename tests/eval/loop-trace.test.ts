@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isLoopTerminalEvent, parseLoopTraceEvent, type LoopTraceEvent } from "../../src/eval/loop-trace.js";
+import {
+  isLoopTerminalEvent,
+  type LoopTraceEvent,
+  parseLoopTraceEvent,
+} from "../../src/eval/loop-trace.js";
 
 describe("loop trace events", () => {
   it("parses valid terminal events and rejects malformed payloads", () => {

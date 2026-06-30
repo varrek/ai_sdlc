@@ -22,10 +22,10 @@ import { runCompileCli } from "./compile.js";
 import { loadAnswersFile, runCustomize } from "./customize.js";
 import { EXPLAIN_CLAIM_KEYS, explainClaim, explainStandard, isExplainClaimKey } from "./explain.js";
 import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "./garden-docs.js";
+import { RecordLoopEventError, recordLoopEventFromJson } from "./record-loop-event.js";
 import { runSetupCli } from "./setup.js";
 import { runSmokeCli } from "./smoke.js";
 import { buildStatus, formatStatus } from "./status.js";
-import { RecordLoopEventError, recordLoopEventFromJson } from "./record-loop-event.js";
 import { runUpgrade } from "./upgrade.js";
 
 const HELP = `aisdlc — internal AI SDLC framework compiler

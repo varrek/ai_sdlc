@@ -543,8 +543,7 @@ function mineConventions(
  * downstream artifacts are evidence-backed.
  */
 export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
-  const files =
-    options.prefetchedRelativeFiles ?? walk(root, readEmittedPaths(root));
+  const files = options.prefetchedRelativeFiles ?? walk(root, readEmittedPaths(root));
   const fileSet = new Set(files);
   const evidence: Record<string, string[]> = {};
 
@@ -1799,4 +1798,3 @@ function testCommandFromMakefile(makefile: string): string | undefined {
   }
   return undefined;
 }
-
