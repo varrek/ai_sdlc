@@ -9,6 +9,7 @@ import {
   buildProjectContext,
   buildStandardsIndex,
   diffStandardsIndex,
+  evidenceCoverage,
   rootInstructionAdvisory,
   type StandardsDrift,
   type StandardsIndex,
@@ -63,6 +64,8 @@ export interface CustomizeResult {
   firstRun: boolean;
   /** Number of standards in the freshly built index (for the first-run summary). */
   standardsCount: number;
+  /** Evidence-backed standards coverage for the freshly built index. */
+  evidenceCoverage: { covered: number; total: number };
   /** Workspace packages detected (0 for a single-package repo). */
   packageCount: number;
   /** Lean-root advisory when the root instruction surface has grown large; else absent. */
@@ -155,6 +158,7 @@ export function runCustomize(options: CustomizeOptions): CustomizeResult {
     freshnessSkipped: fresh,
     firstRun,
     standardsCount: standardsIndex.standards.length,
+    evidenceCoverage: evidenceCoverage(standardsIndex),
     packageCount: profile.packages?.length ?? 0,
     rootAdvisory: rootInstructionAdvisory(rootSurface),
     writtenPaths: [overlayPath, standardsPath, projectContextPath],

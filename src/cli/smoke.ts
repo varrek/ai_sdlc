@@ -11,7 +11,7 @@ import { computeGaps, DEFERRED_INTEGRATIONS } from "../customize/gap-interview.j
 import { mineRepo } from "../customize/repo-miner.js";
 import { isPhaseFresh, readSetupState, writeSetupPhases } from "../customize/setup-state.js";
 import { evaluateReadiness, runSmoke, type SmokeResult, smokeExitCode } from "../smoke/harness.js";
-import { runCompileCli } from "./compile.js";
+import { compiledArtifactsPresent, runCompileCli } from "./compile.js";
 import { baseFingerprint, emittedFingerprint } from "./phase-fingerprints.js";
 
 export interface SmokeCliOptions {
@@ -39,6 +39,8 @@ export interface SmokeCliResult {
   exitCode: number;
   /** Chain "setup-ready": no blocking gaps AND smoke passed. */
   setupReady: boolean;
+  /** True when the previously emitted compile artifacts are still present. */
+  emittedArtifactsPresent: boolean;
   /** Blocking interview gaps still open (deferred integrations excluded by construction). */
   blockingGapCount: number;
   /** Integration contracts left unbound (deferred to just-in-time binding). */
@@ -84,7 +86,8 @@ export function runSmokeCli(options: SmokeCliOptions): SmokeCliResult {
 
   const profile = mineRepo(options.repoRoot ?? process.cwd());
   const blockingGapCount = computeGaps(profile, overlay.interviewAnswers).length;
-  const setupReady = evaluateReadiness(blockingGapCount, result);
+  const emittedArtifactsPresent = compiledArtifactsPresent(options.configDir);
+  const setupReady = evaluateReadiness(blockingGapCount, result) && emittedArtifactsPresent;
   const deferredIntegrations = DEFERRED_INTEGRATIONS.filter((id) => !(id in overlay.integrations));
 
   const baseFp = baseFingerprint(options.baseDir, sdlcDir, options.packDirs);
@@ -98,6 +101,7 @@ export function runSmokeCli(options: SmokeCliOptions): SmokeCliResult {
     result,
     exitCode: smokeExitCode(result),
     setupReady,
+    emittedArtifactsPresent,
     blockingGapCount,
     deferredIntegrations,
     smokeFresh,

@@ -1,8 +1,9 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { readAcceptedLearnings } from "../core/accepted-learnings.js";
-import { type CompileResult, compile } from "../core/engine.js";
+import { type CompileResult, compile, EMITTED_MANIFEST_PATH } from "../core/engine.js";
+import { HOST_SETUP_GUIDE_PATH } from "../core/host-setup-guidance.js";
 import {
   loadBase,
   loadOverlay,
@@ -44,11 +45,11 @@ export function runCompileCli(options: CompileCliOptions): CompileCliResult {
   const sdlcDir = options.sdlcDir ?? join(options.outDir, ".sdlc");
   const overlayFp = overlayFingerprint(options.overlayPath, sdlcDir);
   const baseFp = baseFingerprint(options.baseDir, sdlcDir, options.packDirs);
-  const compiledFp = compiledFingerprint(overlayFp, baseFp);
+  const compiledFp = compiledFingerprint(overlayFp, baseFp, options.hosts);
 
-  const manifestPresent = manifestExists(options.outDir);
+  const artifactsPresent = compiledArtifactsPresent(options.outDir);
   const state = readSetupState(sdlcDir);
-  if (!options.force && isPhaseFresh(state, "compiled", compiledFp, manifestPresent)) {
+  if (!options.force && isPhaseFresh(state, "compiled", compiledFp, artifactsPresent)) {
     return { freshnessSkipped: true };
   }
 
@@ -66,11 +67,28 @@ export function runCompile(options: CompileCliOptions): CompileResult {
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
   const model = mergeOverlay(base, overlay, projectContext, acceptedLearnings);
   const registry = buildRegistry();
-  return compile(model, registry, { outDir: options.outDir, hosts: options.hosts });
+  return compile(model, registry, {
+    outDir: options.outDir,
+    hosts: options.hosts,
+    packDirs: options.packDirs,
+  });
 }
 
-function manifestExists(outDir: string): boolean {
+export function compiledArtifactsPresent(outDir: string): boolean {
   // The emitted manifest lives at `<outDir>/.sdlc/emitted.json`; its presence is
-  // the artifact-existence guard for the `compiled` phase.
-  return existsSync(join(outDir, ".sdlc", "emitted.json"));
+  // the primary artifact-existence guard for the `compiled` phase. Every path in
+  // the manifest must still exist; otherwise generated runtime hooks can drift
+  // while the phase cache claims compile is fresh.
+  const manifestPath = join(outDir, EMITTED_MANIFEST_PATH);
+  if (!existsSync(manifestPath)) return false;
+  try {
+    const parsed = JSON.parse(readFileSync(manifestPath, "utf8")) as { files?: unknown };
+    if (!Array.isArray(parsed.files)) return false;
+    const files = parsed.files.filter((path): path is string => typeof path === "string");
+    return (
+      files.includes(HOST_SETUP_GUIDE_PATH) && files.every((path) => existsSync(join(outDir, path)))
+    );
+  } catch {
+    return false;
+  }
 }

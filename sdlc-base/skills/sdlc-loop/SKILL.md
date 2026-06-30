@@ -58,19 +58,19 @@ key loop events when practical:
 
 - **Plan created**: After Architect or Engineer produces a plan
   ```bash
-  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
   ```
 - **Handoff**: When transitioning between roles
   ```bash
-  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
   ```
 - **Test run**: After running tests (Tester or Engineer)
   ```bash
-  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
   ```
 - **Review verdict**: After Reviewer completes their assessment
   ```bash
-  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
   ```
 
 Approval gate events are recorded automatically by the gate hooks. For accurate

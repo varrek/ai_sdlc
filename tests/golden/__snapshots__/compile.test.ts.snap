@@ -15,7 +15,8 @@ description: Adapt the AI SDLC base to the current repository as a resumable
 Drive the full first-run chain for *this* repository: **mine → personalize (Plugin
 Mode) → compile → smoke**. Repo-mine first; interview only for what mining cannot
 answer; emit schema-valid, evidence-backed artifacts; then compile and gate on a
-passing smoke run.
+passing smoke run. When a CLI entrypoint is easier, \`aisdlc setup --repo .\`
+runs this same chain; the subcommands below remain the resumable phases.
 
 The chain is **resumable**. Each command records a fingerprinted phase in
 \`.sdlc/setup-state.yaml\` and short-circuits when its inputs are unchanged, so
@@ -71,6 +72,12 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
+   lists every enabled host, the files it should load, activation/trust notes,
+   and honest degradation such as Copilot's IDE gate fallback. This guide is
+   generated for agents and humans; it does not prove a live IDE loaded the
+   files.
 
 ## Guarantees
 
@@ -148,19 +155,19 @@ key loop events when practical:
 
 - **Plan created**: After Architect or Engineer produces a plan
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
   \`\`\`
 - **Handoff**: When transitioning between roles
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
   \`\`\`
 - **Test run**: After running tests (Tester or Engineer)
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
   \`\`\`
 - **Review verdict**: After Reviewer completes their assessment
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
   \`\`\`
 
 Approval gate events are recorded automatically by the gate hooks. For accurate
@@ -549,8 +556,8 @@ You do not write the fix or the tests yourself. Hand findings to the Engineer, a
 for root-cause analysis of a stubborn failure, to the Debugger.
 ",
   ".claude/hooks/approved-gate.mjs": "#!/usr/bin/env node
-// Claude Code PreToolUse Approved? gate. Blocks Write/Edit/MCP tool use until
-// the orchestration loop sets SDLC_APPROVED=1 (after human approval).
+// Claude Code Approved? gate. Blocks mutating actions until the orchestration
+// loop sets SDLC_APPROVED=1 (after human approval).
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -578,7 +585,6 @@ if (!approved) {
   process.exit(2);
 }
 
-// Record the approval event to loop trace history.
 const taskId = process.env.SDLC_TASK_ID || "unknown";
 const scope = process.env.SDLC_SCOPE || "workspace";
 const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
@@ -599,9 +605,9 @@ const event = JSON.stringify({
 });
 
 try {
-  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
+  const recorder = join(dirname(sdlcDir), ".sdlc/hooks/record-loop-event.mjs");
+  execFileSync("node", [recorder, "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
 } catch (err) {
-  // Best-effort: log recording failures but don't block the gate.
   const message = err instanceof Error ? err.message : String(err);
   console.warn("Warning: failed to record approval event:", message);
 }
@@ -637,7 +643,8 @@ description: Adapt the AI SDLC base to the current repository as a resumable
 Drive the full first-run chain for *this* repository: **mine → personalize (Plugin
 Mode) → compile → smoke**. Repo-mine first; interview only for what mining cannot
 answer; emit schema-valid, evidence-backed artifacts; then compile and gate on a
-passing smoke run.
+passing smoke run. When a CLI entrypoint is easier, \`aisdlc setup --repo .\`
+runs this same chain; the subcommands below remain the resumable phases.
 
 The chain is **resumable**. Each command records a fingerprinted phase in
 \`.sdlc/setup-state.yaml\` and short-circuits when its inputs are unchanged, so
@@ -693,6 +700,12 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
+   lists every enabled host, the files it should load, activation/trust notes,
+   and honest degradation such as Copilot's IDE gate fallback. This guide is
+   generated for agents and humans; it does not prove a live IDE loaded the
+   files.
 
 ## Guarantees
 
@@ -770,19 +783,19 @@ key loop events when practical:
 
 - **Plan created**: After Architect or Engineer produces a plan
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
   \`\`\`
 - **Handoff**: When transitioning between roles
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
   \`\`\`
 - **Test run**: After running tests (Tester or Engineer)
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
   \`\`\`
 - **Review verdict**: After Reviewer completes their assessment
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
   \`\`\`
 
 Approval gate events are recorded automatically by the gate hooks. For accurate
@@ -1165,7 +1178,8 @@ command = "node ./.codex/hooks/mcp-gate.mjs"
 statusMessage = "Checking MCP least-privilege"
 ",
   ".codex/hooks/approved-gate.mjs": "#!/usr/bin/env node
-// Codex PreToolUse Approved? gate. Blocks apply_patch/Bash/MCP until SDLC_APPROVED=1.
+// Codex Approved? gate. Blocks mutating actions until the orchestration
+// loop sets SDLC_APPROVED=1 (after human approval).
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -1193,7 +1207,6 @@ if (!approved) {
   process.exit(2);
 }
 
-// Record the approval event to loop trace history.
 const taskId = process.env.SDLC_TASK_ID || "unknown";
 const scope = process.env.SDLC_SCOPE || "workspace";
 const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
@@ -1214,9 +1227,9 @@ const event = JSON.stringify({
 });
 
 try {
-  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
+  const recorder = join(dirname(sdlcDir), ".sdlc/hooks/record-loop-event.mjs");
+  execFileSync("node", [recorder, "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
 } catch (err) {
-  // Best-effort: log recording failures but don't block the gate.
   const message = err instanceof Error ? err.message : String(err);
   console.warn("Warning: failed to record approval event:", message);
 }
@@ -1290,7 +1303,8 @@ description: Adapt the AI SDLC base to the current repository as a resumable
 Drive the full first-run chain for *this* repository: **mine → personalize (Plugin
 Mode) → compile → smoke**. Repo-mine first; interview only for what mining cannot
 answer; emit schema-valid, evidence-backed artifacts; then compile and gate on a
-passing smoke run.
+passing smoke run. When a CLI entrypoint is easier, \`aisdlc setup --repo .\`
+runs this same chain; the subcommands below remain the resumable phases.
 
 The chain is **resumable**. Each command records a fingerprinted phase in
 \`.sdlc/setup-state.yaml\` and short-circuits when its inputs are unchanged, so
@@ -1346,6 +1360,12 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
+   lists every enabled host, the files it should load, activation/trust notes,
+   and honest degradation such as Copilot's IDE gate fallback. This guide is
+   generated for agents and humans; it does not prove a live IDE loaded the
+   files.
 
 ## Guarantees
 
@@ -1423,19 +1443,19 @@ key loop events when practical:
 
 - **Plan created**: After Architect or Engineer produces a plan
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
   \`\`\`
 - **Handoff**: When transitioning between roles
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
   \`\`\`
 - **Test run**: After running tests (Tester or Engineer)
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
   \`\`\`
 - **Review verdict**: After Reviewer completes their assessment
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
   \`\`\`
 
 Approval gate events are recorded automatically by the gate hooks. For accurate
@@ -1840,8 +1860,8 @@ for root-cause analysis of a stubborn failure, to the Debugger.
 }
 ",
   ".cursor/hooks/approved-gate.mjs": "#!/usr/bin/env node
-// Cursor Approved? gate: block writes leaving the workspace until approval.
-// The orchestration loop sets SDLC_APPROVED=1 only after the human approves.
+// Cursor Approved? gate. Blocks mutating actions until the orchestration
+// loop sets SDLC_APPROVED=1 (after human approval).
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -1865,11 +1885,10 @@ function gateStage() {
 }
 
 if (!approved) {
-  console.error("SDLC gate: changes are not Approved? yet. Halting before write-out.");
+  console.error("SDLC gate: changes are not Approved? yet. Halting before write/MCP.");
   process.exit(2);
 }
 
-// Record the approval event to loop trace history.
 const taskId = process.env.SDLC_TASK_ID || "unknown";
 const scope = process.env.SDLC_SCOPE || "workspace";
 const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
@@ -1890,9 +1909,9 @@ const event = JSON.stringify({
 });
 
 try {
-  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
+  const recorder = join(dirname(sdlcDir), ".sdlc/hooks/record-loop-event.mjs");
+  execFileSync("node", [recorder, "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
 } catch (err) {
-  // Best-effort: log recording failures but don't block the gate.
   const message = err instanceof Error ? err.message : String(err);
   console.warn("Warning: failed to record approval event:", message);
 }
@@ -1973,7 +1992,8 @@ description: Adapt the AI SDLC base to the current repository as a resumable
 Drive the full first-run chain for *this* repository: **mine → personalize (Plugin
 Mode) → compile → smoke**. Repo-mine first; interview only for what mining cannot
 answer; emit schema-valid, evidence-backed artifacts; then compile and gate on a
-passing smoke run.
+passing smoke run. When a CLI entrypoint is easier, \`aisdlc setup --repo .\`
+runs this same chain; the subcommands below remain the resumable phases.
 
 The chain is **resumable**. Each command records a fingerprinted phase in
 \`.sdlc/setup-state.yaml\` and short-circuits when its inputs are unchanged, so
@@ -2029,6 +2049,12 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
+   lists every enabled host, the files it should load, activation/trust notes,
+   and honest degradation such as Copilot's IDE gate fallback. This guide is
+   generated for agents and humans; it does not prove a live IDE loaded the
+   files.
 
 ## Guarantees
 
@@ -2106,19 +2132,19 @@ key loop events when practical:
 
 - **Plan created**: After Architect or Engineer produces a plan
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
   \`\`\`
 - **Handoff**: When transitioning between roles
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
   \`\`\`
 - **Test run**: After running tests (Tester or Engineer)
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
   \`\`\`
 - **Review verdict**: After Reviewer completes their assessment
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
   \`\`\`
 
 Approval gate events are recorded automatically by the gate hooks. For accurate
@@ -2609,13 +2635,21 @@ changes that skip review or fail tests.
 ",
   ".github/hooks/approved-gate.json": "{
   "version": 1,
-  "event": "preToolUse",
-  "description": "Block mutating tools until the change is Approved? (SDLC_APPROVED=1).",
-  "command": "node ./.github/hooks/approved-gate.mjs"
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "matcher": "bash|edit|create|delete|mcp.*",
+        "bash": "node ./.github/hooks/approved-gate.mjs",
+        "command": "node ./.github/hooks/approved-gate.mjs"
+      }
+    ]
+  }
 }
 ",
   ".github/hooks/approved-gate.mjs": "#!/usr/bin/env node
-// Copilot CLI/cloud Approved? gate (no IDE equivalent — see CI backstop).
+// Copilot CLI/cloud Approved? gate. Blocks mutating actions until the orchestration
+// loop sets SDLC_APPROVED=1 (after human approval).
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -2639,11 +2673,10 @@ function gateStage() {
 }
 
 if (!approved) {
-  console.error("SDLC gate: changes are not Approved? yet.");
+  console.error("SDLC gate: changes are not Approved? yet. Halting before write/MCP.");
   process.exit(2);
 }
 
-// Record the approval event to loop trace history.
 const taskId = process.env.SDLC_TASK_ID || "unknown";
 const scope = process.env.SDLC_SCOPE || "workspace";
 const role = process.env.SDLC_ACTIVE_ROLE || "unknown";
@@ -2664,9 +2697,9 @@ const event = JSON.stringify({
 });
 
 try {
-  execFileSync("npx", ["--yes", "aisdlc", "record-event", "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
+  const recorder = join(dirname(sdlcDir), ".sdlc/hooks/record-loop-event.mjs");
+  execFileSync("node", [recorder, "--event", event, "--sdlc-dir", sdlcDir], { stdio: "ignore" });
 } catch (err) {
-  // Best-effort: log recording failures but don't block the gate.
   const message = err instanceof Error ? err.message : String(err);
   console.warn("Warning: failed to record approval event:", message);
 }
@@ -2686,7 +2719,8 @@ description: Adapt the AI SDLC base to the current repository as a resumable
 Drive the full first-run chain for *this* repository: **mine → personalize (Plugin
 Mode) → compile → smoke**. Repo-mine first; interview only for what mining cannot
 answer; emit schema-valid, evidence-backed artifacts; then compile and gate on a
-passing smoke run.
+passing smoke run. When a CLI entrypoint is easier, \`aisdlc setup --repo .\`
+runs this same chain; the subcommands below remain the resumable phases.
 
 The chain is **resumable**. Each command records a fingerprinted phase in
 \`.sdlc/setup-state.yaml\` and short-circuits when its inputs are unchanged, so
@@ -2742,6 +2776,12 @@ freshness makes the no-op cheap.
    - **Not setup-ready** — the output names the failing checks (and any open
      blocking gap) plus the resume entrypoint: re-run \`/customize\` (or the stale
      subcommand directly) and freshness skips the phases that are still good.
+
+6. **Read host activation guidance.** After compile, \`.sdlc/host-setup.md\`
+   lists every enabled host, the files it should load, activation/trust notes,
+   and honest degradation such as Copilot's IDE gate fallback. This guide is
+   generated for agents and humans; it does not prove a live IDE loaded the
+   files.
 
 ## Guarantees
 
@@ -2819,19 +2859,19 @@ key loop events when practical:
 
 - **Plan created**: After Architect or Engineer produces a plan
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
+  aisdlc record-event --event '{"type":"plan_created","taskId":"T-123","role":"architect","stage":"architect","summary":"Add auth validation"}'
   \`\`\`
 - **Handoff**: When transitioning between roles
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
+  aisdlc record-event --event '{"type":"handoff","taskId":"T-123","fromRole":"architect","toRole":"engineer","reason":"Plan approved"}'
   \`\`\`
 - **Test run**: After running tests (Tester or Engineer)
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
+  aisdlc record-event --event '{"type":"test_run","taskId":"T-123","role":"tester","stage":"test","command":"npm test","verdict":"pass"}'
   \`\`\`
 - **Review verdict**: After Reviewer completes their assessment
   \`\`\`bash
-  npx aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
+  aisdlc record-event --event '{"type":"review_verdict","taskId":"T-123","role":"reviewer","stage":"reviewer","verdict":"approve"}'
   \`\`\`
 
 Approval gate events are recorded automatically by the gate hooks. For accurate
@@ -3039,12 +3079,161 @@ jobs:
     ".github/skills/tune-roles/SKILL.md",
     ".github/workflows/sdlc-gate.yml",
     ".mcp.json",
+    ".sdlc/hooks/record-loop-event.mjs",
+    ".sdlc/host-setup.md",
     ".vscode/mcp.json",
     "AGENTS.md",
     "CLAUDE.md",
     "portability.gap.yml"
   ]
 }
+",
+  ".sdlc/hooks/record-loop-event.mjs": "#!/usr/bin/env node
+// Local ai-sdlc loop event recorder. Generated with host hooks so gate-time
+// recording never resolves a registry or globally linked aisdlc binary.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+function option(name) {
+  const idx = process.argv.indexOf(name);
+  return idx >= 0 ? process.argv[idx + 1] : undefined;
+}
+
+function readEvents(sdlcDir) {
+  const path = join(sdlcDir, "loop_history", "events.jsonl");
+  if (!existsSync(path)) return [];
+  return readFileSync(path, "utf8")
+    .split("\\n")
+    .filter(Boolean)
+    .map((line) => {
+      try { return JSON.parse(line); } catch { return undefined; }
+    })
+    .filter(Boolean);
+}
+
+function approvalEventKey(event) {
+  if (event.type !== "approval_gate" || event.verdict !== "approved") return undefined;
+  if (!event.taskId || event.taskId === "unknown") return undefined;
+  const evidence = [...(event.evidence ?? [])].sort().join("\\0");
+  const checkpoint = event.checkpoint ?? event.stage;
+  if (!checkpoint) return undefined;
+  return [event.taskId, event.role ?? "", checkpoint, evidence].join("\\0");
+}
+
+const eventJson = option("--event");
+const sdlcDir = option("--sdlc-dir") ?? join(process.cwd(), ".sdlc");
+if (!eventJson) {
+  console.error("record-loop-event: --event <json> is required");
+  process.exit(1);
+}
+
+let event;
+try {
+  event = JSON.parse(eventJson);
+} catch (error) {
+  console.error("record-loop-event: invalid JSON:", error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+if (!event.timestamp) event.timestamp = new Date().toISOString();
+
+const key = approvalEventKey(event);
+if (key && readEvents(sdlcDir).some((recorded) => approvalEventKey(recorded) === key)) {
+  process.exit(0);
+}
+
+const path = join(sdlcDir, "loop_history", "events.jsonl");
+mkdirSync(dirname(path), { recursive: true });
+writeFileSync(path, \`\${JSON.stringify(event)}\\n\`, { encoding: "utf8", flag: "a" });
+",
+  ".sdlc/host-setup.md": "# AI SDLC Host Setup
+
+Generated by \`aisdlc compile\`. This guide explains how each enabled host discovers the emitted project-local configuration. It is activation guidance, not proof that a live IDE or CLI has loaded the files.
+
+## Cursor
+
+### Native Artifacts
+
+- \`AGENTS.md\`
+- \`.cursor/agents/\`
+- \`.cursor/skills/\`
+- \`.agents/skills/\`
+- \`.cursor/hooks.json\`
+- \`.cursor/hooks/\`
+- \`.cursor/mcp.json\`
+- \`.cursor/permissions.json\`
+- \`.cursor/sdlc/role-policy.json\`
+- \`.cursor-plugin/plugin.json\` (conditional or not emitted in this configuration)
+
+### Activation
+
+- Open the repository in Cursor so workspace agents, skills, hooks, MCP, and AGENTS.md are discovered from the project.
+- If \`.cursor-plugin/plugin.json\` exists, use it as plugin distribution metadata; the in-repo files remain the source of truth.
+- Review MCP server definitions before enabling external systems.
+
+### Caveats
+
+- Cursor's MCP allowlist is global; per-role MCP least privilege is enforced by the generated hook and role policy.
+
+## Claude Code
+
+### Native Artifacts
+
+- \`CLAUDE.md\`
+- \`AGENTS.md\`
+- \`.claude/agents/\`
+- \`.claude/skills/\`
+- \`.claude/settings.json\`
+- \`.claude/hooks/\`
+- \`.mcp.json\`
+
+### Activation
+
+- Start Claude Code from the repository root so root project settings, hooks, skills, agents, MCP, and CLAUDE.md are loaded.
+- Trust the workspace when prompted before relying on project-local skills, hooks, or MCP.
+- Use \`/reload-plugins\` or restart the session after changing plugin-like Claude Code components.
+
+## GitHub Copilot
+
+### Native Artifacts
+
+- \`AGENTS.md\`
+- \`.github/copilot-instructions.md\`
+- \`.github/agents/\`
+- \`.github/skills/\`
+- \`.github/hooks/\`
+- \`.github/workflows/sdlc-gate.yml\`
+- \`.vscode/mcp.json\`
+
+### Activation
+
+- Open the repository or workspace folder in a Copilot-enabled IDE so instructions, agents, skills, and MCP settings are discovered.
+- For Copilot CLI or cloud agent, keep \`.github/hooks/*.json\` committed so hook configuration is loaded from the cloned repository.
+- Require the generated \`SDLC Gate\` workflow through branch protection when Copilot IDE is used.
+
+### Caveats
+
+- Copilot IDE does not provide a fail-closed pre-tool hook, so Approved? degrades to instructions plus CLI/cloud hooks plus CI.
+- Per-role MCP reach is declared in custom-agent tools but remains partial in IDE surfaces.
+- approved-gate-hook: Copilot IDE has no PreToolUse hook; the Approved? gate degrades to an instruction checklist + branch-protection/CI enforcement (cloud/CLI hook when available).
+- per-role-mcp-hook: Copilot IDE has no beforeMCPExecution hook; per-role MCP reach is declared in custom-agent tools (server/*) with partial enforcement only.
+
+## Codex
+
+### Native Artifacts
+
+- \`AGENTS.md\`
+- \`.agents/skills/\`
+- \`.codex/agents/\`
+- \`.codex/skills/\`
+- \`.codex/config.toml\`
+- \`.codex/hooks/\`
+- \`.codex/sdlc/role-policy.json\`
+
+### Activation
+
+- Start Codex from a trusted project root so project \`.codex/config.toml\`, hooks, agents, skills, MCP, and AGENTS.md are loaded.
+- Review project trust prompts before allowing hooks or MCP servers to run.
+- Restart Codex or reload configuration after changing project-local \`.codex/\` files.
 ",
   ".vscode/mcp.json": "{
   "servers": {}
