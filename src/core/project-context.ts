@@ -115,7 +115,10 @@ export function renderCodebaseMap(map: MapEntry[]): string {
 
 export function acceptedInstructionScopes(ctx: ProjectContext | undefined): InstructionScope[] {
   if (ctx?.instructionHierarchy) {
-    return ctx.instructionHierarchy.scopes.filter((scope) => scope.accepted && scope.path !== ".");
+    const scopes = ctx.instructionHierarchy.scopes.filter(
+      (scope) => scope.accepted && scope.path !== ".",
+    );
+    if (scopes.length > 0 || ctx.instructionHierarchy.scopes.length > 0) return scopes;
   }
   return (ctx?.packages ?? []).map((pkg) => ({
     path: pkg.path,
@@ -144,7 +147,15 @@ export function scopeApplyGlob(path: string): string {
 }
 
 export function slugifyScopePath(path: string): string {
-  return path.replace(/[/\\]+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "-");
+  return path
+    .split(/[/\\]+/)
+    .filter((segment) => segment.length > 0)
+    .map((segment) =>
+      [...segment]
+        .map((char) => (/[a-zA-Z0-9.]/.test(char) ? char : `_${char.charCodeAt(0).toString(16)}_`))
+        .join(""),
+    )
+    .join("-");
 }
 
 /** Serialize a ProjectContext for persistence (stable, trailing newline). */

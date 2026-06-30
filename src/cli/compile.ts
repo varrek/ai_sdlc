@@ -70,12 +70,24 @@ export function runCompile(options: CompileCliOptions): CompileResult {
   const compileContext =
     projectContext && instructionHierarchy
       ? { ...projectContext, instructionHierarchy }
-      : projectContext;
+      : (projectContext ?? hierarchyOnlyProjectContext(instructionHierarchy));
   const sdlcDir = options.sdlcDir ?? join(options.outDir, ".sdlc");
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
   const model = mergeOverlay(base, overlay, compileContext, acceptedLearnings);
   const registry = buildRegistry();
   return compile(model, registry, { outDir: options.outDir, hosts: options.hosts });
+}
+
+function hierarchyOnlyProjectContext(
+  instructionHierarchy: ReturnType<typeof loadInstructionHierarchy>,
+) {
+  if (!instructionHierarchy) return undefined;
+  return {
+    packages: [],
+    map: [],
+    exclusions: [],
+    instructionHierarchy,
+  };
 }
 
 function manifestExists(outDir: string): boolean {

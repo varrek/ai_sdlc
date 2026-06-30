@@ -6,6 +6,7 @@ import {
   parseInstructionHierarchy,
   parseProjectContext,
   serializeInstructionHierarchy,
+  slugifyScopePath,
 } from "../../src/core/project-context.js";
 
 const hierarchy: InstructionHierarchy = {
@@ -61,6 +62,28 @@ describe("project context hierarchy", () => {
     });
 
     expect(accepted?.path).toBe("src/core");
+  });
+
+  it("falls back to packages when a generated hierarchy has no scopes", () => {
+    const [scope] = acceptedInstructionScopes({
+      packages: [
+        {
+          path: "packages/api",
+          instructionBody: "API guidance",
+          testCommand: "pytest",
+        },
+      ],
+      map: [],
+      exclusions: [],
+      instructionHierarchy: { version: 1, scopes: [] },
+    });
+
+    expect(scope?.path).toBe("packages/api");
+  });
+
+  it("slugifies path separators distinctly from hyphens inside segments", () => {
+    expect(slugifyScopePath("src/foo")).toBe("src-foo");
+    expect(slugifyScopePath("src-foo")).toBe("src_2d_foo");
   });
 
   it("falls back to package scopes when hierarchy is absent or malformed", () => {
