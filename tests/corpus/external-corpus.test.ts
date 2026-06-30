@@ -12,7 +12,7 @@ describe("external corpus bench", () => {
     () => {
       const result = runBench({
         seed: 42,
-        count: 5,
+        count: 10,
         catalogPath: DEFAULT_CATALOG,
         cacheDir: DEFAULT_CACHE_DIR,
         reportDir: DEFAULT_REPORT_DIR,
@@ -22,7 +22,7 @@ describe("external corpus bench", () => {
       });
 
       expect(result.report).toBeDefined();
-      expect(result.report?.results).toHaveLength(5);
+      expect(result.report?.results).toHaveLength(10);
       expect(result.exitCode).toBe(0);
     },
   );

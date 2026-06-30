@@ -1,5 +1,5 @@
 {
-  "catalogRevision": "2026-06-29",
+  "catalogRevision": "2026-06-30",
   "repos": [
     {
       "id": "vitejs/vite@869e8ead2eab03190435855ac39aa63de3d05526",
@@ -9,7 +9,7 @@
       "primaryLanguage": "TypeScript",
       "toolTags": ["pnpm", "vitest", "frontend"],
       "sizeBand": "big",
-      "catalogRevision": "2026-06-29"
+      "catalogRevision": "2026-06-30"
     },
     {
       "id": "pallets/flask@36e4a824f340fdee7ed50937ba8e7f6bc7d17f81",
@@ -19,7 +19,7 @@
       "primaryLanguage": "Python",
       "toolTags": ["pytest", "pallets", "web"],
       "sizeBand": "medium",
-      "catalogRevision": "2026-06-29"
+      "catalogRevision": "2026-06-30"
     },
     {
       "id": "cli/cli@71fb4f5f4358c44c9328637752f0c15a47d84139",
@@ -29,7 +29,7 @@
       "primaryLanguage": "Go",
       "toolTags": ["go-test", "cli"],
       "sizeBand": "big",
-      "catalogRevision": "2026-06-29"
+      "catalogRevision": "2026-06-30"
     },
     {
       "id": "rust-lang/cargo@a335d47ff8036918d3d548dabd513dc0444096a9",
@@ -39,7 +39,7 @@
       "primaryLanguage": "Rust",
       "toolTags": ["cargo", "rust"],
       "sizeBand": "big",
-      "catalogRevision": "2026-06-29"
+      "catalogRevision": "2026-06-30"
     },
     {
       "id": "spring-projects/spring-petclinic@b3ee2c53e76e9267f03551a7cd36b0983c859c56",
@@ -49,7 +49,7 @@
       "primaryLanguage": "Java",
       "toolTags": ["maven", "spring"],
       "sizeBand": "medium",
-      "catalogRevision": "2026-06-29"
+      "catalogRevision": "2026-06-30"
     },
     {
       "id": "rails/rails@abfb644722dbeb7f3453cfa6ffae265016739019",
@@ -59,7 +59,7 @@
       "primaryLanguage": "Ruby",
       "toolTags": ["rails", "bundler"],
       "sizeBand": "big",
-      "catalogRevision": "2026-06-29"
+      "catalogRevision": "2026-06-30"
     },
     {
       "id": "dotnet/aspnetcore@2b7a3d5c1757296f038696e208662370edac5368",
@@ -69,7 +69,37 @@
       "primaryLanguage": "C#",
       "toolTags": ["dotnet", "aspnetcore"],
       "sizeBand": "big",
-      "catalogRevision": "2026-06-29"
+      "catalogRevision": "2026-06-30"
+    },
+    {
+      "id": "square/okhttp@1d2c0fe4844fb7143c37198015539eec2fccbd71",
+      "owner": "square",
+      "repo": "okhttp",
+      "commit": "1d2c0fe4844fb7143c37198015539eec2fccbd71",
+      "primaryLanguage": "Kotlin",
+      "toolTags": ["gradle", "jvm", "http-client"],
+      "sizeBand": "medium",
+      "catalogRevision": "2026-06-30"
+    },
+    {
+      "id": "laravel/framework@138e5806ed7e4e21591948b661119d3810f052cf",
+      "owner": "laravel",
+      "repo": "framework",
+      "commit": "138e5806ed7e4e21591948b661119d3810f052cf",
+      "primaryLanguage": "PHP",
+      "toolTags": ["composer", "phpunit", "web"],
+      "sizeBand": "big",
+      "catalogRevision": "2026-06-30"
+    },
+    {
+      "id": "expressjs/express@18e5985b8a9d5e8423db0a9121f22bdaecd5b120",
+      "owner": "expressjs",
+      "repo": "express",
+      "commit": "18e5985b8a9d5e8423db0a9121f22bdaecd5b120",
+      "primaryLanguage": "JavaScript",
+      "toolTags": ["npm", "mocha", "web"],
+      "sizeBand": "medium",
+      "catalogRevision": "2026-06-30"
     }
   ]
 }

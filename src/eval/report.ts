@@ -64,6 +64,8 @@ export interface AgentQuality {
   architectGrounded: boolean;
   engineerGrounded: boolean;
   testerGrounded: boolean;
+  reviewerGrounded: boolean;
+  debuggerGrounded: boolean;
   hasRootTestCommand: boolean;
   hasCodebaseMap: boolean;
   evidenceBackedStandards: boolean;
@@ -84,6 +86,8 @@ export interface EvalRunSummary {
     missingArchitectGrounding: number;
     missingEngineerGrounding: number;
     missingTesterGrounding: number;
+    missingReviewerGrounding: number;
+    missingDebuggerGrounding: number;
     noisyMaps: number;
   };
 }
@@ -204,6 +208,8 @@ export function summarizeResults(results: RepoEvalResult[]): EvalRunSummary {
   let missingArchitectGrounding = 0;
   let missingEngineerGrounding = 0;
   let missingTesterGrounding = 0;
+  let missingReviewerGrounding = 0;
+  let missingDebuggerGrounding = 0;
   let noisyMaps = 0;
   let slowestMaterialization: EvalRunSummary["slowestMaterialization"];
   const slowestPhases: EvalRunSummary["slowestPhases"] = {};
@@ -221,6 +227,8 @@ export function summarizeResults(results: RepoEvalResult[]): EvalRunSummary {
       if (!quality.architectGrounded) missingArchitectGrounding++;
       if (!quality.engineerGrounded) missingEngineerGrounding++;
       if (!quality.testerGrounded) missingTesterGrounding++;
+      if (!quality.reviewerGrounded) missingReviewerGrounding++;
+      if (!quality.debuggerGrounded) missingDebuggerGrounding++;
       if (quality.mapIsNoisy) noisyMaps++;
     }
     if (result.materialization) {
@@ -256,6 +264,8 @@ export function summarizeResults(results: RepoEvalResult[]): EvalRunSummary {
       missingArchitectGrounding,
       missingEngineerGrounding,
       missingTesterGrounding,
+      missingReviewerGrounding,
+      missingDebuggerGrounding,
       noisyMaps,
     },
   };
@@ -343,6 +353,8 @@ function buildAgentQuality(setup: SetupChainResult): AgentQuality {
   const architectGrounded = states.architect !== "generic";
   const engineerGrounded = states.engineer !== "generic";
   const testerGrounded = states.tester !== "generic";
+  const reviewerGrounded = states.reviewer !== "generic";
+  const debuggerGrounded = states.debugger !== "generic";
   const hasRootTestCommand = Boolean(setup.status.gapClosureProvenance["test-command"]);
   const hasCodebaseMap = setup.status.architectureConfidence === "high";
   const evidenceBackedStandards =
@@ -350,9 +362,11 @@ function buildAgentQuality(setup: SetupChainResult): AgentQuality {
     setup.status.coverage.covered === setup.status.coverage.total;
   const mapIsNoisy = setup.status.packages > 8;
   const score =
-    (architectGrounded ? 20 : 0) +
-    (engineerGrounded ? 20 : 0) +
-    (testerGrounded ? 20 : 0) +
+    (architectGrounded ? 12 : 0) +
+    (engineerGrounded ? 12 : 0) +
+    (testerGrounded ? 12 : 0) +
+    (reviewerGrounded ? 12 : 0) +
+    (debuggerGrounded ? 12 : 0) +
     (hasRootTestCommand ? 15 : 0) +
     (hasCodebaseMap ? 15 : 0) +
     (evidenceBackedStandards ? 10 : 0) -
@@ -362,6 +376,8 @@ function buildAgentQuality(setup: SetupChainResult): AgentQuality {
     architectGrounded,
     engineerGrounded,
     testerGrounded,
+    reviewerGrounded,
+    debuggerGrounded,
     hasRootTestCommand,
     hasCodebaseMap,
     evidenceBackedStandards,

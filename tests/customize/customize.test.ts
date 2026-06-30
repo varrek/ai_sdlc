@@ -206,6 +206,15 @@ describe("repo miner", () => {
     expect(p.linters).toContain("rubocop");
   });
 
+  it("detects PHP/Composer with phpunit default", () => {
+    const p = mineRepo(repo("php-composer"));
+    expect(p.languages).toContain("php");
+    expect(p.packageManagers).toContain("composer");
+    expect(p.testRunner).toBe("phpunit");
+    expect(p.testCommand).toBe("vendor/bin/phpunit");
+    expect(p.evidence["test-runner:phpunit"]).toEqual(["phpunit.xml.dist"]);
+  });
+
   it("detects .NET with dotnet test default from test SDK", () => {
     const p = mineRepo(repo("dotnet-app"));
     expect(p.languages).toContain("csharp");
