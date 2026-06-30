@@ -1,17 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { buildMaintenanceHandoffs } from "../../src/core/maintenance.js";
-import type { Overlay } from "../../src/schema/index.js";
-
-const emptyOverlay: Overlay = {
-  version: 1,
-  operatingMode: "plugin",
-  standards: [],
-  integrations: {},
-  roleModels: {},
-  roleAddenda: {},
-  interviewAnswers: {},
-  gapClosureProvenance: {},
-};
 
 describe("maintenance handoffs", () => {
   it("orders skills and includes close-gaps and garden-docs when needed", () => {
@@ -26,7 +14,6 @@ describe("maintenance handoffs", () => {
         },
       },
       setupReady: false,
-      smokePassed: false,
       gardenReport: {
         findings: [
           {
@@ -39,12 +26,9 @@ describe("maintenance handoffs", () => {
         ],
         summary: { total: 1, warnings: 0, errors: 1 },
       },
-      overlay: emptyOverlay,
       upgradeConflictsPresent: true,
-      packDirs: ["packs/frontend"],
       gaps: [{ id: "test-command", question: "What command runs tests?" }],
       drift: { added: ["new standard"], removed: [], changed: true },
-      deferredIntegrations: ["gitlab", "jira"],
     });
 
     expect(handoffs.map((h) => h.skill)).toEqual([
@@ -52,9 +36,7 @@ describe("maintenance handoffs", () => {
       "resolve-upgrade",
       "setup-triage",
       "review-standards-drift",
-      "bind-integrations",
       "compound-learnings",
-      "pack-workflows",
       "garden-docs",
     ]);
   });
@@ -71,14 +53,10 @@ describe("maintenance handoffs", () => {
         },
       },
       setupReady: true,
-      smokePassed: true,
       gardenReport: { findings: [], summary: { total: 0, warnings: 0, errors: 0 } },
-      overlay: emptyOverlay,
       upgradeConflictsPresent: false,
-      packDirs: [],
       gaps: [],
       drift: { added: [], removed: [], changed: false },
-      deferredIntegrations: [],
     });
 
     expect(handoffs).toEqual([]);
@@ -92,14 +70,10 @@ describe("maintenance handoffs", () => {
         roleStates: { architect: "generic", reviewer: "generic", debugger: "generic" },
       },
       setupReady: true,
-      smokePassed: true,
       gardenReport: { findings: [], summary: { total: 0, warnings: 0, errors: 0 } },
-      overlay: emptyOverlay,
       upgradeConflictsPresent: false,
-      packDirs: [],
       gaps: [],
       drift: { added: [], removed: [], changed: false },
-      deferredIntegrations: [],
     });
 
     expect(handoffs.some((h) => h.skill === "architecture-grounding")).toBe(true);

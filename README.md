@@ -252,9 +252,9 @@ npm run maintain          # or: aisdlc maintain --repo .
 | `resolve-upgrade` | `upgrade-conflicts.yml` present |
 | `setup-triage` | Not setup-ready after the chain |
 | `review-standards-drift` | Standards index drift on re-mining |
-| `bind-integrations` | GitLab/Jira deferred but needed for wrap-up |
+| `bind-integrations` | Invoke manually before wrap-up when GitLab/Jira MCP is needed |
 | `compound-learnings` | New accepted learnings to review |
-| `pack-workflows` | Reference packs enabled via `--packs` |
+| `pack-workflows` | Invoke manually when using `--packs` and pack-local ceremony applies |
 | `bench-triage` | When maintain was run with `--bench` and eval failed |
 | `architecture-grounding` | Low architecture confidence or generic role grounding |
 | `garden-docs` | Doc findings needing host-agent edits |

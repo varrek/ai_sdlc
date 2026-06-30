@@ -110,16 +110,12 @@ export function runMaintainCli(options: MaintainCliOptions): MaintainCliResult {
       roleStates: status.roleStates,
     },
     setupReady: smoke.setupReady,
-    smokePassed: smoke.result.passed,
     gardenReport: garden.report,
-    overlay,
     upgradeConflictsPresent: existsSync(join(sdlcDir, "upgrade-conflicts.yml")),
     benchExitCode: bench?.exitCode,
     benchReportPath: bench?.reportPath,
-    packDirs,
     gaps: customize.gaps,
     drift: customize.drift,
-    deferredIntegrations: customize.deferredIntegrations,
   });
 
   const report: MaintenanceReport = {
@@ -127,7 +123,7 @@ export function runMaintainCli(options: MaintainCliOptions): MaintainCliResult {
     phases: {
       customizeFresh: customize.freshnessSkipped,
       compileFresh: compile.freshnessSkipped,
-      smokePassed: smoke.result.passed,
+      smokePassed: smoke.setupReady,
       gardenFindings: garden.report.summary.total,
     },
     handoffs,

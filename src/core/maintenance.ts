@@ -2,7 +2,6 @@ import type { StandardsDrift } from "../customize/emitters.js";
 import type { GapQuestion } from "../customize/gap-interview.js";
 import { handoffFindings } from "../garden/doc-gardener.js";
 import type { DocGardenReport } from "../garden/types.js";
-import type { Overlay } from "../schema/index.js";
 
 export const MAINTENANCE_SKILL_IDS = [
   "close-gaps",
@@ -47,16 +46,12 @@ export interface MaintenanceStatusSnapshot {
 export interface MaintenanceHandoffInput {
   status: MaintenanceStatusSnapshot;
   setupReady: boolean;
-  smokePassed: boolean;
   gardenReport: DocGardenReport;
-  overlay: Overlay;
   upgradeConflictsPresent: boolean;
   benchExitCode?: number;
   benchReportPath?: string;
-  packDirs: string[];
   gaps: GapQuestion[];
   drift: StandardsDrift;
-  deferredIntegrations: string[];
 }
 
 export function buildMaintenanceHandoffs(
@@ -93,27 +88,10 @@ export function buildMaintenanceHandoffs(
     });
   }
 
-  const unbound = input.deferredIntegrations.filter(
-    (id) => !input.overlay.integrations[id]?.serverId,
-  );
-  if (unbound.length > 0) {
-    handoffs.push({
-      skill: "bind-integrations",
-      reason: `deferred integrations need bindings before wrap-up: ${unbound.join(", ")}`,
-    });
-  }
-
   if (input.drift.added.length > 0 || input.drift.removed.length > 0) {
     handoffs.push({
       skill: "compound-learnings",
       reason: "standards drift may produce accepted learnings to review",
-    });
-  }
-
-  if (input.packDirs.length > 0) {
-    handoffs.push({
-      skill: "pack-workflows",
-      reason: `reference pack(s) enabled: ${input.packDirs.join(", ")}`,
     });
   }
 
@@ -136,7 +114,7 @@ export function buildMaintenanceHandoffs(
   if (gardenHandoffs.length > 0) {
     handoffs.push({
       skill: "garden-docs",
-      reason: `${gardenHandoffs.length} doc-garden finding(s) need host-agent judgment`,
+      reason: `${gardenHandoffs.length} doc-garden finding(s) remain after garden`,
       reportPath: ".sdlc/doc-gardening-report.json",
     });
   }
