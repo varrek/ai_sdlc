@@ -8,7 +8,7 @@ const KIRO_APPROVED_GATE_REL = `${KIRO_HOOK_DIR}/approved-gate.mjs`;
 const KIRO_MCP_GATE_REL = `${KIRO_HOOK_DIR}/mcp-gate.mjs`;
 const KIRO_TOOL_GATE_REL = `${KIRO_HOOK_DIR}/tool-gate.mjs`;
 const KIRO_MUTATING_TOOL_PATTERN =
-  "(write|fs_write|fsWrite|shell|execute_bash|execute_cmd)";
+  "(write|fs_write|fsWrite|file_write|fileWrite|str_replace|strReplace|edit|create|delete|shell|execute_bash|execute_cmd)";
 const KIRO_MCP_TOOL_PATTERN = "(@.*|mcp__.*)";
 
 function commandFor(path: string): string {
@@ -89,6 +89,7 @@ ${kiroGateRuntimePreamble()}
 function normalizedTool(input) {
   const tool = firstString(input.tool_name, input.toolName, input.tool, input.name).toLowerCase();
   if (tool.includes("write")) return "write";
+  if (tool.includes("replace")) return "write";
   if (tool.includes("edit")) return "write";
   if (tool.includes("delete")) return "write";
   if (tool.includes("create")) return "write";

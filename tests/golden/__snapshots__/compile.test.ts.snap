@@ -3432,7 +3432,7 @@ process.exit(0);
       "name": "sdlc-approved-gate",
       "description": "Block mutating tools and MCP calls until the SDLC Approved? gate passes.",
       "trigger": "PreToolUse",
-      "matcher": "^((write|fs_write|fsWrite|shell|execute_bash|execute_cmd)|(@.*|mcp__.*))",
+      "matcher": "^((write|fs_write|fsWrite|file_write|fileWrite|str_replace|strReplace|edit|create|delete|shell|execute_bash|execute_cmd)|(@.*|mcp__.*))",
       "action": {
         "type": "command",
         "command": "node ./.kiro/hooks/approved-gate.mjs"
@@ -3444,7 +3444,7 @@ process.exit(0);
       "name": "sdlc-tool-posture-gate",
       "description": "Deny write or shell tools for roles whose posture does not allow them.",
       "trigger": "PreToolUse",
-      "matcher": "^(write|fs_write|fsWrite|shell|execute_bash|execute_cmd)",
+      "matcher": "^(write|fs_write|fsWrite|file_write|fileWrite|str_replace|strReplace|edit|create|delete|shell|execute_bash|execute_cmd)",
       "action": {
         "type": "command",
         "command": "node ./.kiro/hooks/tool-gate.mjs"
@@ -3497,6 +3497,7 @@ const hasPolicy = Object.keys(policy).length > 0;
 function normalizedTool(input) {
   const tool = firstString(input.tool_name, input.toolName, input.tool, input.name).toLowerCase();
   if (tool.includes("write")) return "write";
+  if (tool.includes("replace")) return "write";
   if (tool.includes("edit")) return "write";
   if (tool.includes("delete")) return "write";
   if (tool.includes("create")) return "write";

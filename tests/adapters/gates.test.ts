@@ -122,6 +122,12 @@ describe("gate emit", () => {
       "fs_write",
     );
     expect(hooks.hooks.find((hook) => hook.name === "sdlc-approved-gate")?.matcher).toContain(
+      "str_replace",
+    );
+    expect(hooks.hooks.find((hook) => hook.name === "sdlc-approved-gate")?.matcher).toContain(
+      "edit",
+    );
+    expect(hooks.hooks.find((hook) => hook.name === "sdlc-approved-gate")?.matcher).toContain(
       "execute_bash",
     );
     expect(files.has(".kiro/sdlc/role-policy.json")).toBe(true);
@@ -450,6 +456,8 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
     expect(run(s, { role: "reviewer", tool_name: "write" })).toBe(2);
     expect(run(s, { role: "reviewer", tool_name: "shell" })).toBe(2);
     expect(run(s, { role: "reviewer", tool_name: "fs_write" })).toBe(2);
+    expect(run(s, { role: "reviewer", tool_name: "str_replace" })).toBe(2);
+    expect(run(s, { role: "reviewer", tool_name: "edit" })).toBe(2);
     expect(run(s, { role: "reviewer", tool_name: "execute_bash" })).toBe(2);
   });
 
@@ -463,6 +471,7 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
     const s = install(".kiro/hooks/tool-gate.mjs", policy);
     expect(run(s, { role: "tester", tool_name: "execute_bash" })).toBe(0);
     expect(run(s, { role: "tester", tool_name: "fs_write" })).toBe(2);
+    expect(run(s, { role: "tester", tool_name: "str_replace" })).toBe(2);
   });
 
   it("allows write tools for write-posture roles", () => {
