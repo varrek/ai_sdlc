@@ -136,7 +136,6 @@ describe("gate emit", () => {
     );
   });
 
-
   it("copilot omits the CI workflow under gateMode: instructions", () => {
     const instructionsModel = makeModel({
       roles: [makeRole("engineer", "write", [])],
@@ -406,8 +405,9 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("allows a known role calling a server it is permitted to reach", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" }))
-      .toBe(0);
+    expect(
+      run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" }),
+    ).toBe(0);
   });
 
   it("allows MCP calls using SDLC_ACTIVE_ROLE when Kiro payload has no role field", () => {
@@ -423,22 +423,26 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("prefers SDLC_ACTIVE_ROLE over speculative payload role aliases", () => {
     const s = install(".kiro/hooks/tool-gate.mjs", policy);
-    expect(run(s, { agent: "engineer", tool_name: "fs_write" }, { SDLC_ACTIVE_ROLE: "reviewer" }))
-      .toBe(2);
+    expect(
+      run(s, { agent: "engineer", tool_name: "fs_write" }, { SDLC_ACTIVE_ROLE: "reviewer" }),
+    ).toBe(2);
   });
 
   it("parses Codex-style MCP names defensively when Kiro reports them", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { tool_name: "mcp__gitlab-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }))
-      .toBe(0);
-    expect(run(s, { tool_name: "mcp__jira-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }))
-      .toBe(2);
+    expect(
+      run(s, { tool_name: "mcp__gitlab-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }),
+    ).toBe(0);
+    expect(
+      run(s, { tool_name: "mcp__jira-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }),
+    ).toBe(2);
   });
 
   it("denies a known role calling a server outside its allowlist", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { tool_name: "@jira-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" }))
-      .toBe(2);
+    expect(run(s, { tool_name: "@jira-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(
+      2,
+    );
   });
 
   it("denies (fail-closed) when the active role is missing", () => {
@@ -448,8 +452,9 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("denies (fail-closed) when the role is unknown to the policy", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "ghost" }))
-      .toBe(2);
+    expect(run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "ghost" })).toBe(
+      2,
+    );
   });
 
   it("denies malformed MCP tool names when a policy exists", () => {
