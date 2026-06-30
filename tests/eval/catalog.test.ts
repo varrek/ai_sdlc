@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { parseExternalRepoCatalog, repoId, selectExternalRepos } from "../../src/eval/catalog.js";
+import {
+  parseExternalRepoCatalog,
+  readExternalRepoCatalog,
+  repoId,
+  selectExternalRepos,
+} from "../../src/eval/catalog.js";
+import { DEFAULT_CATALOG } from "../../src/cli/bench.js";
 
 const catalog = parseExternalRepoCatalog({
   catalogRevision: "test",
@@ -67,6 +73,15 @@ describe("external repo catalog", () => {
     expect(selection.diversityGaps).toContain(
       "catalog does not contain enough distinct primary languages for requested count",
     );
+  });
+
+  it("loads the pinned external catalog with ten diverse repos", () => {
+    const catalog = readExternalRepoCatalog(DEFAULT_CATALOG);
+    expect(catalog.repos).toHaveLength(10);
+    expect(new Set(catalog.repos.map((entry) => entry.primaryLanguage)).size).toBe(10);
+    const selection = selectExternalRepos(catalog, 42, 10);
+    expect(selection.selected).toHaveLength(10);
+    expect(selection.diversityGaps).toHaveLength(0);
   });
 });
 

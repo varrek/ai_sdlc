@@ -6,13 +6,13 @@ The default run is deterministic:
 
 ```bash
 npm run build
-node dist/cli/index.js bench --seed 42 --count 5
+node dist/cli/index.js bench --seed 42 --count 10
 ```
 
 Use `--dry-run` to inspect selection without cloning:
 
 ```bash
-node dist/cli/index.js bench --seed 42 --count 5 --dry-run
+node dist/cli/index.js bench --seed 42 --count 10 --dry-run
 ```
 
 Reports are written under `.verify/reports/<run-id>/eval-report.json`. Clones are cached under `.verify/repos/`.

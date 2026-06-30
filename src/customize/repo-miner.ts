@@ -606,6 +606,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     else if (ext === ".java") bumpLang("java");
     else if (ext === ".kt" || ext === ".kts") bumpLang("kotlin");
     else if (ext === ".rb") bumpLang("ruby");
+    else if (ext === ".php") bumpLang("php");
     else if (ext === ".cs" || ext === ".fs" || ext === ".vb") bumpLang("csharp");
   }
   const LANG_SHARE_FLOOR = 0.05;
@@ -630,6 +631,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     "build.gradle.kts",
     "settings.gradle.kts",
     "Gemfile",
+    "composer.json",
     "global.json",
   ];
   for (const m of ROOT_MANIFESTS) {
@@ -895,6 +897,39 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
         "linter:rubocop",
         fileSet.has(".rubocop.yml") ? ".rubocop.yml" : "Gemfile",
       );
+    }
+  }
+
+  // ---- PHP signals ----
+  const composerJson = read(root, "composer.json");
+  const phpunitConfig =
+    fileSet.has("phpunit.xml.dist") ? "phpunit.xml.dist"
+    : fileSet.has("phpunit.xml") ? "phpunit.xml"
+    : files.find((f) => f.endsWith("phpunit.xml.dist") || f.endsWith("phpunit.xml"));
+  if (fileSet.has("composer.json")) {
+    languages.add("php");
+    packageManagers.add("composer");
+    addEvidence(evidence, "php", "composer.json");
+    const composer = safeJson(composerJson);
+    const composerDeps = {
+      ...((composer.require ?? {}) as Record<string, string>),
+      ...((composer["require-dev"] ?? {}) as Record<string, string>),
+    };
+    const phpunitNamed =
+      "phpunit/phpunit" in composerDeps ||
+      /phpunit\/phpunit/.test(composerJson) ||
+      Boolean(phpunitConfig);
+    if (phpunitNamed) {
+      testRunner = testRunner ?? "phpunit";
+      addEvidence(
+        evidence,
+        "test-runner:phpunit",
+        typeof phpunitConfig === "string" ? phpunitConfig : "composer.json",
+      );
+    }
+    if (/laravel\/framework/.test(composerJson)) {
+      frameworks.add("laravel");
+      addEvidence(evidence, "framework:laravel", "composer.json");
     }
   }
 
@@ -1262,7 +1297,7 @@ function safeJson(text: string): Record<string, unknown> {
 
 /** Matches the runnable invocation of a common unit-test runner inside a shell line. */
 const TEST_TOOL =
-  /(^|\s)(pytest|vitest|jest|tox|mocha)\b|(npm|yarn|pnpm)\s+(run\s+)?test\b|\bgo\s+test\b|\bcargo\s+test\b|\bmvn\s+test\b|\b(?:\.\/)?gradlew?\s+test\b|\bbundle\s+exec\s+(rspec|rake)\b|\bdotnet\s+test\b|\bmake\s+test\b/;
+  /(^|\s)(pytest|vitest|jest|tox|mocha|phpunit)\b|(npm|yarn|pnpm)\s+(run\s+)?test\b|\bgo\s+test\b|\bcargo\s+test\b|\bmvn\s+test\b|\b(?:\.\/)?gradlew?\s+test\b|\bbundle\s+exec\s+(rspec|rake)\b|\bdotnet\s+test\b|\bmake\s+test\b|\bvendor\/bin\/phpunit\b/;
 
 /** Playwright / Cypress config filenames at repo root or nested paths. */
 const PLAYWRIGHT_CONFIG = /^playwright\.config\.(ts|js|mjs|cjs)$/;
@@ -1310,7 +1345,7 @@ interface TestCommandSignals {
 }
 
 /** The language toolchain a test command belongs to, or `undefined` if neutral. */
-type Ecosystem = "js" | "python" | "go" | "rust" | "jvm" | "ruby" | "dotnet" | undefined;
+type Ecosystem = "js" | "python" | "go" | "rust" | "jvm" | "ruby" | "dotnet" | "php" | undefined;
 
 /** Below this extension share a language is a minority — its test command can't be the suite. */
 const LANG_PRIMARY_FLOOR = 0.15;
@@ -1323,6 +1358,7 @@ function commandEcosystem(command: string): Ecosystem {
   if (/\b(mvn|gradle|gradlew)\b/.test(c)) return "jvm";
   if (/\b(rspec|minitest|bundle\s+exec)\b/.test(c) || /\brake\s+test\b/.test(c)) return "ruby";
   if (/\bdotnet\s+test\b/.test(c)) return "dotnet";
+  if (/\b(vendor\/bin\/phpunit|phpunit)\b/.test(c)) return "php";
   if (/\b(pytest|tox|nox)\b/.test(c) || /\bpython3?\s+-m\b/.test(c) || /\buv\s+run\b/.test(c)) {
     return "python";
   }
@@ -1364,6 +1400,8 @@ function ecosystemAllowed(
       return share("ruby") >= LANG_PRIMARY_FLOOR;
     case "dotnet":
       return share("csharp") >= LANG_PRIMARY_FLOOR;
+    case "php":
+      return share("php") >= LANG_PRIMARY_FLOOR;
     default:
       return true;
   }
@@ -1607,6 +1645,11 @@ function runnerDefaultEvidence(signals: TestCommandSignals): string {
   }
   if (signals.testRunner === "rspec" && signals.fileSet.has("Gemfile")) return "Gemfile";
   if (signals.testRunner === "minitest" && signals.fileSet.has("Gemfile")) return "Gemfile";
+  if (signals.testRunner === "phpunit") {
+    if (signals.fileSet.has("phpunit.xml.dist")) return "phpunit.xml.dist";
+    if (signals.fileSet.has("phpunit.xml")) return "phpunit.xml";
+    if (signals.fileSet.has("composer.json")) return "composer.json";
+  }
   if (signals.testRunner === "dotnet" && signals.csprojPath) return signals.csprojPath;
   if (signals.testRunner === "dotnet" && signals.dotnetBuildScript)
     return signals.dotnetBuildScript.evidence;
@@ -1651,6 +1694,8 @@ function runnerDefaultCommand(
     case "dotnet":
       if (signals.dotnetBuildScript) return signals.dotnetBuildScript.command;
       return "dotnet test";
+    case "phpunit":
+      return "vendor/bin/phpunit";
     default:
       return undefined;
   }

@@ -366,7 +366,7 @@ function cmdBench(rest: string[]): void {
     fail(`bench: ${(error as Error).message}`);
   }
   const seed = Number(options.get("seed") ?? "42");
-  const count = Number(options.get("count") ?? "5");
+  const count = Number(options.get("count") ?? "10");
   const repoTimeoutMs = options.get("repo-timeout-ms")
     ? Number(options.get("repo-timeout-ms"))
     : undefined;

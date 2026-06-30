@@ -58,7 +58,7 @@ export function parseExternalRepoCatalog(value: unknown): ExternalRepoCatalog {
 export function selectExternalRepos(
   catalog: ExternalRepoCatalog,
   seed: number,
-  count = 5,
+  count = 10,
 ): RepoSelection {
   if (!Number.isInteger(seed)) throw new Error("seed must be an integer");
   if (!Number.isInteger(count) || count < 1) throw new Error("count must be a positive integer");
