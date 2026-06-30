@@ -420,6 +420,12 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
     ).toBe(0);
   });
 
+  it("prefers SDLC_ACTIVE_ROLE over speculative payload role aliases", () => {
+    const s = install(".kiro/hooks/tool-gate.mjs", policy);
+    expect(run(s, { agent: "engineer", tool_name: "fs_write" }, { SDLC_ACTIVE_ROLE: "reviewer" }))
+      .toBe(2);
+  });
+
   it("parses Codex-style MCP names defensively when Kiro reports them", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
     expect(run(s, { role: "engineer", tool_name: "mcp__gitlab-prod__do_thing" })).toBe(0);

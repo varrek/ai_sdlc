@@ -28,12 +28,12 @@ function firstString(...values) {
 
 const input = readStdin();
 const role = firstString(
+  process.env.SDLC_ACTIVE_ROLE,
   input.role,
   input.agent,
   input.agent_name,
   input.agentName,
   input.agent_type,
-  process.env.SDLC_ACTIVE_ROLE,
 );
 
 let policy = {};
