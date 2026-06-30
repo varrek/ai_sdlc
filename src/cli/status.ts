@@ -34,6 +34,7 @@ import {
   compiledFingerprint,
   emittedFingerprint,
   emittedHostSelection,
+  emittedPackDirs,
   overlayFingerprint,
 } from "./phase-fingerprints.js";
 
@@ -90,6 +91,7 @@ export interface StatusOptions {
   overlayDir?: string;
   sdlcDir?: string;
   baseDir?: string;
+  packDirs?: string[];
   outDir?: string;
   hosts?: HostId[];
 }
@@ -102,6 +104,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const overlayPath = join(overlayDir, ".customize.yaml");
   const outDir = options.outDir ?? options.repoRoot;
   const statusHosts = options.hosts ?? emittedHostSelection(outDir);
+  const statusPackDirs = options.packDirs ?? emittedPackDirs(outDir);
   const state = readSetupState(sdlcDir);
   const phaseStatus = setupPhaseStatus({
     state,
@@ -109,6 +112,7 @@ export function buildStatus(options: StatusOptions): StatusReport {
     overlayPath,
     sdlcDir,
     baseDir: options.baseDir,
+    packDirs: statusPackDirs,
     outDir,
     hosts: statusHosts,
   });
@@ -210,6 +214,7 @@ function setupPhaseStatus(options: {
   overlayPath: string;
   sdlcDir: string;
   baseDir?: string;
+  packDirs?: string[];
   outDir: string;
   hosts?: HostId[];
 }): { stalePhases: SetupPhase[]; nextAction?: StatusReport["nextAction"]; known: boolean } {
@@ -223,7 +228,7 @@ function setupPhaseStatus(options: {
   const stale: SetupPhase[] = [];
   if (options.baseDir && existsSync(options.baseDir)) {
     const overlayFp = overlayFingerprint(options.overlayPath, options.sdlcDir);
-    const baseFp = baseFingerprint(options.baseDir, options.sdlcDir);
+    const baseFp = baseFingerprint(options.baseDir, options.sdlcDir, options.packDirs);
     const compiledFp = compiledFingerprint(overlayFp, baseFp, options.hosts);
     const smokeFp = emittedFingerprint(options.outDir, baseFp);
     if (

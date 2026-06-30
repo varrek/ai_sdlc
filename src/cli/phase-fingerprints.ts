@@ -77,33 +77,40 @@ export function emittedFingerprint(outDir: string, baseFp: string): string {
 }
 
 export function emittedHostSelection(outDir: string): HostIdValue[] | undefined {
-  const abs = join(outDir, EMITTED_MANIFEST_PATH);
-  if (!existsSync(abs)) return undefined;
-  try {
-    const parsed = JSON.parse(readFileSync(abs, "utf8")) as { hosts?: unknown };
-    if (!Array.isArray(parsed.hosts)) return undefined;
-    const hosts = parsed.hosts
-      .map((host) => HostId.safeParse(host))
-      .filter((result) => result.success)
-      .map((result) => result.data);
-    return hosts.length > 0 ? hosts : undefined;
-  } catch {
-    return undefined;
-  }
+  const parsed = readEmittedManifest(outDir);
+  if (!Array.isArray(parsed?.hosts)) return undefined;
+  const hosts = parsed.hosts
+    .map((host) => HostId.safeParse(host))
+    .filter((result) => result.success)
+    .map((result) => result.data);
+  return hosts.length > 0 ? hosts : undefined;
+}
+
+export function emittedPackDirs(outDir: string): string[] | undefined {
+  const parsed = readEmittedManifest(outDir);
+  if (!Array.isArray(parsed?.packDirs)) return undefined;
+  const packDirs = parsed.packDirs.filter(
+    (packDir): packDir is string => typeof packDir === "string",
+  );
+  return packDirs.length > 0 ? packDirs : undefined;
 }
 
 function readEmittedFiles(outDir: string): string[] {
-  const abs = join(outDir, EMITTED_MANIFEST_PATH);
-  if (!existsSync(abs)) return [];
-  try {
-    const parsed = JSON.parse(readFileSync(abs, "utf8")) as { files?: unknown };
-    if (Array.isArray(parsed.files)) {
-      return parsed.files.filter((p): p is string => typeof p === "string").sort();
-    }
-  } catch {
-    return [];
+  const parsed = readEmittedManifest(outDir);
+  if (Array.isArray(parsed?.files)) {
+    return parsed.files.filter((p): p is string => typeof p === "string").sort();
   }
   return [];
+}
+
+function readEmittedManifest(outDir: string): Record<string, unknown> | undefined {
+  const abs = join(outDir, EMITTED_MANIFEST_PATH);
+  if (!existsSync(abs)) return undefined;
+  try {
+    return JSON.parse(readFileSync(abs, "utf8")) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
 }
 
 function hostSelectionFingerprint(hosts: HostIdValue[] | undefined): string {

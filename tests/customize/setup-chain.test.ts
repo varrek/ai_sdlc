@@ -13,6 +13,7 @@ import { PHASE_ORDER } from "../../src/customize/setup-state.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const baseDir = resolve(here, "..", "..", "sdlc-base");
+const frontendPackDir = resolve(here, "..", "..", "packs", "frontend");
 const repo = (name: string) => resolve(here, "..", "fixtures", "sample-repos", name);
 
 const tmpDirs: string[] = [];
@@ -50,6 +51,7 @@ describe("setup chain idempotency", () => {
     const result = runSetupCli({
       repoRoot: root,
       baseDir,
+      packDirs: [frontendPackDir],
       hosts: ["cursor", "claude-code"],
       force: true,
     });

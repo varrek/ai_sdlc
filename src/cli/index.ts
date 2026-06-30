@@ -299,6 +299,7 @@ function cmdStatus(rest: string[]): void {
     overlayDir: options.get("overlay-dir"),
     sdlcDir: options.get("sdlc-dir"),
     baseDir: resolveBaseOption(options.get("base")),
+    packDirs: parseList(options.get("packs")),
     outDir: options.get("out"),
     hosts,
   });

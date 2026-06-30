@@ -13,6 +13,8 @@ export interface CompileOptions {
   outDir: string;
   /** Defaults to the hosts named in the model's manifest. */
   hosts?: HostId[];
+  /** Optional additive extension pack directories, recorded for freshness checks. */
+  packDirs?: string[];
 }
 
 export interface CompileResult {
@@ -58,7 +60,7 @@ export function compile(
   files.push({ path: GAP_REPORT_PATH, contents: serializeGapReport(gaps) });
 
   const sortedFiles = sortFiles(dedupeFiles(files));
-  const pruned = writeOutput(options.outDir, sortedFiles, options.hosts);
+  const pruned = writeOutput(options.outDir, sortedFiles, options.hosts, options.packDirs);
 
   return { files: sortedFiles, gaps, pruned };
 }
@@ -82,7 +84,12 @@ function sortFiles(files: EmittedFile[]): EmittedFile[] {
   return [...files].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
-function writeOutput(outDir: string, files: EmittedFile[], hosts?: HostId[]): string[] {
+function writeOutput(
+  outDir: string,
+  files: EmittedFile[],
+  hosts?: HostId[],
+  packDirs?: string[],
+): string[] {
   const previous = readEmittedManifest(outDir);
   const current = new Set(files.map((f) => f.path));
 
@@ -103,7 +110,7 @@ function writeOutput(outDir: string, files: EmittedFile[], hosts?: HostId[]): st
   }
   pruned.sort();
 
-  writeEmittedManifest(outDir, [...current].sort(), hosts);
+  writeEmittedManifest(outDir, [...current].sort(), hosts, packDirs);
   return pruned;
 }
 
@@ -124,13 +131,19 @@ function readEmittedManifest(outDir: string): string[] {
   return [];
 }
 
-function writeEmittedManifest(outDir: string, paths: string[], hosts?: HostId[]): void {
+function writeEmittedManifest(
+  outDir: string,
+  paths: string[],
+  hosts?: HostId[],
+  packDirs?: string[],
+): void {
   const abs = join(outDir, EMITTED_MANIFEST_PATH);
   mkdirSync(dirname(abs), { recursive: true });
   const manifest = {
     version: 1,
     files: paths,
     ...(hosts ? { hosts: [...hosts].sort() } : {}),
+    ...(packDirs ? { packDirs } : {}),
   };
   writeFileSync(abs, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }

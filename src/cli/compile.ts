@@ -67,7 +67,11 @@ export function runCompile(options: CompileCliOptions): CompileResult {
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
   const model = mergeOverlay(base, overlay, projectContext, acceptedLearnings);
   const registry = buildRegistry();
-  return compile(model, registry, { outDir: options.outDir, hosts: options.hosts });
+  return compile(model, registry, {
+    outDir: options.outDir,
+    hosts: options.hosts,
+    packDirs: options.packDirs,
+  });
 }
 
 export function compiledArtifactsPresent(outDir: string): boolean {
