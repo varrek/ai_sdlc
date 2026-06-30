@@ -177,6 +177,25 @@ describe("setup chain idempotency", () => {
     expect(existsSync(join(root, ".sdlc", "hooks", "record-loop-event.mjs"))).toBe(true);
   });
 
+  it("does not report setup-ready when emitted artifacts are missing", () => {
+    const { root, sdlcDir, overlayDir, overlayPath } = project();
+    runCustomize({ repoRoot: repo("python-rags"), overlayDir });
+    runCompileCli({ baseDir, overlayPath, outDir: root, sdlcDir });
+
+    rmSync(join(root, ".sdlc", "host-setup.md"));
+    const smoke = runSmokeCli({
+      baseDir,
+      overlayPath,
+      configDir: root,
+      sdlcDir,
+      repoRoot: repo("python-rags"),
+    });
+
+    expect(smoke.result.passed).toBe(true);
+    expect(smoke.emittedArtifactsPresent).toBe(false);
+    expect(smoke.setupReady).toBe(false);
+  });
+
   it("a base upgrade (project.lock change) makes smoke-passed stale even if the overlay is unchanged", () => {
     const { root, sdlcDir, overlayDir, overlayPath } = project();
     runCustomize({ repoRoot: repo("python-rags"), overlayDir });

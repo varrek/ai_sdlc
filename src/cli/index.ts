@@ -251,14 +251,15 @@ function cmdCustomize(rest: string[]): void {
 
 function cmdSmoke(rest: string[]): void {
   const { options, flags } = parseArgs(rest);
-  const { result, setupReady, blockingGapCount, deferredIntegrations } = runSmokeCli({
-    baseDir: resolveBaseOption(options.get("base")),
-    packDirs: parseList(options.get("packs")),
-    overlayPath: resolveOverlay(options.get("overlay")),
-    configDir: options.get("config") ?? options.get("out") ?? ".",
-    compileFirst: flags.has("compile"),
-    repoRoot: options.get("repo"),
-  });
+  const { result, setupReady, emittedArtifactsPresent, blockingGapCount, deferredIntegrations } =
+    runSmokeCli({
+      baseDir: resolveBaseOption(options.get("base")),
+      packDirs: parseList(options.get("packs")),
+      overlayPath: resolveOverlay(options.get("overlay")),
+      configDir: options.get("config") ?? options.get("out") ?? ".",
+      compileFirst: flags.has("compile"),
+      repoRoot: options.get("repo"),
+    });
   process.stdout.write(`Base gates: ${result.passed ? "PASS" : "FAIL"} (log: ${result.logPath})\n`);
 
   if (setupReady) {
@@ -269,9 +270,14 @@ function cmdSmoke(rest: string[]): void {
   } else {
     // Setup-ready needs BOTH the base gates and zero blocking interview gaps, so
     // a passing base run can still be "not ready". Lead with the actual blocker.
-    process.stdout.write(`Not setup-ready — ${notReadyReason(result.passed, blockingGapCount)}:\n`);
+    process.stdout.write(
+      `Not setup-ready — ${notReadyReason(result.passed, blockingGapCount, emittedArtifactsPresent)}:\n`,
+    );
     for (const c of result.checks.filter((c) => !c.ok)) {
       process.stdout.write(`  - base gate ${c.name}: ${c.reason ?? "failed"}\n`);
+    }
+    if (!emittedArtifactsPresent) {
+      process.stdout.write("  - emitted compile artifacts are missing; re-run `aisdlc compile`\n");
     }
     if (blockingGapCount > 0) {
       process.stdout.write(`  - ${blockingGapCount} blocking interview gap(s) still open\n`);
@@ -284,7 +290,12 @@ function cmdSmoke(rest: string[]): void {
   process.exit(setupReady ? 0 : 1);
 }
 
-function notReadyReason(basePassed: boolean, blockingGapCount: number): string {
+function notReadyReason(
+  basePassed: boolean,
+  blockingGapCount: number,
+  emittedArtifactsPresent = true,
+): string {
+  if (!emittedArtifactsPresent) return "emitted config artifacts are missing";
   if (!basePassed && blockingGapCount > 0) return "base gates failed and interview gaps remain";
   if (!basePassed) return "base gates failed";
   return "the base gates passed but interview gaps remain";
