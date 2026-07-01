@@ -1,0 +1,31 @@
+version: 1
+# Conditional review lenses activated by diff surface (R4).
+# Base Reviewer always runs; additional lenses merge when path globs match.
+lenses:
+  - id: reviewer
+    always: true
+    description: Base code review gate — always active.
+  - id: security
+    always: true
+    pack: security
+    description: Security lens — always active.
+  - id: data-migration
+    paths:
+      - "**/migrations/**"
+      - "**/migrate/**"
+      - "**/db/migrate/**"
+      - "**/*migration*"
+      - "**/schema/**"
+    description: Data and migration safety when schema or migration paths change.
+  - id: infra
+    paths:
+      - ".github/workflows/**"
+      - "**/Dockerfile"
+      - "**/docker-compose*.yml"
+      - "**/docker-compose*.yaml"
+      - "**/*.tf"
+      - "**/terraform/**"
+      - "**/helm/**"
+      - "**/k8s/**"
+    pack: infra
+    description: Infrastructure lens when CI, IaC, or container files change.

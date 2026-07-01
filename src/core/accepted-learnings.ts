@@ -14,7 +14,8 @@ export type AcceptedLearningKind =
   | "gate-approval"
   | "review-finding"
   | "test-correction"
-  | "bench-residual";
+  | "bench-residual"
+  | "compound-correction";
 
 export const LOOP_DERIVED_LEARNING_KINDS = [
   "review-finding",

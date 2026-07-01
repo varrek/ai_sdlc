@@ -48,6 +48,7 @@ describe("reference packs", () => {
       "backend-api",
       "compliance",
       "data-ml",
+      "e2e",
       "frontend",
       "infra",
       "mobile",
@@ -58,7 +59,7 @@ describe("reference packs", () => {
   it("loads all reference packs with the base without duplicate artifacts", () => {
     const loaded = loadBase(baseDir, packDirs);
 
-    expect(loaded.packs).toHaveLength(7);
+    expect(loaded.packs).toHaveLength(8);
     expect(loaded.roles.map((role) => role.frontmatter.name)).toEqual(
       expect.arrayContaining([
         "architect",

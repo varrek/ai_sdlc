@@ -1,5 +1,7 @@
 export const DOC_GARDEN_FINDING_IDS = [
   "broken-local-link",
+  "broken-code-reference",
+  "stale-doc-vs-code",
   "doc-scan-truncated",
   "hierarchy-codex-budget",
   "hierarchy-scope-missing",

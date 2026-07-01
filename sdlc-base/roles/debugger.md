@@ -31,5 +31,12 @@ external blocker.
 
 ## Hand off
 
-Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
-files involved, and the test(s) that should prove the fix works.
+Before any fix is delegated, produce an **investigation artifact** (R13):
+
+- **Root cause** — one paragraph, evidence-backed.
+- **Evidence** — `file:line`, query results, log excerpts.
+- **Recommended fix** — minimal approach for the Engineer.
+- **Regression tests** — list of tests that should prove the fix.
+
+Give the Engineer a concrete handoff. On Quick track or trivial one-liners, the
+orchestrator may skip this stage when ceremony allows.

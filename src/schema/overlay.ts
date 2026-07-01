@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OverlayAutonomy } from "./autonomy.js";
 
 const SLUG = /^[a-z][a-z0-9-]*$/;
 
@@ -89,6 +90,10 @@ export const Overlay = z
     interviewAnswers: z.record(z.string(), z.string()).default({}),
     /** gap-id -> how the blocking setup concern was closed. */
     gapClosureProvenance: z.record(z.string(), GapClosureProvenance).default({}),
+    /** Risk-tiered delegation policy tunables (R1). */
+    autonomy: OverlayAutonomy.optional(),
+    /** When true, Debugger investigation gate runs even on Quick track (R13). */
+    requireInvestigation: z.boolean().optional(),
   })
   .strict();
 

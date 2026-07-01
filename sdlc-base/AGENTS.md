@@ -29,6 +29,29 @@ Everything below the gates is team-owned and lives in the project overlay:
 - Per-role model overrides.
 - Operating mode (Plugin Mode by default, deterministic as an explicit opt-out).
 - Reviewable generated role guidance.
+- **Autonomy tier** (`assistive` / `drafting` / `executing`) and project-specific
+  no-delegation extensions.
+- Per-role **write scopes** (path glob boundaries compiled to host hooks).
+
+## Autonomy tiers
+
+Projects start at **assistive** tier. Higher tiers require explicit overlay tuning
+and pass through the Approved? gate before unsupervised execution:
+
+| Tier | Meaning |
+| --- | --- |
+| assistive | Agent drafts; human executes mutating actions |
+| drafting | Agent drafts and prepares; human approves before apply |
+| executing | Agent may execute within write scopes after Approved? |
+
+**No-delegation list (always enforced):** production data access, secret material,
+deploy approvals, history rewrites. Overlay may add project-specific categories.
+
+## Generated automation standard
+
+Generated test and CI artifacts must be **deterministic and runnable without an
+LLM in the execution path** — author once, run natively. AI belongs in
+authoring and review, not in the hot loop of test execution.
 
 Plugin Mode policy changes that adapt gates, role postures, or review flow must
 be structured, visible, and validated before adapters emit them. Hidden prose does

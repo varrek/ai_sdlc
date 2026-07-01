@@ -10,6 +10,11 @@ export interface CopilotAgentHandoff {
 }
 
 const HANDOFF_TO: Partial<Record<LoopStage, { label: string; prompt: string }>> = {
+  investigate: {
+    label: "Hand off to Debugger",
+    prompt:
+      "Investigate read-only: root cause, evidence (file:line), recommended fix, regression tests.",
+  },
   engineer: {
     label: "Hand off to Engineer",
     prompt: "Implement the plan outlined above.",

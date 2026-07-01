@@ -2,7 +2,13 @@ import type { CeremonyTrack, Skill } from "../schema/index.js";
 import type { NeutralModel } from "./types.js";
 
 /** A stage in the compiled SDLC loop. `wrap-up` is the MCP MR/Jira step. */
-export type LoopStage = "architect" | "engineer" | "test" | "reviewer" | "wrap-up";
+export type LoopStage =
+  | "architect"
+  | "investigate"
+  | "engineer"
+  | "test"
+  | "reviewer"
+  | "wrap-up";
 
 /** Stages accepted by emitted Approved? gate scripts when recording checkpoints. */
 export const APPROVAL_GATE_STAGES: readonly LoopStage[] = [
@@ -17,10 +23,12 @@ export const APPROVAL_GATE_STAGES: readonly LoopStage[] = [
  * Which role performs each loop stage. The wrap-up stage is not a distinct role:
  * it is performed by the Engineer (the single writer, the only role holding the
  * gitlab/jira integrations), so least-privilege still holds. The `test` stage is
- * the Tester (read-run), who verifies the change without writing.
+ * the Tester (read-run), who verifies the change without writing. The `investigate`
+ * stage is the Debugger (read-only root-cause step before fix delegation, R13).
  */
 export const STAGE_ROLE: Record<LoopStage, string> = {
   architect: "architect",
+  investigate: "debugger",
   engineer: "engineer",
   test: "tester",
   reviewer: "reviewer",
@@ -34,14 +42,19 @@ export const STAGE_ROLE: Record<LoopStage, string> = {
  * (Engineer -> Reviewer); Standard adds up-front planning and independent
  * testing; Full adds the integration wrap-up.
  */
-export function stagesForTrack(track: CeremonyTrack): LoopStage[] {
+export function stagesForTrack(
+  track: CeremonyTrack,
+  requireInvestigation = false,
+): LoopStage[] {
   switch (track) {
     case "quick":
-      return ["engineer", "reviewer"];
+      return requireInvestigation
+        ? ["investigate", "engineer", "reviewer"]
+        : ["engineer", "reviewer"];
     case "standard":
-      return ["architect", "engineer", "test", "reviewer"];
+      return ["architect", "investigate", "engineer", "test", "reviewer"];
     case "full":
-      return ["architect", "engineer", "test", "reviewer", "wrap-up"];
+      return ["architect", "investigate", "engineer", "test", "reviewer", "wrap-up"];
     default: {
       const _exhaustive: never = track;
       return _exhaustive;
@@ -57,8 +70,11 @@ export function stagesForTrack(track: CeremonyTrack): LoopStage[] {
  */
 export function loopStagesForTrack(model: NeutralModel): LoopStage[] {
   const track = model.overlay.defaultTrack ?? "standard";
+  const requireInvestigation = model.overlay.requireInvestigation ?? false;
   const present = new Set(model.roles.map((r) => r.frontmatter.name));
-  return stagesForTrack(track).filter((stage) => present.has(STAGE_ROLE[stage]));
+  return stagesForTrack(track, requireInvestigation).filter((stage) =>
+    present.has(STAGE_ROLE[stage]),
+  );
 }
 
 /**

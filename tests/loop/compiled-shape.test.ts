@@ -117,9 +117,10 @@ describe("compiled loop shape", () => {
       handoffs: { from: string; to: string }[];
       note: string;
     };
-    expect(handoffs.order).toEqual(["architect", "engineer", "test", "reviewer"]);
+    expect(handoffs.order).toEqual(["architect", "investigate", "engineer", "test", "reviewer"]);
     expect(handoffs.handoffs).toEqual([
-      { from: "architect", to: "engineer" },
+      { from: "architect", to: "investigate" },
+      { from: "investigate", to: "engineer" },
       { from: "engineer", to: "test" },
       { from: "test", to: "reviewer" },
     ]);
@@ -162,8 +163,16 @@ describe("compiled loop shape", () => {
       note: string;
     };
     expect(handoffs.track).toBe("full");
-    expect(handoffs.order).toEqual(["architect", "engineer", "test", "reviewer", "wrap-up"]);
+    expect(handoffs.order).toEqual([
+      "architect",
+      "investigate",
+      "engineer",
+      "test",
+      "reviewer",
+      "wrap-up",
+    ]);
     expect(handoffs.handoffs).toContainEqual({ from: "reviewer", to: "wrap-up" });
+    expect(handoffs.handoffs).toContainEqual({ from: "architect", to: "investigate" });
     // wrap-up is a stage, not a role — the Engineer (sole writer) performs it.
     expect(handoffs.stageAgents["wrap-up"]).toBe("engineer");
     // the test stage is performed by the Tester (read-run, never writes).

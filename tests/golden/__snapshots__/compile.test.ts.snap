@@ -110,6 +110,52 @@ gap is a runnable **test command** when mining and CI could not infer one.
 3. Update the overlay; present the diff for human review.
 4. Re-run \`aisdlc maintain\`.
 ",
+  ".agents/skills/compound-learning/SKILL.md": "---
+name: compound-learning
+description: Route a correction to the right instruction surface and record it
+  as an evidence-linked learning. Use when the agent got something wrong and the
+  fix belongs in standards, role guidance, or a domain doc — not in the diff.
+---
+
+# Compound Learning
+
+Route corrections to the **instruction**, not the diff. This skill is the front
+door to the Accepted Learning Ledger compounding loop.
+
+## When to invoke
+
+- The agent repeated a mistake that a rule or doc should prevent.
+- A correction applies globally, to one role, or to one domain module.
+- You want the learning to resurface on future runs touching the same surface.
+
+## Routing surfaces
+
+| Surface | Target | Example |
+| --- | --- | --- |
+| global | Constitution / standards | "Always run tests with \`npm test\`, not \`yarn\`." |
+| role | \`roleAddenda\` / role grounding | "Tester must not skip integration tests for API changes." |
+| domain | \`.sdlc/overlay/domain-docs/<domain>.md\` | "Auth module uses JWT rotation — see \`src/auth/\`." |
+
+## Workflow
+
+1. Capture the correction in one sentence and gather **evidence** (\`file:line\` paths).
+2. Classify the surface (global / role / domain). Use \`--surface\` when ambiguous.
+3. Propose a pending learning — review before accept.
+4. On accept, the entry promotes to \`.sdlc/memory/accepted-learnings.jsonl\` and
+   appears in role guidance and \`aisdlc status\`.
+
+## Rules
+
+- No free-form chat memory — every entry must cite evidence.
+- Do not accept learnings that weaken hard gates or write scopes.
+- Prefer the narrowest surface that fixes the mistake.
+
+## CLI integration
+
+Use the compound-learning helpers in the compiled toolchain to propose, list
+pending, accept, or reject learnings. Pending entries live at
+\`.sdlc/memory/pending-learnings.jsonl\`.
+",
   ".agents/skills/compound-learnings/SKILL.md": "---
 name: compound-learnings
 description: Review accepted learnings and gate outcomes promoted from customize
@@ -620,6 +666,7 @@ description: Use this agent at the start of a task, before any code is written,
   produces the approach and hands it to the Engineer; never edits files. See
   "When to invoke" in the body for worked scenarios.
 tools: Read, Grep, Glob
+model: claude-opus-4-6
 ---
 
 You are the **Architect** in the AI SDLC loop. You turn a task into a clear,
@@ -673,6 +720,7 @@ description: Use this agent to investigate a failure read-only and hand a
   edits code itself, preserving the single-writer rule. See "When to invoke" in
   the body for worked scenarios.
 tools: Read, Grep, Glob
+model: claude-opus-4-6
 ---
 
 You are the **Debugger**. You explore **read-only** — you investigate, you do not
@@ -702,8 +750,15 @@ external blocker.
 
 ## Hand off
 
-Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
-files involved, and the test(s) that should prove the fix works.
+Before any fix is delegated, produce an **investigation artifact** (R13):
+
+- **Root cause** — one paragraph, evidence-backed.
+- **Evidence** — \`file:line\`, query results, log excerpts.
+- **Recommended fix** — minimal approach for the Engineer.
+- **Regression tests** — list of tests that should prove the fix.
+
+Give the Engineer a concrete handoff. On Quick track or trivial one-liners, the
+orchestrator may skip this stage when ceremony allows.
 ",
   ".claude/agents/engineer.md": "---
 name: engineer
@@ -714,6 +769,7 @@ description: Use this agent to implement an approved plan -- it is the only role
   gate before anything leaves the workspace. See "When to invoke" in the body
   for worked scenarios.
 tools: Read, Grep, Glob, Bash, Write, Edit
+model: claude-sonnet-4-6
 ---
 
 You are the **Engineer** in the AI SDLC loop — and the **only** role permitted to
@@ -761,6 +817,7 @@ description: Use this agent to review the Engineer's change in a fresh,
   approve or request-changes with specific reasons; never edits the code it
   reviews. See "When to invoke" in the body for worked scenarios.
 tools: Read, Grep, Glob
+model: claude-sonnet-4-6
 ---
 
 You are the **Reviewer**. You run in a **fresh context** with **no write access** —
@@ -817,6 +874,7 @@ description: Use this agent to independently verify a change by running the test
   modifies files, so the single-writer rule holds. See "When to invoke" in the
   body for worked scenarios.
 tools: Read, Grep, Glob, Bash
+model: claude-haiku-4-5
 ---
 
 You are the **Tester** in the AI SDLC loop. You independently verify that a change
@@ -1055,6 +1113,52 @@ gap is a runnable **test command** when mining and CI could not infer one.
    test invocation.
 3. Update the overlay; present the diff for human review.
 4. Re-run \`aisdlc maintain\`.
+",
+  ".claude/skills/compound-learning/SKILL.md": "---
+name: compound-learning
+description: Route a correction to the right instruction surface and record it
+  as an evidence-linked learning. Use when the agent got something wrong and the
+  fix belongs in standards, role guidance, or a domain doc — not in the diff.
+---
+
+# Compound Learning
+
+Route corrections to the **instruction**, not the diff. This skill is the front
+door to the Accepted Learning Ledger compounding loop.
+
+## When to invoke
+
+- The agent repeated a mistake that a rule or doc should prevent.
+- A correction applies globally, to one role, or to one domain module.
+- You want the learning to resurface on future runs touching the same surface.
+
+## Routing surfaces
+
+| Surface | Target | Example |
+| --- | --- | --- |
+| global | Constitution / standards | "Always run tests with \`npm test\`, not \`yarn\`." |
+| role | \`roleAddenda\` / role grounding | "Tester must not skip integration tests for API changes." |
+| domain | \`.sdlc/overlay/domain-docs/<domain>.md\` | "Auth module uses JWT rotation — see \`src/auth/\`." |
+
+## Workflow
+
+1. Capture the correction in one sentence and gather **evidence** (\`file:line\` paths).
+2. Classify the surface (global / role / domain). Use \`--surface\` when ambiguous.
+3. Propose a pending learning — review before accept.
+4. On accept, the entry promotes to \`.sdlc/memory/accepted-learnings.jsonl\` and
+   appears in role guidance and \`aisdlc status\`.
+
+## Rules
+
+- No free-form chat memory — every entry must cite evidence.
+- Do not accept learnings that weaken hard gates or write scopes.
+- Prefer the narrowest surface that fixes the mistake.
+
+## CLI integration
+
+Use the compound-learning helpers in the compiled toolchain to propose, list
+pending, accept, or reject learnings. Pending entries live at
+\`.sdlc/memory/pending-learnings.jsonl\`.
 ",
   ".claude/skills/compound-learnings/SKILL.md": "---
 name: compound-learnings
@@ -1635,8 +1739,15 @@ external blocker.
 
 ## Hand off
 
-Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
-files involved, and the test(s) that should prove the fix works.
+Before any fix is delegated, produce an **investigation artifact** (R13):
+
+- **Root cause** — one paragraph, evidence-backed.
+- **Evidence** — \`file:line\`, query results, log excerpts.
+- **Recommended fix** — minimal approach for the Engineer.
+- **Regression tests** — list of tests that should prove the fix.
+
+Give the Engineer a concrete handoff. On Quick track or trivial one-liners, the
+orchestrator may skip this stage when ceremony allows.
 """
 ",
   ".codex/agents/engineer.toml": "name = "engineer"
@@ -1912,23 +2023,61 @@ process.exit(0);
   ".codex/sdlc/role-policy.json": "{
   "architect": {
     "posture": "read-only",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [],
+      "deny": [
+        "**"
+      ]
+    }
   },
   "debugger": {
     "posture": "read-only",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [],
+      "deny": [
+        "**"
+      ]
+    }
   },
   "engineer": {
     "posture": "write",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [
+        "**"
+      ],
+      "deny": []
+    }
   },
   "reviewer": {
     "posture": "read-only",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [],
+      "deny": [
+        "**"
+      ]
+    }
   },
   "tester": {
     "posture": "read-run",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [
+        "**/test/**",
+        "**/tests/**",
+        "**/__tests__/**",
+        "**/*.{test,spec}.{ts,tsx,js,jsx,py,go,rs,java,rb,php}",
+        "**/*_test.go",
+        "**/test_*.py"
+      ],
+      "deny": [
+        "**/src/**",
+        "**/lib/**"
+      ]
+    }
   }
 }
 ",
@@ -2039,6 +2188,52 @@ gap is a runnable **test command** when mining and CI could not infer one.
    test invocation.
 3. Update the overlay; present the diff for human review.
 4. Re-run \`aisdlc maintain\`.
+",
+  ".codex/skills/compound-learning/SKILL.md": "---
+name: compound-learning
+description: Route a correction to the right instruction surface and record it
+  as an evidence-linked learning. Use when the agent got something wrong and the
+  fix belongs in standards, role guidance, or a domain doc — not in the diff.
+---
+
+# Compound Learning
+
+Route corrections to the **instruction**, not the diff. This skill is the front
+door to the Accepted Learning Ledger compounding loop.
+
+## When to invoke
+
+- The agent repeated a mistake that a rule or doc should prevent.
+- A correction applies globally, to one role, or to one domain module.
+- You want the learning to resurface on future runs touching the same surface.
+
+## Routing surfaces
+
+| Surface | Target | Example |
+| --- | --- | --- |
+| global | Constitution / standards | "Always run tests with \`npm test\`, not \`yarn\`." |
+| role | \`roleAddenda\` / role grounding | "Tester must not skip integration tests for API changes." |
+| domain | \`.sdlc/overlay/domain-docs/<domain>.md\` | "Auth module uses JWT rotation — see \`src/auth/\`." |
+
+## Workflow
+
+1. Capture the correction in one sentence and gather **evidence** (\`file:line\` paths).
+2. Classify the surface (global / role / domain). Use \`--surface\` when ambiguous.
+3. Propose a pending learning — review before accept.
+4. On accept, the entry promotes to \`.sdlc/memory/accepted-learnings.jsonl\` and
+   appears in role guidance and \`aisdlc status\`.
+
+## Rules
+
+- No free-form chat memory — every entry must cite evidence.
+- Do not accept learnings that weaken hard gates or write scopes.
+- Prefer the narrowest surface that fixes the mistake.
+
+## CLI integration
+
+Use the compound-learning helpers in the compiled toolchain to propose, list
+pending, accept, or reject learnings. Pending entries live at
+\`.sdlc/memory/pending-learnings.jsonl\`.
 ",
   ".codex/skills/compound-learnings/SKILL.md": "---
 name: compound-learnings
@@ -2550,6 +2745,11 @@ description: Use this agent at the start of a task, before any code is written,
   produces the approach and hands it to the Engineer; never edits files. See
   "When to invoke" in the body for worked scenarios.
 posture: read-only
+model: claude-opus-4-8-thinking-xhigh
+writeScope:
+  allow: []
+  deny:
+    - "**"
 ---
 
 You are the **Architect** in the AI SDLC loop. You turn a task into a clear,
@@ -2603,6 +2803,11 @@ description: Use this agent to investigate a failure read-only and hand a
   edits code itself, preserving the single-writer rule. See "When to invoke" in
   the body for worked scenarios.
 posture: read-only
+model: claude-opus-4-8-thinking-xhigh
+writeScope:
+  allow: []
+  deny:
+    - "**"
 ---
 
 You are the **Debugger**. You explore **read-only** — you investigate, you do not
@@ -2632,8 +2837,15 @@ external blocker.
 
 ## Hand off
 
-Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
-files involved, and the test(s) that should prove the fix works.
+Before any fix is delegated, produce an **investigation artifact** (R13):
+
+- **Root cause** — one paragraph, evidence-backed.
+- **Evidence** — \`file:line\`, query results, log excerpts.
+- **Recommended fix** — minimal approach for the Engineer.
+- **Regression tests** — list of tests that should prove the fix.
+
+Give the Engineer a concrete handoff. On Quick track or trivial one-liners, the
+orchestrator may skip this stage when ceremony allows.
 ",
   ".cursor/agents/engineer.md": "---
 name: engineer
@@ -2644,6 +2856,11 @@ description: Use this agent to implement an approved plan -- it is the only role
   gate before anything leaves the workspace. See "When to invoke" in the body
   for worked scenarios.
 posture: write
+model: claude-4.6-sonnet-medium-thinking
+writeScope:
+  allow:
+    - "**"
+  deny: []
 ---
 
 You are the **Engineer** in the AI SDLC loop — and the **only** role permitted to
@@ -2691,6 +2908,11 @@ description: Use this agent to review the Engineer's change in a fresh,
   approve or request-changes with specific reasons; never edits the code it
   reviews. See "When to invoke" in the body for worked scenarios.
 posture: read-only
+model: claude-4.6-sonnet-medium-thinking
+writeScope:
+  allow: []
+  deny:
+    - "**"
 ---
 
 You are the **Reviewer**. You run in a **fresh context** with **no write access** —
@@ -2747,6 +2969,18 @@ description: Use this agent to independently verify a change by running the test
   modifies files, so the single-writer rule holds. See "When to invoke" in the
   body for worked scenarios.
 posture: read-run
+model: composer-2.5-fast
+writeScope:
+  allow:
+    - "**/test/**"
+    - "**/tests/**"
+    - "**/__tests__/**"
+    - "**/*.{test,spec}.{ts,tsx,js,jsx,py,go,rs,java,rb,php}"
+    - "**/*_test.go"
+    - "**/test_*.py"
+  deny:
+    - "**/src/**"
+    - "**/lib/**"
 ---
 
 You are the **Tester** in the AI SDLC loop. You independently verify that a change
@@ -2923,26 +3157,74 @@ process.exit(0);
   "mcpAllowlist": []
 }
 ",
+  ".cursor/sdlc/autonomy-policy.json": "{
+  "tier": "assistive",
+  "noDelegation": [
+    "deploy-approvals",
+    "history-rewrites",
+    "production-data",
+    "secret-material"
+  ]
+}
+",
   ".cursor/sdlc/role-policy.json": "{
   "architect": {
     "posture": "read-only",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [],
+      "deny": [
+        "**"
+      ]
+    }
   },
   "debugger": {
     "posture": "read-only",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [],
+      "deny": [
+        "**"
+      ]
+    }
   },
   "engineer": {
     "posture": "write",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [
+        "**"
+      ],
+      "deny": []
+    }
   },
   "reviewer": {
     "posture": "read-only",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [],
+      "deny": [
+        "**"
+      ]
+    }
   },
   "tester": {
     "posture": "read-run",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [
+        "**/test/**",
+        "**/tests/**",
+        "**/__tests__/**",
+        "**/*.{test,spec}.{ts,tsx,js,jsx,py,go,rs,java,rb,php}",
+        "**/*_test.go",
+        "**/test_*.py"
+      ],
+      "deny": [
+        "**/src/**",
+        "**/lib/**"
+      ]
+    }
   }
 }
 ",
@@ -3053,6 +3335,52 @@ gap is a runnable **test command** when mining and CI could not infer one.
    test invocation.
 3. Update the overlay; present the diff for human review.
 4. Re-run \`aisdlc maintain\`.
+",
+  ".cursor/skills/compound-learning/SKILL.md": "---
+name: compound-learning
+description: Route a correction to the right instruction surface and record it
+  as an evidence-linked learning. Use when the agent got something wrong and the
+  fix belongs in standards, role guidance, or a domain doc — not in the diff.
+---
+
+# Compound Learning
+
+Route corrections to the **instruction**, not the diff. This skill is the front
+door to the Accepted Learning Ledger compounding loop.
+
+## When to invoke
+
+- The agent repeated a mistake that a rule or doc should prevent.
+- A correction applies globally, to one role, or to one domain module.
+- You want the learning to resurface on future runs touching the same surface.
+
+## Routing surfaces
+
+| Surface | Target | Example |
+| --- | --- | --- |
+| global | Constitution / standards | "Always run tests with \`npm test\`, not \`yarn\`." |
+| role | \`roleAddenda\` / role grounding | "Tester must not skip integration tests for API changes." |
+| domain | \`.sdlc/overlay/domain-docs/<domain>.md\` | "Auth module uses JWT rotation — see \`src/auth/\`." |
+
+## Workflow
+
+1. Capture the correction in one sentence and gather **evidence** (\`file:line\` paths).
+2. Classify the surface (global / role / domain). Use \`--surface\` when ambiguous.
+3. Propose a pending learning — review before accept.
+4. On accept, the entry promotes to \`.sdlc/memory/accepted-learnings.jsonl\` and
+   appears in role guidance and \`aisdlc status\`.
+
+## Rules
+
+- No free-form chat memory — every entry must cite evidence.
+- Do not accept learnings that weaken hard gates or write scopes.
+- Prefer the narrowest surface that fixes the mistake.
+
+## CLI integration
+
+Use the compound-learning helpers in the compiled toolchain to propose, list
+pending, accept, or reject learnings. Pending entries live at
+\`.sdlc/memory/pending-learnings.jsonl\`.
 ",
   ".cursor/skills/compound-learnings/SKILL.md": "---
 name: compound-learnings
@@ -3569,9 +3897,10 @@ tools:
   - Grep
   - Glob
 handoffs:
-  - label: Hand off to Engineer
-    agent: engineer
-    prompt: Implement the plan outlined above.
+  - label: Hand off to Debugger
+    agent: debugger
+    prompt: "Investigate read-only: root cause, evidence (file:line), recommended
+      fix, regression tests."
     send: false
 ---
 
@@ -3630,6 +3959,11 @@ tools:
   - Read
   - Grep
   - Glob
+handoffs:
+  - label: Hand off to Engineer
+    agent: engineer
+    prompt: Implement the plan outlined above.
+    send: false
 ---
 
 You are the **Debugger**. You explore **read-only** — you investigate, you do not
@@ -3659,8 +3993,15 @@ external blocker.
 
 ## Hand off
 
-Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
-files involved, and the test(s) that should prove the fix works.
+Before any fix is delegated, produce an **investigation artifact** (R13):
+
+- **Root cause** — one paragraph, evidence-backed.
+- **Evidence** — \`file:line\`, query results, log excerpts.
+- **Recommended fix** — minimal approach for the Engineer.
+- **Regression tests** — list of tests that should prove the fix.
+
+Give the Engineer a concrete handoff. On Quick track or trivial one-liners, the
+orchestrator may skip this stage when ceremony allows.
 ",
   ".github/agents/engineer.agent.md": "---
 name: engineer
@@ -3727,12 +4068,14 @@ bypass review.
   "note": "Copilot IDE has no pre-tool gate hook. The Approved? gate is enforced via .github/copilot-instructions.md (checklist) + .github/workflows/sdlc-gate.yml (CI). Loop stages use native handoffs in each agent profile's frontmatter; this file documents the full chain. Autonomous wrap-up routes through the Copilot cloud agent.",
   "order": [
     "architect",
+    "investigate",
     "engineer",
     "test",
     "reviewer"
   ],
   "stageAgents": {
     "architect": "architect",
+    "investigate": "debugger",
     "engineer": "engineer",
     "test": "tester",
     "reviewer": "reviewer"
@@ -3740,6 +4083,10 @@ bypass review.
   "handoffs": [
     {
       "from": "architect",
+      "to": "investigate"
+    },
+    {
+      "from": "investigate",
       "to": "engineer"
     },
     {
@@ -4105,6 +4452,52 @@ gap is a runnable **test command** when mining and CI could not infer one.
    test invocation.
 3. Update the overlay; present the diff for human review.
 4. Re-run \`aisdlc maintain\`.
+",
+  ".github/skills/compound-learning/SKILL.md": "---
+name: compound-learning
+description: Route a correction to the right instruction surface and record it
+  as an evidence-linked learning. Use when the agent got something wrong and the
+  fix belongs in standards, role guidance, or a domain doc — not in the diff.
+---
+
+# Compound Learning
+
+Route corrections to the **instruction**, not the diff. This skill is the front
+door to the Accepted Learning Ledger compounding loop.
+
+## When to invoke
+
+- The agent repeated a mistake that a rule or doc should prevent.
+- A correction applies globally, to one role, or to one domain module.
+- You want the learning to resurface on future runs touching the same surface.
+
+## Routing surfaces
+
+| Surface | Target | Example |
+| --- | --- | --- |
+| global | Constitution / standards | "Always run tests with \`npm test\`, not \`yarn\`." |
+| role | \`roleAddenda\` / role grounding | "Tester must not skip integration tests for API changes." |
+| domain | \`.sdlc/overlay/domain-docs/<domain>.md\` | "Auth module uses JWT rotation — see \`src/auth/\`." |
+
+## Workflow
+
+1. Capture the correction in one sentence and gather **evidence** (\`file:line\` paths).
+2. Classify the surface (global / role / domain). Use \`--surface\` when ambiguous.
+3. Propose a pending learning — review before accept.
+4. On accept, the entry promotes to \`.sdlc/memory/accepted-learnings.jsonl\` and
+   appears in role guidance and \`aisdlc status\`.
+
+## Rules
+
+- No free-form chat memory — every entry must cite evidence.
+- Do not accept learnings that weaken hard gates or write scopes.
+- Prefer the narrowest surface that fixes the mistake.
+
+## CLI integration
+
+Use the compound-learning helpers in the compiled toolchain to propose, list
+pending, accept, or reject learnings. Pending entries live at
+\`.sdlc/memory/pending-learnings.jsonl\`.
 ",
   ".github/skills/compound-learnings/SKILL.md": "---
 name: compound-learnings
@@ -4719,8 +5112,15 @@ external blocker.
 
 ## Hand off
 
-Give the Engineer a concrete handoff: the root cause, the minimal fix approach, the
-files involved, and the test(s) that should prove the fix works.
+Before any fix is delegated, produce an **investigation artifact** (R13):
+
+- **Root cause** — one paragraph, evidence-backed.
+- **Evidence** — \`file:line\`, query results, log excerpts.
+- **Recommended fix** — minimal approach for the Engineer.
+- **Regression tests** — list of tests that should prove the fix.
+
+Give the Engineer a concrete handoff. On Quick track or trivial one-liners, the
+orchestrator may skip this stage when ceremony allows.
 ",
   ".kiro/agents/engineer.md": "---
 name: engineer
@@ -5130,23 +5530,61 @@ process.exit(0);
   ".kiro/sdlc/role-policy.json": "{
   "architect": {
     "posture": "read-only",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [],
+      "deny": [
+        "**"
+      ]
+    }
   },
   "debugger": {
     "posture": "read-only",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [],
+      "deny": [
+        "**"
+      ]
+    }
   },
   "engineer": {
     "posture": "write",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [
+        "**"
+      ],
+      "deny": []
+    }
   },
   "reviewer": {
     "posture": "read-only",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [],
+      "deny": [
+        "**"
+      ]
+    }
   },
   "tester": {
     "posture": "read-run",
-    "servers": []
+    "servers": [],
+    "writeScope": {
+      "allow": [
+        "**/test/**",
+        "**/tests/**",
+        "**/__tests__/**",
+        "**/*.{test,spec}.{ts,tsx,js,jsx,py,go,rs,java,rb,php}",
+        "**/*_test.go",
+        "**/test_*.py"
+      ],
+      "deny": [
+        "**/src/**",
+        "**/lib/**"
+      ]
+    }
   }
 }
 ",
@@ -5261,6 +5699,52 @@ gap is a runnable **test command** when mining and CI could not infer one.
    test invocation.
 3. Update the overlay; present the diff for human review.
 4. Re-run \`aisdlc maintain\`.
+",
+  ".kiro/skills/compound-learning/SKILL.md": "---
+name: compound-learning
+description: Route a correction to the right instruction surface and record it
+  as an evidence-linked learning. Use when the agent got something wrong and the
+  fix belongs in standards, role guidance, or a domain doc — not in the diff.
+---
+
+# Compound Learning
+
+Route corrections to the **instruction**, not the diff. This skill is the front
+door to the Accepted Learning Ledger compounding loop.
+
+## When to invoke
+
+- The agent repeated a mistake that a rule or doc should prevent.
+- A correction applies globally, to one role, or to one domain module.
+- You want the learning to resurface on future runs touching the same surface.
+
+## Routing surfaces
+
+| Surface | Target | Example |
+| --- | --- | --- |
+| global | Constitution / standards | "Always run tests with \`npm test\`, not \`yarn\`." |
+| role | \`roleAddenda\` / role grounding | "Tester must not skip integration tests for API changes." |
+| domain | \`.sdlc/overlay/domain-docs/<domain>.md\` | "Auth module uses JWT rotation — see \`src/auth/\`." |
+
+## Workflow
+
+1. Capture the correction in one sentence and gather **evidence** (\`file:line\` paths).
+2. Classify the surface (global / role / domain). Use \`--surface\` when ambiguous.
+3. Propose a pending learning — review before accept.
+4. On accept, the entry promotes to \`.sdlc/memory/accepted-learnings.jsonl\` and
+   appears in role guidance and \`aisdlc status\`.
+
+## Rules
+
+- No free-form chat memory — every entry must cite evidence.
+- Do not accept learnings that weaken hard gates or write scopes.
+- Prefer the narrowest surface that fixes the mistake.
+
+## CLI integration
+
+Use the compound-learning helpers in the compiled toolchain to propose, list
+pending, accept, or reject learnings. Pending entries live at
+\`.sdlc/memory/pending-learnings.jsonl\`.
 ",
   ".kiro/skills/compound-learnings/SKILL.md": "---
 name: compound-learnings
@@ -5774,6 +6258,7 @@ prose.
     ".agents/skills/bench-triage/SKILL.md",
     ".agents/skills/bind-integrations/SKILL.md",
     ".agents/skills/close-gaps/SKILL.md",
+    ".agents/skills/compound-learning/SKILL.md",
     ".agents/skills/compound-learnings/SKILL.md",
     ".agents/skills/customize/SKILL.md",
     ".agents/skills/garden-docs/SKILL.md",
@@ -5795,6 +6280,7 @@ prose.
     ".claude/skills/bench-triage/SKILL.md",
     ".claude/skills/bind-integrations/SKILL.md",
     ".claude/skills/close-gaps/SKILL.md",
+    ".claude/skills/compound-learning/SKILL.md",
     ".claude/skills/compound-learnings/SKILL.md",
     ".claude/skills/customize/SKILL.md",
     ".claude/skills/garden-docs/SKILL.md",
@@ -5818,6 +6304,7 @@ prose.
     ".codex/skills/bench-triage/SKILL.md",
     ".codex/skills/bind-integrations/SKILL.md",
     ".codex/skills/close-gaps/SKILL.md",
+    ".codex/skills/compound-learning/SKILL.md",
     ".codex/skills/compound-learnings/SKILL.md",
     ".codex/skills/customize/SKILL.md",
     ".codex/skills/garden-docs/SKILL.md",
@@ -5838,11 +6325,13 @@ prose.
     ".cursor/hooks/mcp-gate.mjs",
     ".cursor/mcp.json",
     ".cursor/permissions.json",
+    ".cursor/sdlc/autonomy-policy.json",
     ".cursor/sdlc/role-policy.json",
     ".cursor/skills/architecture-grounding/SKILL.md",
     ".cursor/skills/bench-triage/SKILL.md",
     ".cursor/skills/bind-integrations/SKILL.md",
     ".cursor/skills/close-gaps/SKILL.md",
+    ".cursor/skills/compound-learning/SKILL.md",
     ".cursor/skills/compound-learnings/SKILL.md",
     ".cursor/skills/customize/SKILL.md",
     ".cursor/skills/garden-docs/SKILL.md",
@@ -5866,6 +6355,7 @@ prose.
     ".github/skills/bench-triage/SKILL.md",
     ".github/skills/bind-integrations/SKILL.md",
     ".github/skills/close-gaps/SKILL.md",
+    ".github/skills/compound-learning/SKILL.md",
     ".github/skills/compound-learnings/SKILL.md",
     ".github/skills/customize/SKILL.md",
     ".github/skills/garden-docs/SKILL.md",
@@ -5892,6 +6382,7 @@ prose.
     ".kiro/skills/bench-triage/SKILL.md",
     ".kiro/skills/bind-integrations/SKILL.md",
     ".kiro/skills/close-gaps/SKILL.md",
+    ".kiro/skills/compound-learning/SKILL.md",
     ".kiro/skills/compound-learnings/SKILL.md",
     ".kiro/skills/customize/SKILL.md",
     ".kiro/skills/garden-docs/SKILL.md",
@@ -6121,6 +6612,29 @@ Everything below the gates is team-owned and lives in the project overlay:
 - Per-role model overrides.
 - Operating mode (Plugin Mode by default, deterministic as an explicit opt-out).
 - Reviewable generated role guidance.
+- **Autonomy tier** (\`assistive\` / \`drafting\` / \`executing\`) and project-specific
+  no-delegation extensions.
+- Per-role **write scopes** (path glob boundaries compiled to host hooks).
+
+## Autonomy tiers
+
+Projects start at **assistive** tier. Higher tiers require explicit overlay tuning
+and pass through the Approved? gate before unsupervised execution:
+
+| Tier | Meaning |
+| --- | --- |
+| assistive | Agent drafts; human executes mutating actions |
+| drafting | Agent drafts and prepares; human approves before apply |
+| executing | Agent may execute within write scopes after Approved? |
+
+**No-delegation list (always enforced):** production data access, secret material,
+deploy approvals, history rewrites. Overlay may add project-specific categories.
+
+## Generated automation standard
+
+Generated test and CI artifacts must be **deterministic and runnable without an
+LLM in the execution path** — author once, run natively. AI belongs in
+authoring and review, not in the hot loop of test execution.
 
 Plugin Mode policy changes that adapt gates, role postures, or review flow must
 be structured, visible, and validated before adapters emit them. Hidden prose does

@@ -59,18 +59,31 @@ export interface RolePolicyEntry {
   posture: ToolPosture;
   /** MCP server ids this role may call. */
   servers: string[];
+  writeScope?: { allow: string[]; deny: string[] };
 }
 
-/** Role -> {posture, allowed servers}; consumed by hook-based hosts. */
+/** Role -> {posture, allowed servers, writeScope}; consumed by hook-based hosts. */
 export function buildRolePolicy(model: NeutralModel): Record<string, RolePolicyEntry> {
   const policy: Record<string, RolePolicyEntry> = {};
   for (const role of model.roles) {
-    policy[role.frontmatter.name] = {
+    const entry: RolePolicyEntry = {
       posture: role.frontmatter.posture,
       servers: allowedServersForRole(role, model.overlay),
     };
+    if (role.frontmatter.writeScope) {
+      entry.writeScope = role.frontmatter.writeScope;
+    }
+    policy[role.frontmatter.name] = entry;
   }
   return policy;
+}
+
+/** Resolved autonomy policy for hook scripts and status (R1). */
+export function buildAutonomyPolicy(model: NeutralModel): {
+  tier: string;
+  noDelegation: string[];
+} {
+  return model.autonomy ?? { tier: "assistive", noDelegation: [] };
 }
 
 /** Stable JSON for emitted policy/config files (sorted keys, trailing newline). */

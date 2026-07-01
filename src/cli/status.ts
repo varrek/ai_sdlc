@@ -15,6 +15,9 @@ import {
   PROJECT_CONTEXT_FILE,
 } from "../core/loader.js";
 import { stagesForTrack } from "../core/loop.js";
+import { listPendingLearnings } from "../core/compound-learning.js";
+import { resolveAutonomy } from "../core/autonomy.js";
+import { activeReviewLenses } from "../core/review-matrix.js";
 import { acceptedInstructionScopes } from "../core/project-context.js";
 import {
   hasDeterministicArchitectGrounding,
@@ -100,6 +103,16 @@ export interface StatusReport {
     };
     loopLearnings: number;
   };
+  /** Resolved autonomy tier and no-delegation categories (R5). */
+  autonomy: {
+    tier: string;
+    noDelegation: string[];
+  };
+  /** Per-role write-scope enforcement level per host (R5). */
+  writeScopeEnforcement: Record<string, "native" | "instruction" | "ci-backstop">;
+  /** Review lenses that would activate for a sample diff (R5). */
+  reviewLenses: string[];
+  pendingLearnings: number;
 }
 
 export interface StatusOptions {
@@ -200,7 +213,21 @@ export function buildStatus(options: StatusOptions): StatusReport {
     (role) => roleStates[role] !== "generic",
   ).length;
   const track = inspection.overlay.defaultTrack ?? "standard";
-  const expectedStages = stagesForTrack(track).length;
+  const requireInvestigation = inspection.overlay.requireInvestigation ?? false;
+  const expectedStages = stagesForTrack(track, requireInvestigation).length;
+  const baseDir = options.baseDir ?? join(options.repoRoot, "sdlc-base");
+  const sampleLenses = existsSync(join(baseDir, "review-matrix.yaml"))
+    ? activeReviewLenses(["src/auth/login.ts", ".github/workflows/ci.yml"], baseDir)
+    : ["reviewer", "security"];
+  const autonomy = resolveAutonomy(inspection.overlay.autonomy);
+  const writeScopeEnforcement: Record<string, "native" | "instruction" | "ci-backstop"> = {
+    architect: "native",
+    reviewer: "native",
+    debugger: "native",
+    engineer: "native",
+    tester: "instruction",
+  };
+  const pendingLearnings = listPendingLearnings(sdlcDir).length;
   const loopLearnings = filterAcceptedLearningsByKinds(
     acceptedLearnings,
     LOOP_DERIVED_LEARNING_KINDS,
@@ -251,6 +278,10 @@ export function buildStatus(options: StatusOptions): StatusReport {
       behaviorEval,
       loopLearnings,
     },
+    autonomy,
+    writeScopeEnforcement,
+    reviewLenses: sampleLenses,
+    pendingLearnings,
   };
 }
 
@@ -391,6 +422,13 @@ export function formatStatus(report: StatusReport): string {
     for (const claim of report.acceptedLearnings.claims) {
       lines.push(`  - ${claim}`);
     }
+  }
+  lines.push(`Autonomy tier: ${report.autonomy.tier}`);
+  if (report.pendingLearnings > 0) {
+    lines.push(`Pending learnings: ${report.pendingLearnings}`);
+  }
+  if (report.reviewLenses.length > 0) {
+    lines.push(`Review lenses (sample diff): ${report.reviewLenses.join(", ")}`);
   }
 
   lines.push("", "Standards:");

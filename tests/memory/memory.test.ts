@@ -32,9 +32,10 @@ describe("ceremony tracks", () => {
     expect(stages).not.toContain("wrap-up");
   });
 
-  it("Full runs all stages including wrap-up", () => {
+  it("Full runs all stages including wrap-up and investigate", () => {
     expect(stagesForTrack("full")).toEqual([
       "architect",
+      "investigate",
       "engineer",
       "test",
       "reviewer",
@@ -45,6 +46,7 @@ describe("ceremony tracks", () => {
   it("Standard plans + reviews but skips wrap-up", () => {
     const stages = stagesForTrack("standard");
     expect(stages).toContain("architect");
+    expect(stages).toContain("investigate");
     expect(stages).not.toContain("wrap-up");
   });
 });
