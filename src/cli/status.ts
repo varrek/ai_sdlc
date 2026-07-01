@@ -20,7 +20,10 @@ import { resolveAutonomy } from "../core/autonomy.js";
 import { activeReviewLenses } from "../core/review-matrix.js";
 import { acceptedInstructionScopes } from "../core/project-context.js";
 import {
+  hasDeterministicArchitectGrounding,
+  hasDeterministicDebuggerGrounding,
   hasDeterministicEngineerGrounding,
+  hasDeterministicReviewerGrounding,
   hasDeterministicTesterGrounding,
   SETUP_GROUNDING_LEARNINGS_BY_ROLE,
 } from "../core/role-grounding.js";
@@ -31,6 +34,7 @@ import {
   evidenceCoverage,
   evidenceQuality,
 } from "../customize/emitters.js";
+import { buildTemplateRoleAddenda } from "../customize/role-addenda-templates.js";
 import { readSetupState, type SetupPhase } from "../customize/setup-state.js";
 import {
   readLoopBehaviorEvalState,
@@ -119,11 +123,13 @@ export interface StatusOptions {
   packDirs?: string[];
   outDir?: string;
   hosts?: HostId[];
+  /** When true, re-mine the repo instead of using the persisted mined snapshot. */
+  refresh?: boolean;
 }
 
 /** Read-only: derive the four strategy metrics for the current repo. Never writes. */
 export function buildStatus(options: StatusOptions): StatusReport {
-  const inspection = inspectRepo(options);
+  const inspection = inspectRepo({ ...options, refresh: options.refresh });
   const overlayDir = options.overlayDir ?? join(options.repoRoot, ".sdlc", "overlay");
   const sdlcDir = options.sdlcDir ?? dirname(overlayDir);
   const overlayPath = join(overlayDir, ".customize.yaml");
@@ -168,26 +174,40 @@ export function buildStatus(options: StatusOptions): StatusReport {
   const groundingInput = { overlay: inspection.overlay, projectContext };
   const engineerDeterministic = hasDeterministicEngineerGrounding(groundingInput);
   const testerDeterministic = hasDeterministicTesterGrounding(groundingInput);
+  const architectDeterministic = hasDeterministicArchitectGrounding(groundingInput);
+  const reviewerDeterministic = hasDeterministicReviewerGrounding(groundingInput);
+  const debuggerDeterministic = hasDeterministicDebuggerGrounding(groundingInput);
   const acceptedLearnings = readAcceptedLearnings(sdlcDir);
+  const templateAddenda = buildTemplateRoleAddenda(
+    inspection.profile,
+    projectContext,
+    inspection.overlay.interviewAnswers,
+    inspection.overlay.gapClosureProvenance,
+  );
+  const hasUserAuthoredAddendum = (role: string): boolean => {
+    const text = inspection.overlay.roleAddenda[role]?.trim();
+    if (!text) return false;
+    return text !== templateAddenda[role as keyof typeof templateAddenda];
+  };
   const roleStates = {
     architect: roleState(
-      archConfidence === "high" || hasRelevantLearning(acceptedLearnings, "architect"),
-      Boolean(inspection.overlay.roleAddenda.architect),
+      architectDeterministic || hasRelevantLearning(acceptedLearnings, "architect"),
+      hasUserAuthoredAddendum("architect"),
     ),
-    engineer: roleState(engineerDeterministic, Boolean(inspection.overlay.roleAddenda.engineer)),
+    engineer: roleState(engineerDeterministic, hasUserAuthoredAddendum("engineer")),
     tester: roleState(
       testerDeterministic || hasRelevantLearning(acceptedLearnings, "tester"),
-      Boolean(inspection.overlay.roleAddenda.tester),
+      hasUserAuthoredAddendum("tester"),
     ),
     reviewer: roleState(
-      hasRelevantLearning(acceptedLearnings, "reviewer"),
-      Boolean(inspection.overlay.roleAddenda.reviewer),
+      reviewerDeterministic || hasRelevantLearning(acceptedLearnings, "reviewer"),
+      hasUserAuthoredAddendum("reviewer"),
     ),
-    debugger: roleState(false, Boolean(inspection.overlay.roleAddenda.debugger)),
+    debugger: roleState(debuggerDeterministic, hasUserAuthoredAddendum("debugger")),
   };
   const totalRoles = Object.keys(roleStates).length;
   const groundedRoles = Object.values(roleStates).filter((state) => state !== "generic").length;
-  const groundableRoleNames = ["architect", "engineer", "tester", "reviewer"] as const;
+  const groundableRoleNames = ["architect", "engineer", "tester", "reviewer", "debugger"] as const;
   const groundableRoles = groundableRoleNames.length;
   const groundedGroundableRoles = groundableRoleNames.filter(
     (role) => roleStates[role] !== "generic",

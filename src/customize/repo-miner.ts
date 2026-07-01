@@ -1,42 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
-
-/** Directories never mined — vendored deps, virtualenvs, caches, build output, SDLC state. */
-const IGNORE_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "venv",
-  ".venv",
-  "env",
-  "__pycache__",
-  ".mypy_cache",
-  ".pytest_cache",
-  ".ruff_cache",
-  "dist",
-  "build",
-  ".next",
-  "coverage",
-  ".tox",
-  // Agent-host config dirs: emitted by the compiler (constitution skills/agents/
-  // hooks) or pre-existing host setup, never user source. Excluded so a re-mine
-  // after an in-repo compile stays stable — including when a host dir symlinks
-  // into a generated skills tree (e.g. `.codex/skills` -> the emitted skills).
-  // See isGeneratedArtifact for the file-level companions (AGENTS.md, …).
-  ".claude",
-  ".cursor",
-  ".codex",
-  ".kiro",
-  ".windsurf",
-  ".aider",
-  ".agents",
-  // SDLC phase cache + overlay + logs: state, never user source. Skipping it
-  // also makes the emitted-config exclusion below the single source of truth.
-  ".sdlc",
-]);
-
-const WALK_DEPTH = 8;
+import { readEmittedPaths, walk } from "./miner-walk.js";
 
 /** Observable architecture: the source module map + entrypoints (never inferred layering). */
 export interface Architecture {
@@ -122,6 +88,8 @@ export interface MineOptions {
    * when mining a single package in isolation to avoid infinite recursion.
    */
   detectPackages?: boolean;
+  /** When set, skip the directory walk and mine from this repo-relative inventory. */
+  prefetchedRelativeFiles?: string[];
 }
 
 /** Top-level dirs that are not source modules — excluded from the architecture map. */
@@ -161,92 +129,6 @@ function isLowValueRoot(seg: string): boolean {
   return (
     LOW_VALUE_ROOTS.has(seg) || /^docs?[_-]/.test(seg) || /[_-](demo|example|fixture)s?$/.test(seg)
   );
-}
-
-function walk(root: string, excluded: ReadonlySet<string>): string[] {
-  const out: string[] = [];
-  const visit = (dir: string, depth: number): void => {
-    let entries: string[];
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      return;
-    }
-    for (const name of entries) {
-      if (IGNORE_DIRS.has(name)) continue;
-      const abs = join(dir, name);
-      let st;
-      try {
-        st = statSync(abs);
-      } catch {
-        continue;
-      }
-      if (st.isDirectory()) {
-        if (depth < WALK_DEPTH) visit(abs, depth + 1);
-      } else {
-        const rel = relative(root, abs);
-        // Never mine our own generated config: otherwise a re-run after compile
-        // would scan the emitted `.claude/`, `.cursor/`, `AGENTS.md`, etc. as if
-        // they were repo source — corrupting language/track detection and
-        // breaking the mined-phase fingerprint (and thus freshness/idempotency).
-        // The static `isGeneratedArtifact` check covers files the compiler may
-        // overwrite in place (a pre-existing `AGENTS.md`), which `excluded`
-        // (the emitted manifest) cannot make symmetric across the first compile.
-        if (excluded.has(rel) || isGeneratedArtifact(rel)) continue;
-        out.push(rel);
-      }
-    }
-  };
-  visit(root, 0);
-  return out.sort();
-}
-
-/**
- * Files the compiler emits into the repo's own namespace (the constitution, host
- * instruction files, generated agents/skills/hooks, the SDLC gate workflow).
- * Unlike the rest of `.github/`, these collide with paths a user may already
- * own — compile overwrites a pre-existing `AGENTS.md` in place — so the
- * `emitted.json` manifest alone can't keep mining stable: the first compile
- * would turn a counted source file into an excluded one, shifting the mined
- * fingerprint. Excluding the whole generated namespace unconditionally makes a
- * re-mine after an in-repo compile a true no-op. Real user workflows under
- * `.github/workflows/` (minus our own gate) are deliberately still mined.
- */
-function isGeneratedArtifact(rel: string): boolean {
-  const base = rel.slice(rel.lastIndexOf("/") + 1);
-  if (base === "AGENTS.md" || base === "CLAUDE.md") return true;
-  if (rel === ".mcp.json" || rel === ".vscode/mcp.json" || rel === "portability.gap.yml")
-    return true;
-  if (rel === ".github/copilot-instructions.md") return true;
-  if (rel === ".github/workflows/sdlc-gate.yml") return true;
-  return (
-    rel.startsWith(".cursor/rules/") ||
-    rel.startsWith(".github/agents/") ||
-    rel.startsWith(".github/skills/") ||
-    rel.startsWith(".github/hooks/") ||
-    rel.startsWith(".github/instructions/") ||
-    rel.startsWith(".kiro/")
-  );
-}
-
-/**
- * Paths the compiler emitted on a prior run, read from the `.sdlc/emitted.json`
- * manifest. Empty before the first compile. These are excluded from mining so
- * generated config never feeds back into the repo profile, while user-authored
- * files in the same standard dirs (e.g. real `.github/workflows/*`) are kept.
- */
-function readEmittedPaths(root: string): Set<string> {
-  try {
-    const parsed = JSON.parse(readFileSync(join(root, ".sdlc", "emitted.json"), "utf8")) as {
-      files?: unknown;
-    };
-    if (Array.isArray(parsed.files)) {
-      return new Set(parsed.files.filter((p): p is string => typeof p === "string"));
-    }
-  } catch {
-    /* no manifest yet (pre-first-compile) — nothing to exclude */
-  }
-  return new Set();
 }
 
 function read(root: string, rel: string): string {
@@ -570,7 +452,7 @@ function mineConventions(
  * downstream artifacts are evidence-backed.
  */
 export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
-  const files = walk(root, readEmittedPaths(root));
+  const files = options.prefetchedRelativeFiles ?? walk(root, readEmittedPaths(root));
   const fileSet = new Set(files);
   const evidence: Record<string, string[]> = {};
 
@@ -606,6 +488,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     else if (ext === ".java") bumpLang("java");
     else if (ext === ".kt" || ext === ".kts") bumpLang("kotlin");
     else if (ext === ".rb") bumpLang("ruby");
+    else if (ext === ".php") bumpLang("php");
     else if (ext === ".cs" || ext === ".fs" || ext === ".vb") bumpLang("csharp");
   }
   const LANG_SHARE_FLOOR = 0.05;
@@ -630,6 +513,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     "build.gradle.kts",
     "settings.gradle.kts",
     "Gemfile",
+    "composer.json",
     "global.json",
   ];
   for (const m of ROOT_MANIFESTS) {
@@ -898,6 +782,40 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
     }
   }
 
+  // ---- PHP signals ----
+  const composerJson = read(root, "composer.json");
+  const phpunitConfig = fileSet.has("phpunit.xml.dist")
+    ? "phpunit.xml.dist"
+    : fileSet.has("phpunit.xml")
+      ? "phpunit.xml"
+      : files.find((f) => f.endsWith("phpunit.xml.dist") || f.endsWith("phpunit.xml"));
+  if (fileSet.has("composer.json")) {
+    languages.add("php");
+    packageManagers.add("composer");
+    addEvidence(evidence, "php", "composer.json");
+    const composer = safeJson(composerJson);
+    const composerDeps = {
+      ...((composer.require ?? {}) as Record<string, string>),
+      ...((composer["require-dev"] ?? {}) as Record<string, string>),
+    };
+    const phpunitNamed =
+      "phpunit/phpunit" in composerDeps ||
+      /phpunit\/phpunit/.test(composerJson) ||
+      Boolean(phpunitConfig);
+    if (phpunitNamed) {
+      testRunner = testRunner ?? "phpunit";
+      addEvidence(
+        evidence,
+        "test-runner:phpunit",
+        typeof phpunitConfig === "string" ? phpunitConfig : "composer.json",
+      );
+    }
+    if (/laravel\/framework/.test(composerJson)) {
+      frameworks.add("laravel");
+      addEvidence(evidence, "framework:laravel", "composer.json");
+    }
+  }
+
   // ---- .NET signals ----
   const csprojPath = files.find((f) => f.endsWith(".csproj") || f.endsWith(".fsproj"));
   const csproj = csprojPath ? read(root, csprojPath) : "";
@@ -1001,7 +919,7 @@ export function mineRepo(root: string, options: MineOptions = {}): RepoProfile {
   let packages: PackageProfile[] | undefined;
   if (options.detectPackages !== false) {
     const pkgDirs = detectWorkspacePackages(root, files, fileSet);
-    if (pkgDirs.length >= 2) packages = pkgDirs.map((dir) => minePackage(root, dir));
+    if (pkgDirs.length >= 2) packages = pkgDirs.map((dir) => minePackage(root, dir, files));
   }
 
   return {
@@ -1196,8 +1114,15 @@ function globToRegExp(glob: string): RegExp {
  * directory (without package detection, to avoid recursion), then re-prefixing
  * its evidence paths so they remain repo-relative.
  */
-function minePackage(root: string, pkgDir: string): PackageProfile {
-  const sub = mineRepo(join(root, pkgDir), { detectPackages: false });
+function minePackage(root: string, pkgDir: string, repoFiles: string[]): PackageProfile {
+  const prefix = `${pkgDir}/`;
+  const subFiles = repoFiles
+    .filter((file) => file.startsWith(prefix))
+    .map((file) => file.slice(prefix.length));
+  const sub = mineRepo(join(root, pkgDir), {
+    detectPackages: false,
+    prefetchedRelativeFiles: subFiles,
+  });
   const evidence: Record<string, string[]> = {};
   for (const [claim, paths] of Object.entries(sub.evidence)) {
     // Git-derived evidence (commit subjects) has no repo path to prefix.
@@ -1262,7 +1187,7 @@ function safeJson(text: string): Record<string, unknown> {
 
 /** Matches the runnable invocation of a common unit-test runner inside a shell line. */
 const TEST_TOOL =
-  /(^|\s)(pytest|vitest|jest|tox|mocha)\b|(npm|yarn|pnpm)\s+(run\s+)?test\b|\bgo\s+test\b|\bcargo\s+test\b|\bmvn\s+test\b|\b(?:\.\/)?gradlew?\s+test\b|\bbundle\s+exec\s+(rspec|rake)\b|\bdotnet\s+test\b|\bmake\s+test\b/;
+  /(^|\s)(pytest|vitest|jest|tox|mocha|phpunit)\b|(npm|yarn|pnpm)\s+(run\s+)?test\b|\bgo\s+test\b|\bcargo\s+test\b|\bmvn\s+test\b|\b(?:\.\/)?gradlew?\s+test\b|\bbundle\s+exec\s+(rspec|rake)\b|\bdotnet\s+test\b|\bmake\s+test\b|\bvendor\/bin\/phpunit\b/;
 
 /** Playwright / Cypress config filenames at repo root or nested paths. */
 const PLAYWRIGHT_CONFIG = /^playwright\.config\.(ts|js|mjs|cjs)$/;
@@ -1310,7 +1235,7 @@ interface TestCommandSignals {
 }
 
 /** The language toolchain a test command belongs to, or `undefined` if neutral. */
-type Ecosystem = "js" | "python" | "go" | "rust" | "jvm" | "ruby" | "dotnet" | undefined;
+type Ecosystem = "js" | "python" | "go" | "rust" | "jvm" | "ruby" | "dotnet" | "php" | undefined;
 
 /** Below this extension share a language is a minority — its test command can't be the suite. */
 const LANG_PRIMARY_FLOOR = 0.15;
@@ -1323,6 +1248,7 @@ function commandEcosystem(command: string): Ecosystem {
   if (/\b(mvn|gradle|gradlew)\b/.test(c)) return "jvm";
   if (/\b(rspec|minitest|bundle\s+exec)\b/.test(c) || /\brake\s+test\b/.test(c)) return "ruby";
   if (/\bdotnet\s+test\b/.test(c)) return "dotnet";
+  if (/\b(vendor\/bin\/phpunit|phpunit)\b/.test(c)) return "php";
   if (/\b(pytest|tox|nox)\b/.test(c) || /\bpython3?\s+-m\b/.test(c) || /\buv\s+run\b/.test(c)) {
     return "python";
   }
@@ -1364,6 +1290,8 @@ function ecosystemAllowed(
       return share("ruby") >= LANG_PRIMARY_FLOOR;
     case "dotnet":
       return share("csharp") >= LANG_PRIMARY_FLOOR;
+    case "php":
+      return share("php") >= LANG_PRIMARY_FLOOR;
     default:
       return true;
   }
@@ -1607,6 +1535,11 @@ function runnerDefaultEvidence(signals: TestCommandSignals): string {
   }
   if (signals.testRunner === "rspec" && signals.fileSet.has("Gemfile")) return "Gemfile";
   if (signals.testRunner === "minitest" && signals.fileSet.has("Gemfile")) return "Gemfile";
+  if (signals.testRunner === "phpunit") {
+    if (signals.fileSet.has("phpunit.xml.dist")) return "phpunit.xml.dist";
+    if (signals.fileSet.has("phpunit.xml")) return "phpunit.xml";
+    if (signals.fileSet.has("composer.json")) return "composer.json";
+  }
   if (signals.testRunner === "dotnet" && signals.csprojPath) return signals.csprojPath;
   if (signals.testRunner === "dotnet" && signals.dotnetBuildScript)
     return signals.dotnetBuildScript.evidence;
@@ -1651,6 +1584,8 @@ function runnerDefaultCommand(
     case "dotnet":
       if (signals.dotnetBuildScript) return signals.dotnetBuildScript.command;
       return "dotnet test";
+    case "phpunit":
+      return "vendor/bin/phpunit";
     default:
       return undefined;
   }
@@ -1772,5 +1707,3 @@ function testCommandFromMakefile(makefile: string): string | undefined {
   }
   return undefined;
 }
-
-export { IGNORE_DIRS };

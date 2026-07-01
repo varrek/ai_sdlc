@@ -69,6 +69,21 @@ function runtimeSetupSteps(testCommand: string): string {
   return "";
 }
 
+function yamlWorkflowRunStep(testCommand: string): string {
+  const singleLineSafe =
+    !testCommand.includes("\n") &&
+    !/[:#'"\\]|^\s|^-/.test(testCommand) &&
+    testCommand.trim().length > 0;
+  if (singleLineSafe) {
+    return `        run: ${testCommand}\n`;
+  }
+  const body = testCommand
+    .split("\n")
+    .map((line) => `          ${line}`)
+    .join("\n");
+  return `        run: |\n${body}\n`;
+}
+
 /**
  * The CI tests-pass gate. When the overlay carries a mined/answered test command
  * we run it for real (this is the only tests gate on the Copilot IDE path);
@@ -87,7 +102,7 @@ function buildCiWorkflow(model: NeutralModel): string {
     CI_WORKFLOW_HEADER +
     (setup ? `${setup}\n` : "") +
     "      - name: Tests must pass\n" +
-    `        run: ${testCommand}\n`
+    yamlWorkflowRunStep(testCommand)
   );
 }
 

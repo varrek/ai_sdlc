@@ -60,7 +60,16 @@ export const DEFAULT_CACHE_DIR = ".verify/repos";
 export const DEFAULT_REPORT_DIR = ".verify/reports";
 
 export function runBench(options: BenchOptions): BenchResult {
-  const catalog = readExternalRepoCatalog(options.catalogPath);
+  let catalog: ExternalRepoCatalog;
+  try {
+    catalog = readExternalRepoCatalog(options.catalogPath);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      output: `aisdlc bench catalog error: ${message}`,
+      exitCode: 1,
+    };
+  }
   const selection = selectExternalRepos(catalog, options.seed, options.count);
 
   if (options.dryRun) {

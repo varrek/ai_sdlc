@@ -116,12 +116,17 @@ hood.
 | Command | What it does |
 | --- | --- |
 | `aisdlc setup` | Run `customize`, `compile`, and `smoke` as one native target-repo setup chain. |
+| `aisdlc maintain` | Run `customize`, `compile`, `smoke`, and `garden`; write `.sdlc/maintenance-report.json` and list host skills to invoke next. |
 | `aisdlc customize` | Mine the current repo, build the standards index, and write the project overlay. |
 | `aisdlc compile` | Compile the host-neutral base (+ overlay) to host-native config. |
 | `aisdlc smoke` | Run the smoke validation gate and report setup-readiness. |
+| `aisdlc status` | Read-only setup report (uses cached mined snapshot unless `--refresh`). |
+| `aisdlc explain` | Explain a numbered standard or claim key with evidence pointers. |
+| `aisdlc record-event` | Append a validated loop trace event (used by emitted gate hooks). |
 | `aisdlc upgrade` | Re-pin the base and replay compile, flagging overlay conflicts. |
 | `aisdlc gen-matrix` | Regenerate `docs/capability-matrix.md` from adapter capabilities. |
 | `aisdlc bench` | Run a reproducible external-repo setup evaluation from the pinned catalog. |
+| `aisdlc garden` | Run deterministic doc fixes, write `.sdlc/doc-gardening-report.json`, and hand off judgment findings to the `garden-docs` skill. |
 | `aisdlc garden-docs` | Report stale or noisy agent-facing docs for continuous doc gardening. |
 | `aisdlc help` | Show usage. |
 
@@ -130,19 +135,27 @@ Common flags:
 - `setup`: `--repo <dir>` (default: cwd), `--base <dir>`, `--packs <dir,dir>`,
   `--hosts cursor,claude-code,copilot,codex,kiro`, `--mode plugin|deterministic`,
   `--force`
+- `maintain`: same flags as `setup`, plus `--bench`, `--bench-seed <n>`,
+  `--bench-count <n>` (optional external corpus eval after the core chain)
 - `customize`: `--repo <dir>` (default: cwd), `--answers-file <file>`,
-  `--mode plugin|deterministic` (default: plugin), `--force`
+  `--mode plugin|deterministic` (default: plugin), `--force` (bypass freshness and
+  mined snapshot cache; use after in-place file edits that do not add/remove paths)
 - `compile`: `--base <dir>` (default: bundled `sdlc-base/`, with source-checkout
   fallback to `./sdlc-base`), `--packs <dir,dir>`, `--out <dir>` (required), `--overlay <file>`,
   `--hosts cursor,claude-code,copilot,codex,kiro`, `--force`
 - `smoke`: `--repo <dir>`, `--config <dir>`, `--packs <dir,dir>`,
   `--overlay <file>`, `--compile`
+- `status`: `--repo <dir>`, `--overlay-dir <dir>`, `--sdlc-dir <dir>`,
+  `--base <dir>`, `--packs <dir,dir>`, `--out <dir>`, `--hosts <host,host>`,
+  `--refresh` (re-mine instead of using `.sdlc/overlay/.mined-snapshot.json`)
 - `bench`: `--seed <n>`, `--count <n>`, `--catalog <file>`,
   `--cache-dir <dir>`, `--report-dir <dir>`, `--base <dir>`,
   `--mode deterministic|plugin`, `--dry-run`, `--skip-clone`, `--force`,
   `--repo-timeout-ms <n>`, `--fail-on-class <class,class>`
+- `garden`: `--repo <dir>`, `--config <dir>`, `--overlay <file>`,
+  `--overlay-dir <dir>`, `--fail-on warning|error`
 - `garden-docs`: `--repo <dir>`, `--config <dir>`, `--overlay <file>`,
-  `--overlay-dir <dir>`, `--format text|json`, `--write-report`,
+  `--overlay-dir <dir>`, `--format text|json`, `--write-report`, `--fix`,
   `--fail-on warning|error`
 
 `bench` clones only pinned public repos into `.verify/repos/` and writes reports
@@ -195,11 +208,59 @@ git-ignored by default.
 
 `aisdlc garden-docs` checks the repo's agent-facing docs for issues that make
 large codebases harder for agents to navigate: bloated root instruction files,
-broken local markdown links, missing codebase-map pointers, and stale generated
-capability matrix content. By default it reports findings without changing docs
-or failing the command; use `--fail-on warning` or `--fail-on error` for CI, and
-`--write-report` to write `.sdlc/doc-gardening-report.json` plus a markdown
-summary.
+broken local markdown links, missing codebase-map pointers, hierarchy scope gaps,
+Codex instruction-chain budget warnings, and stale generated capability matrix
+content.
+
+**Full workflow (recommended):**
+
+```bash
+npm run garden          # or: aisdlc garden --repo .
+```
+
+`aisdlc garden` applies safe deterministic repairs (regenerate
+`docs/capability-matrix.md`, append mined codebase-map sections), writes
+`.sdlc/doc-gardening-report.json`, and tells you when to invoke the compiled
+`garden-docs` skill for judgment-heavy fixes (broken links, root bloat).
+
+**Report-only / CI:**
+
+```bash
+aisdlc garden-docs --write-report --fail-on warning   # CI gate, no edits
+aisdlc garden-docs --fix --write-report               # mechanical fixes only
+```
+
+After `aisdlc garden`, use the host skill `/garden-docs` (see
+`sdlc-base/skills/garden-docs/SKILL.md`) to repair remaining findings with the
+host model, then re-run `aisdlc garden` to verify.
+
+## Project maintenance
+
+For ongoing health after initial setup, run the full deterministic chain and get
+structured skill handoffs for judgment-heavy follow-ups:
+
+```bash
+npm run maintain          # or: aisdlc maintain --repo .
+```
+
+`aisdlc maintain` runs **customize → compile → smoke → garden**, then writes
+`.sdlc/maintenance-report.json` listing which host skills to invoke next:
+
+| Skill | When |
+| --- | --- |
+| `close-gaps` | Blocking setup gaps (e.g. missing test command) |
+| `resolve-upgrade` | `upgrade-conflicts.yml` present |
+| `setup-triage` | Not setup-ready after the chain |
+| `review-standards-drift` | Standards index drift on re-mining |
+| `bind-integrations` | Invoke manually before wrap-up when GitLab/Jira MCP is needed |
+| `compound-learnings` | New accepted learnings to review |
+| `pack-workflows` | Invoke manually when using `--packs` and pack-local ceremony applies |
+| `bench-triage` | When maintain was run with `--bench` and eval failed |
+| `architecture-grounding` | Low architecture confidence or generic role grounding |
+| `garden-docs` | Doc findings needing host-agent edits |
+
+Invoke listed skills in order, then re-run `aisdlc maintain` until the report
+shows no handoffs.
 
 ## Default Plugin Mode
 

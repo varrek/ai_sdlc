@@ -92,6 +92,22 @@ describe("gate emit", () => {
     expect(workflow).toContain("Run the project test command here");
   });
 
+  it("copilot CI emits block scalars for multiline test commands", () => {
+    const m = makeModel({
+      roles: [makeRole("engineer", "write", [])],
+      overlay: Overlay.parse({
+        version: 1,
+        interviewAnswers: { "test-command": "make test\nmake lint" },
+      }),
+    });
+    const workflow = byPath(new CopilotAdapter().emit(m).files).get(
+      ".github/workflows/sdlc-gate.yml",
+    )!;
+    expect(workflow).toContain("run: |");
+    expect(workflow).toContain("make test");
+    expect(workflow).toContain("make lint");
+  });
+
   it("codex emits PreToolUse hooks in config.toml and role policy", () => {
     const result = new CodexAdapter().emit(model);
     const files = byPath(result.files);
@@ -135,7 +151,6 @@ describe("gate emit", () => {
       expect.arrayContaining(["approved-gate-hook", "per-role-hook-policy"]),
     );
   });
-
 
   it("copilot omits the CI workflow under gateMode: instructions", () => {
     const instructionsModel = makeModel({
@@ -306,6 +321,17 @@ describe("cursor MCP gate runtime (fail-closed least-privilege)", () => {
     const s = install(null);
     expect(run(s, { role: "ghost", server_name: "gitlab-prod" })).toBe(0);
   });
+
+  it("fails closed when the policy file exists but is malformed", () => {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-mcpgate-"));
+    const files = byPath(new CursorAdapter().emit(model).files);
+    const scriptRel = ".cursor/hooks/mcp-gate.mjs";
+    mkdirSync(join(dir, ".cursor", "hooks"), { recursive: true });
+    writeFileSync(join(dir, scriptRel), files.get(scriptRel)!);
+    mkdirSync(join(dir, ".cursor", "sdlc"), { recursive: true });
+    writeFileSync(join(dir, ".cursor", "sdlc", "role-policy.json"), "{not-json");
+    expect(run(join(dir, scriptRel), { role: "engineer", server_name: "gitlab-prod" })).toBe(2);
+  });
 });
 
 describe("codex MCP gate runtime (fail-closed least-privilege)", () => {
@@ -364,6 +390,19 @@ describe("codex MCP gate runtime (fail-closed least-privilege)", () => {
     const s = install(null);
     expect(run(s, { agent_type: "ghost", tool_name: "mcp__gitlab-prod__do_thing" })).toBe(0);
   });
+
+  it("fails closed when the policy file exists but is malformed", () => {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-codex-mcpgate-"));
+    const files = byPath(new CodexAdapter().emit(model).files);
+    const scriptRel = ".codex/hooks/mcp-gate.mjs";
+    mkdirSync(join(dir, ".codex", "hooks"), { recursive: true });
+    writeFileSync(join(dir, scriptRel), files.get(scriptRel)!);
+    mkdirSync(join(dir, ".codex", "sdlc"), { recursive: true });
+    writeFileSync(join(dir, ".codex/sdlc/role-policy.json"), "{not-json");
+    expect(
+      run(join(dir, scriptRel), { agent_type: "engineer", tool_name: "mcp__gitlab-prod__x" }),
+    ).toBe(2);
+  });
 });
 
 describe("kiro gates runtime (fail-closed least-privilege)", () => {
@@ -406,8 +445,9 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("allows a known role calling a server it is permitted to reach", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" }))
-      .toBe(0);
+    expect(
+      run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" }),
+    ).toBe(0);
   });
 
   it("allows MCP calls using SDLC_ACTIVE_ROLE when Kiro payload has no role field", () => {
@@ -423,22 +463,26 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("prefers SDLC_ACTIVE_ROLE over speculative payload role aliases", () => {
     const s = install(".kiro/hooks/tool-gate.mjs", policy);
-    expect(run(s, { agent: "engineer", tool_name: "fs_write" }, { SDLC_ACTIVE_ROLE: "reviewer" }))
-      .toBe(2);
+    expect(
+      run(s, { agent: "engineer", tool_name: "fs_write" }, { SDLC_ACTIVE_ROLE: "reviewer" }),
+    ).toBe(2);
   });
 
   it("parses Codex-style MCP names defensively when Kiro reports them", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { tool_name: "mcp__gitlab-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }))
-      .toBe(0);
-    expect(run(s, { tool_name: "mcp__jira-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }))
-      .toBe(2);
+    expect(
+      run(s, { tool_name: "mcp__gitlab-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }),
+    ).toBe(0);
+    expect(
+      run(s, { tool_name: "mcp__jira-prod__do_thing" }, { SDLC_ACTIVE_ROLE: "engineer" }),
+    ).toBe(2);
   });
 
   it("denies a known role calling a server outside its allowlist", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { tool_name: "@jira-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" }))
-      .toBe(2);
+    expect(run(s, { tool_name: "@jira-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(
+      2,
+    );
   });
 
   it("denies (fail-closed) when the active role is missing", () => {
@@ -448,14 +492,32 @@ describe("kiro gates runtime (fail-closed least-privilege)", () => {
 
   it("denies (fail-closed) when the role is unknown to the policy", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
-    expect(run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "ghost" }))
-      .toBe(2);
+    expect(run(s, { tool_name: "@gitlab-prod/create_issue" }, { SDLC_ACTIVE_ROLE: "ghost" })).toBe(
+      2,
+    );
   });
 
   it("denies malformed MCP tool names when a policy exists", () => {
     const s = install(".kiro/hooks/mcp-gate.mjs", policy);
     expect(run(s, { tool_name: "@" }, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(2);
     expect(run(s, {}, { SDLC_ACTIVE_ROLE: "engineer" })).toBe(2);
+  });
+
+  it("fails closed when the MCP policy file exists but is malformed", () => {
+    dir = mkdtempSync(join(tmpdir(), "aisdlc-kiro-gate-"));
+    mkdirSync(join(dir, ".kiro", "hooks"), { recursive: true });
+    writeFileSync(join(dir, ".kiro/hooks/mcp-gate.mjs"), files.get(".kiro/hooks/mcp-gate.mjs")!);
+    mkdirSync(join(dir, ".kiro", "sdlc"), { recursive: true });
+    writeFileSync(join(dir, ".kiro/sdlc/role-policy.json"), "{not-json");
+    expect(
+      run(
+        join(dir, ".kiro/hooks/mcp-gate.mjs"),
+        { tool_name: "@gitlab-prod/x" },
+        {
+          SDLC_ACTIVE_ROLE: "engineer",
+        },
+      ),
+    ).toBe(2);
   });
 
   it("is inert when no MCP policy file is present", () => {

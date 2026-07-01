@@ -66,7 +66,7 @@ export function runCompileCli(options: CompileCliOptions): CompileCliResult {
 }
 
 /** Pure compile (no phase recording), reused by the smoke `--compile` path and tests. */
-export function runCompile(options: CompileCliOptions): CompileResult {
+function runCompile(options: CompileCliOptions): CompileResult {
   const base = loadBase(options.baseDir, options.packDirs);
   const overlay = loadOverlay(options.overlayPath);
   const projectContext = loadProjectContext(projectContextPathFor(options.overlayPath));

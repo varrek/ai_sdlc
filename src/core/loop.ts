@@ -10,6 +10,15 @@ export type LoopStage =
   | "reviewer"
   | "wrap-up";
 
+/** Stages accepted by emitted Approved? gate scripts when recording checkpoints. */
+export const APPROVAL_GATE_STAGES: readonly LoopStage[] = [
+  "architect",
+  "engineer",
+  "test",
+  "reviewer",
+  "wrap-up",
+];
+
 /**
  * Which role performs each loop stage. The wrap-up stage is not a distinct role:
  * it is performed by the Engineer (the single writer, the only role holding the

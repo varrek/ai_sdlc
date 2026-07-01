@@ -68,6 +68,34 @@ describe("status", () => {
     expect(report.loopQuality.groundedRoles).toBeGreaterThanOrEqual(2);
   });
 
+  it("reports deterministic reviewer and debugger grounding on go-app", () => {
+    const work = tmpWork("go-app");
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+
+    expect(report.roleStates.architect).toBe("deterministic");
+    expect(report.roleStates.reviewer).toBe("deterministic");
+    expect(report.roleStates.debugger).toBe("deterministic");
+    expect(report.loopQuality.groundableRoles).toBe(5);
+    expect(formatStatus(report)).toContain("reviewer=deterministic");
+    expect(formatStatus(report)).toContain("debugger=deterministic");
+  });
+
+  it("reports standards-based architect grounding when architecture confidence is low", () => {
+    const work = tmpWork("ci-repo");
+    const overlayDir = join(work, ".sdlc", "overlay");
+    runCustomize({ repoRoot: work, overlayDir });
+
+    const report = buildStatus({ repoRoot: work, overlayDir });
+
+    expect(report.architectureConfidence).toBe("low");
+    expect(report.roleStates.architect).toBe("deterministic");
+    expect(report.roleStates.reviewer).toBe("deterministic");
+    expect(report.roleStates.debugger).toBe("deterministic");
+  });
+
   it("reports accepted instruction hierarchy scopes", () => {
     const work = tmpWork("monorepo");
     const overlayDir = join(work, ".sdlc", "overlay");

@@ -3,10 +3,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
-import { appendLoopEvent, readLoopEvents } from "../core/memory.js";
 import { resolveDefaultBaseDir } from "../core/package-root.js";
 import { buildStandardsIndex, evidenceCoverage } from "../customize/emitters.js";
-import type { LoopTraceEvent } from "../eval/loop-trace.js";
 import {
   HostId,
   OperatingMode,
@@ -23,7 +21,10 @@ import {
 import { runCompileCli } from "./compile.js";
 import { loadAnswersFile, runCustomize } from "./customize.js";
 import { EXPLAIN_CLAIM_KEYS, explainClaim, explainStandard, isExplainClaimKey } from "./explain.js";
+import { runGardenCli } from "./garden.js";
 import { parseGardenDocsFailOn, parseGardenDocsFormat, runGardenDocs } from "./garden-docs.js";
+import { runMaintainCli } from "./maintain.js";
+import { RecordLoopEventError, recordLoopEventFromJson } from "./record-loop-event.js";
 import { runSetupCli } from "./setup.js";
 import { runSmokeCli } from "./smoke.js";
 import { buildStatus, formatStatus } from "./status.js";
@@ -34,9 +35,13 @@ const HELP = `aisdlc — internal AI SDLC framework compiler
 Usage:
   aisdlc compile --base <dir> --out <dir> [--packs <dir,dir>] [--overlay <file>] [--hosts cursor,claude-code,copilot,codex,kiro]
   aisdlc setup --repo <dir> [--hosts cursor,claude-code,copilot,codex,kiro]
+  aisdlc maintain --repo <dir>
+  aisdlc garden --repo <dir>
 
 Commands:
   setup       Run customize -> compile -> smoke for a target repo (alias: init).
+  maintain    Run customize -> compile -> smoke -> garden; write maintenance report and skill handoffs.
+  garden      Run doc-garden deterministic fixes and write .sdlc/doc-gardening-report.json.
   compile     Compile the host-neutral base (+ overlay) to host-native config.
   gen-matrix  Regenerate docs/capability-matrix.md from adapter capabilities.
   customize   Adapt the base to the current repository (Plugin Mode by default; use --mode deterministic to opt out).
@@ -55,7 +60,14 @@ Bench flags:
 
 Garden-docs flags:
   --repo <dir> --config <dir> --overlay <file> --overlay-dir <dir>
-  --format text|json --write-report --fail-on warning|error
+  --format text|json --write-report --fail-on warning|error --fix
+
+Garden flags:
+  --repo <dir> --config <dir> --overlay <file> --overlay-dir <dir> --fail-on warning|error
+
+Maintain flags:
+  --repo <dir> --base <dir> --packs <dir,dir> --hosts <host,host>
+  --mode plugin|deterministic --force --bench [--bench-seed <n>] [--bench-count <n>]
 `;
 
 function fail(message: string): never {
@@ -63,35 +75,29 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function isLoopTraceEvent(value: unknown): value is LoopTraceEvent {
-  if (!value || typeof value !== "object") return false;
-  const type = (value as { type?: unknown }).type;
-  switch (type) {
-    case "plan_created":
-    case "handoff":
-    case "tool_attempt":
-    case "test_run":
-    case "approval_gate":
-    case "review_verdict":
-    case "replan":
-    case "done":
-    case "stuck":
-      return true;
-    default:
-      return false;
+function cmdRecordEvent(rest: string[]): void {
+  const { options } = parseArgs(rest);
+  const eventJson = options.get("event");
+  const sdlcDir = options.get("sdlc-dir") ?? join(process.cwd(), ".sdlc");
+
+  if (!eventJson) {
+    fail("record-event: --event <json> is required");
+  }
+
+  try {
+    const result = recordLoopEventFromJson(eventJson, sdlcDir);
+    if (result.skippedDuplicate && result.event) {
+      process.stdout.write(`Skipped duplicate ${result.event.type} event in ${sdlcDir}\n`);
+      return;
+    }
+    process.stdout.write(`Recorded ${result.event!.type} event to ${result.path}\n`);
+  } catch (error) {
+    if (error instanceof RecordLoopEventError) {
+      fail(`record-event: ${error.message}`);
+    }
+    fail(`record-event: ${error}`);
   }
 }
-
-function approvalEventKey(event: LoopTraceEvent): string | undefined {
-  if (event.type !== "approval_gate" || event.verdict !== "approved") return undefined;
-  if (event.taskId === "unknown") return undefined;
-  const evidence = [...(event.evidence ?? [])].sort().join("\0");
-  const checkpoint = event.checkpoint ?? event.stage;
-  if (!checkpoint) return undefined;
-  return [event.taskId, event.role ?? "", checkpoint, evidence].join("\0");
-}
-
-/** Where `customize` writes the project overlay. */
 const DEFAULT_OVERLAY = join(".sdlc", "overlay", ".customize.yaml");
 
 /**
@@ -313,6 +319,7 @@ function cmdStatus(rest: string[]): void {
     packDirs: parseList(options.get("packs")),
     outDir: options.get("out"),
     hosts,
+    refresh: options.has("refresh"),
   });
   process.stdout.write(`${formatStatus(report)}\n`);
   // Not-yet-set-up is a non-zero exit so scripts can gate on it.
@@ -366,7 +373,7 @@ function cmdBench(rest: string[]): void {
     fail(`bench: ${(error as Error).message}`);
   }
   const seed = Number(options.get("seed") ?? "42");
-  const count = Number(options.get("count") ?? "5");
+  const count = Number(options.get("count") ?? "10");
   const repoTimeoutMs = options.get("repo-timeout-ms")
     ? Number(options.get("repo-timeout-ms"))
     : undefined;
@@ -436,6 +443,67 @@ function cmdGardenDocs(rest: string[]): void {
     format,
     failOn,
     writeReport: flags.has("write-report"),
+    fix: flags.has("fix"),
+  });
+  process.stdout.write(`${result.output}\n`);
+  if (result.writtenPaths.length > 0) {
+    process.stdout.write(`Wrote: ${result.writtenPaths.join(", ")}\n`);
+  }
+  process.exit(result.exitCode);
+}
+
+function cmdGarden(rest: string[]): void {
+  const { options } = parseArgs(rest);
+  let failOn;
+  try {
+    failOn = parseGardenDocsFailOn(options.get("fail-on"));
+  } catch (error) {
+    fail(`garden: ${(error as Error).message}`);
+  }
+  const result = runGardenCli({
+    repoRoot: options.get("repo") ?? process.cwd(),
+    configDir: options.get("config"),
+    overlayPath: options.get("overlay"),
+    overlayDir: options.get("overlay-dir"),
+    failOn,
+  });
+  process.stdout.write(`${result.output}\n`);
+  if (result.writtenPaths.length > 0) {
+    process.stdout.write(`Wrote: ${result.writtenPaths.join(", ")}\n`);
+  }
+  process.exit(result.exitCode);
+}
+
+function cmdMaintain(rest: string[]): void {
+  const { options, flags } = parseArgs(rest);
+  let operatingMode: OperatingModeValue | undefined;
+  try {
+    const rawMode = options.get("mode");
+    operatingMode = rawMode ? OperatingMode.parse(rawMode) : undefined;
+  } catch (error) {
+    fail(`maintain: invalid --mode (${(error as Error).message})`);
+  }
+  const hostsRaw = options.get("hosts");
+  const hosts = hostsRaw ? hostsRaw.split(",").map((h) => HostId.parse(h.trim())) : undefined;
+  const benchSeedRaw = options.get("bench-seed");
+  const benchCountRaw = options.get("bench-count");
+  const benchSeed = benchSeedRaw ? Number(benchSeedRaw) : undefined;
+  const benchCount = benchCountRaw ? Number(benchCountRaw) : undefined;
+  if (benchSeedRaw && !Number.isInteger(benchSeed))
+    fail("maintain: --bench-seed must be an integer");
+  if (benchCountRaw && (!Number.isInteger(benchCount) || (benchCount ?? 0) < 1)) {
+    fail("maintain: --bench-count must be a positive integer");
+  }
+  const result = runMaintainCli({
+    repoRoot: options.get("repo") ?? process.cwd(),
+    baseDir: resolveBaseOption(options.get("base")),
+    packDirs: parseList(options.get("packs")),
+    hosts,
+    operatingMode,
+    force: flags.has("force"),
+    withBench: flags.has("bench"),
+    benchSeed,
+    benchCount,
   });
   process.stdout.write(`${result.output}\n`);
   if (result.writtenPaths.length > 0) {
@@ -468,41 +536,6 @@ function cmdUpgrade(rest: string[]): void {
     );
   }
   process.stdout.write(`Upgraded base to ${result.lock!.baseVersion}.\n`);
-}
-
-function cmdRecordEvent(rest: string[]): void {
-  const { options } = parseArgs(rest);
-  const eventJson = options.get("event");
-  const sdlcDir = options.get("sdlc-dir") ?? join(process.cwd(), ".sdlc");
-
-  if (!eventJson) {
-    fail("record-event: --event <json> is required");
-  }
-
-  let event: LoopTraceEvent;
-  try {
-    const parsed = JSON.parse(eventJson!);
-    if (!isLoopTraceEvent(parsed)) {
-      fail("record-event: event must include a valid loop trace type");
-    }
-    event = parsed;
-  } catch (err) {
-    fail(`record-event: invalid JSON in --event: ${err}`);
-  }
-
-  const approvalKey = approvalEventKey(event);
-  if (approvalKey) {
-    const alreadyRecorded = readLoopEvents(sdlcDir).some(
-      (recorded) => approvalEventKey(recorded) === approvalKey,
-    );
-    if (alreadyRecorded) {
-      process.stdout.write(`Skipped duplicate ${event.type} event in ${sdlcDir}\n`);
-      return;
-    }
-  }
-
-  const path = appendLoopEvent(sdlcDir, event);
-  process.stdout.write(`Recorded ${event.type} event to ${path}\n`);
 }
 
 function main(): void {
@@ -538,6 +571,12 @@ function main(): void {
       return;
     case "record-event":
       cmdRecordEvent(rest);
+      return;
+    case "maintain":
+      cmdMaintain(rest);
+      return;
+    case "garden":
+      cmdGarden(rest);
       return;
     case "garden-docs":
       cmdGardenDocs(rest);

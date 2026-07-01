@@ -8,6 +8,7 @@ import {
   type MapEntry,
   type PackageContext,
   type ProjectContext,
+  scopeHasUserOwnedInstructionFiles,
 } from "../core/project-context.js";
 import {
   type CeremonyTrack,
@@ -16,6 +17,7 @@ import {
   Overlay,
 } from "../schema/index.js";
 import type { PackageProfile, RepoProfile } from "./repo-miner.js";
+import { buildTemplateRoleAddenda } from "./role-addenda-templates.js";
 
 export interface StandardEntry {
   statement: string;
@@ -188,17 +190,26 @@ export function buildOverlay(
   prior?: Overlay,
   gapClosureProvenance: Overlay["gapClosureProvenance"] = {},
   operatingMode?: OperatingMode,
+  repoRoot?: string,
 ): Overlay {
   const index = buildStandardsIndex(profile);
   const integrations: Record<string, IntegrationBinding> = { ...(prior?.integrations ?? {}) };
   // Synthesize a binding from an interview answer only when the user has not
   // already provided (or hand-edited) one — prior bindings are authoritative.
-  if (answers["gitlab-server"] && !integrations.gitlab) {
-    integrations.gitlab = { serverId: answers["gitlab-server"], allowedRoles: ["engineer"] };
+  const gitlabServer = answers["gitlab-server"]?.trim();
+  if (gitlabServer && !integrations.gitlab && isIntegrationServerId(gitlabServer)) {
+    integrations.gitlab = { serverId: gitlabServer, allowedRoles: ["engineer"] };
   }
-  if (answers["jira-server"] && !integrations.jira) {
-    integrations.jira = { serverId: answers["jira-server"], allowedRoles: [] };
+  const jiraServer = answers["jira-server"]?.trim();
+  if (jiraServer && !integrations.jira && isIntegrationServerId(jiraServer)) {
+    integrations.jira = { serverId: jiraServer, allowedRoles: [] };
   }
+
+  const projectContext = buildProjectContext(profile, index, repoRoot);
+  const templateAddenda = buildTemplateRoleAddenda(profile, projectContext, answers, {
+    ...(prior?.gapClosureProvenance ?? {}),
+    ...gapClosureProvenance,
+  });
 
   return Overlay.parse({
     version: 1,
@@ -210,10 +221,23 @@ export function buildOverlay(
     standards: index.standards.filter((s) => !s.scope).map((s) => s.statement),
     integrations,
     roleModels: prior?.roleModels ?? {},
-    roleAddenda: prior?.roleAddenda ?? {},
+    roleAddenda: mergeRoleAddenda(prior?.roleAddenda, templateAddenda),
     interviewAnswers: answers,
     gapClosureProvenance: { ...(prior?.gapClosureProvenance ?? {}), ...gapClosureProvenance },
   });
+}
+
+/** Prior user/plugin addenda win per role; templates fill only empty keys. */
+export function mergeRoleAddenda(
+  prior: Overlay["roleAddenda"] | undefined,
+  templates: Partial<Record<string, string>>,
+): Overlay["roleAddenda"] {
+  const merged: Overlay["roleAddenda"] = { ...(prior ?? {}) };
+  for (const [role, text] of Object.entries(templates)) {
+    const trimmed = text?.trim();
+    if (trimmed && !merged[role]?.trim()) merged[role] = trimmed;
+  }
+  return merged;
 }
 
 /**
@@ -293,10 +317,20 @@ function capitalize(s: string): string {
  * standards), the codebase map, and the exclusion set. For a single-package
  * repo `packages` is empty and only the map + exclusions carry information.
  */
-export function buildProjectContext(profile: RepoProfile, index: StandardsIndex): ProjectContext {
+export function buildProjectContext(
+  profile: RepoProfile,
+  index: StandardsIndex,
+  repoRoot?: string,
+): ProjectContext {
   const map = buildCodebaseMap(profile);
   const scopedStandards = standardsByScope(index);
-  const instructionHierarchy = buildInstructionHierarchy(profile, index, map, scopedStandards);
+  const instructionHierarchy = buildInstructionHierarchy(
+    profile,
+    index,
+    map,
+    scopedStandards,
+    repoRoot,
+  );
   const instructionBodyByPath = new Map(
     instructionHierarchy.scopes.map((scope) => [scope.path, scope.instructionBody]),
   );
@@ -324,11 +358,14 @@ export function buildInstructionHierarchy(
   index: StandardsIndex,
   map: MapEntry[] = buildCodebaseMap(profile),
   scopedStandards: Map<string, StandardEntry[]> = standardsByScope(index),
+  repoRoot?: string,
 ): InstructionHierarchy {
   const packagePaths = new Set((profile.packages ?? []).map((pkg) => pkg.path));
   const scopes: InstructionScope[] = [];
   for (const entry of map) {
     if (entry.path === ".") continue;
+    const userOwned =
+      repoRoot !== undefined && scopeHasUserOwnedInstructionFiles(repoRoot, entry.path);
     const scoped = scopedStandards.get(entry.path) ?? [];
     const kind = packagePaths.has(entry.path) ? "package" : "module";
     scopes.push({
@@ -339,7 +376,7 @@ export function buildInstructionHierarchy(
       instructionBody: renderScopeInstructionBody(entry, kind, scoped),
       hostTargets: hostTargetsForScope(entry.path),
       ownership: "generated",
-      accepted: true,
+      accepted: !userOwned,
     });
   }
   return { version: 1, scopes };
@@ -489,4 +526,10 @@ function standardMetadataKey(standard: StandardEntry): string {
     scope: standard.scope ?? "",
     sources: [...new Set(standard.sources)].sort(),
   });
+}
+
+const INTEGRATION_SERVER_ID = /^[A-Za-z0-9._-]+$/;
+
+function isIntegrationServerId(value: string): boolean {
+  return value.length > 0 && INTEGRATION_SERVER_ID.test(value);
 }

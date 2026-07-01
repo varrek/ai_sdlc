@@ -20,13 +20,7 @@ export function emitHierarchyRules(model: NeutralModel): EmittedFile[] {
     ).trim();
     return {
       path: `.cursor/rules/${slug}.mdc`,
-      contents: [
-        "---",
-        frontmatter,
-        "---",
-        "",
-        renderHierarchyPointerMarkdown(scope),
-      ].join("\n"),
+      contents: ["---", frontmatter, "---", "", renderHierarchyPointerMarkdown(scope)].join("\n"),
     };
   });
 }

@@ -20,13 +20,7 @@ export function emitSteering(model: NeutralModel): EmittedFile[] {
     ).trim();
     return {
       path: `.kiro/steering/${slug}.md`,
-      contents: [
-        "---",
-        frontmatter,
-        "---",
-        "",
-        renderHierarchyPointerMarkdown(scope),
-      ].join("\n"),
+      contents: ["---", frontmatter, "---", "", renderHierarchyPointerMarkdown(scope)].join("\n"),
     };
   });
 }

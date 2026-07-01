@@ -1,11 +1,12 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { approvedGateScript, emitLoopEventRecorder } from "../shared/approved-gate.js";
+import { mcpPolicyLoaderScript } from "../shared/mcp-policy-gate.js";
 import { buildAutonomyPolicy, buildRolePolicy, stableJson } from "../shared/roles.js";
 
 const MCP_GATE_SCRIPT = `#!/usr/bin/env node
 // Cursor beforeMCPExecution gate: deny MCP calls a role is not permitted to make.
 // Enforces per-role least-privilege that Cursor's global mcpAllowlist cannot.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 function readStdin() {
   try { return JSON.parse(readFileSync(0, "utf8")); } catch { return {}; }
@@ -15,14 +16,12 @@ const input = readStdin();
 const role = input.role ?? process.env.SDLC_ACTIVE_ROLE ?? "";
 const server = input.server_name ?? input.server ?? "";
 
-let policy = {};
-try { policy = JSON.parse(readFileSync(".cursor/sdlc/role-policy.json", "utf8")); } catch {}
+${mcpPolicyLoaderScript(".cursor/sdlc/role-policy.json")}
 
 // Fail CLOSED: when a role policy exists, an MCP call is only allowed if the
 // active role is known AND explicitly permits this server. A missing/unknown
 // role (e.g. the orchestrator forgot to set SDLC_ACTIVE_ROLE) is denied rather
 // than granted blanket access — otherwise least-privilege silently disappears.
-const hasPolicy = Object.keys(policy).length > 0;
 if (server && hasPolicy) {
   const entry = policy[role];
   if (!entry || !entry.servers.includes(server)) {

@@ -23,10 +23,15 @@ export interface CorpusExpectation {
   workspacePackageCount?: number;
   architectHasGrounding?: boolean;
   testerHasGrounding?: boolean;
+  reviewerHasGrounding?: boolean;
+  debuggerHasGrounding?: boolean;
   architectMustInclude?: string[];
   architectMustNotInclude?: string[];
   testerMustInclude?: string[];
   testerMustNotInclude?: string[];
+  reviewerMustInclude?: string[];
+  debuggerMustInclude?: string[];
+  roleAddendaRoles?: string[];
   constitutionMustInclude?: string[];
   constitutionMustNotInclude?: string[];
   standardsMustInclude?: string[];
@@ -49,6 +54,7 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testerHasGrounding: true,
     architectMustInclude: ["src"],
     testerMustInclude: ["pytest", "provenance: miner"],
+    roleAddendaRoles: ["engineer", "tester", "architect", "reviewer", "debugger"],
     constitutionMustInclude: ["pytest", "src"],
     standardsMustInclude: ["pytest", "Project architecture"],
   },
@@ -118,9 +124,11 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommand: "npm test",
     testCommandProvenance: "ci",
     mapPaths: [],
-    architectHasGrounding: false,
+    architectHasGrounding: true,
     testerHasGrounding: true,
+    reviewerHasGrounding: true,
     testerMustInclude: ["npm test", "provenance: ci"],
+    architectMustInclude: ["standards-based", "npm test", "confidence is low"],
     constitutionMustInclude: ["npm test"],
     standardsMustInclude: ["npm test", "confidence is low"],
     standardsMustNotInclude: ["Project architecture: modules"],
@@ -133,8 +141,9 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     blockingGaps: 1,
     handsOff: false,
     mapPaths: [],
-    architectHasGrounding: false,
+    architectHasGrounding: true,
     testerHasGrounding: false,
+    architectMustInclude: ["streamlit", "standards-based"],
     testerMustNotInclude: ["## Deterministic project grounding"],
     standardsMustInclude: ["streamlit"],
   },
@@ -215,7 +224,12 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommandProvenance: "miner",
     mapPaths: ["internal", "pkg"],
     architectHasGrounding: true,
+    testerHasGrounding: true,
+    reviewerHasGrounding: true,
+    debuggerHasGrounding: true,
     architectMustInclude: ["internal", "pkg"],
+    reviewerMustInclude: ["golangci-lint"],
+    debuggerMustInclude: ["go test ./...", "read-only"],
     constitutionMustInclude: ["go test", "internal", "pkg"],
     standardsMustInclude: ["go test", "golangci-lint", "Project architecture"],
   },
@@ -263,7 +277,10 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommand: "./gradlew test",
     testCommandProvenance: "miner",
     mapPaths: [],
-    architectHasGrounding: false,
+    architectHasGrounding: true,
+    reviewerHasGrounding: true,
+    debuggerHasGrounding: true,
+    architectMustInclude: ["standards-based", "./gradlew test", "confidence is low"],
     constitutionMustInclude: ["./gradlew test"],
     standardsMustInclude: ["./gradlew test", "confidence is low"],
     standardsMustNotInclude: ["Project architecture: modules"],
@@ -280,7 +297,10 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommand: "bundle exec rspec",
     testCommandProvenance: "miner",
     mapPaths: [],
-    architectHasGrounding: false,
+    architectHasGrounding: true,
+    reviewerHasGrounding: true,
+    debuggerHasGrounding: true,
+    architectMustInclude: ["standards-based", "bundle exec rspec", "confidence is low"],
     constitutionMustInclude: ["bundle exec rspec"],
     standardsMustInclude: ["bundle exec rspec", "rails", "confidence is low"],
     standardsMustNotInclude: ["Project architecture: modules"],
@@ -295,7 +315,8 @@ export const CORPUS_EXPECTATIONS: CorpusExpectation[] = [
     testCommand: "dotnet test",
     testCommandProvenance: "miner",
     mapPaths: [],
-    architectHasGrounding: false,
+    architectHasGrounding: true,
+    architectMustInclude: ["standards-based", "dotnet test"],
     constitutionMustInclude: ["dotnet test"],
     standardsMustInclude: ["dotnet test"],
   },
@@ -312,6 +333,8 @@ export function assertCorpusExpectation(
     standardsIndex,
     architect,
     tester,
+    reviewer,
+    debugger: debuggerAgent,
     constitution,
     overlay,
   } = artifacts;
@@ -385,6 +408,18 @@ export function assertCorpusExpectation(
       expected.testerHasGrounding,
     );
   }
+  const reviewerHasGroundingSection = reviewer.includes("## Deterministic project grounding");
+  if (expected.reviewerHasGrounding !== undefined) {
+    expect(reviewerHasGroundingSection, `${expected.fixture} reviewer grounding`).toBe(
+      expected.reviewerHasGrounding,
+    );
+  }
+  const debuggerHasGroundingSection = debuggerAgent.includes("## Deterministic project grounding");
+  if (expected.debuggerHasGrounding !== undefined) {
+    expect(debuggerHasGroundingSection, `${expected.fixture} debugger grounding`).toBe(
+      expected.debuggerHasGrounding,
+    );
+  }
   if (expected.testerMustInclude) {
     for (const text of expected.testerMustInclude) {
       expect(tester, `${expected.fixture} tester includes ${text}`).toContain(text);
@@ -392,6 +427,20 @@ export function assertCorpusExpectation(
   }
   for (const text of expected.testerMustNotInclude ?? []) {
     expect(tester, `${expected.fixture} tester excludes ${text}`).not.toContain(text);
+  }
+  for (const text of expected.reviewerMustInclude ?? []) {
+    expect(reviewer, `${expected.fixture} reviewer includes ${text}`).toContain(text);
+  }
+  for (const text of expected.debuggerMustInclude ?? []) {
+    expect(debuggerAgent, `${expected.fixture} debugger includes ${text}`).toContain(text);
+  }
+  if (expected.roleAddendaRoles) {
+    for (const role of expected.roleAddendaRoles) {
+      expect(
+        overlay.roleAddenda[role]?.trim(),
+        `${expected.fixture} overlay.roleAddenda.${role}`,
+      ).toBeTruthy();
+    }
   }
   for (const text of expected.architectMustInclude ?? []) {
     expect(architect, `${expected.fixture} architect includes ${text}`).toContain(text);

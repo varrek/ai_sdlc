@@ -16,6 +16,7 @@ import { runCompileCli } from "../../src/cli/compile.js";
 import { loadAnswersFile, runCustomize } from "../../src/cli/customize.js";
 import { buildStatus } from "../../src/cli/status.js";
 import {
+  acceptedInstructionScopes,
   GENERATED_INSTRUCTION_MARKER,
   parseInstructionHierarchy,
   parseProjectContext,
@@ -204,6 +205,15 @@ describe("repo miner", () => {
     expect(p.testRunner).toBe("rspec");
     expect(p.testCommand).toBe("bundle exec rspec");
     expect(p.linters).toContain("rubocop");
+  });
+
+  it("detects PHP/Composer with phpunit default", () => {
+    const p = mineRepo(repo("php-composer"));
+    expect(p.languages).toContain("php");
+    expect(p.packageManagers).toContain("composer");
+    expect(p.testRunner).toBe("phpunit");
+    expect(p.testCommand).toBe("vendor/bin/phpunit");
+    expect(p.evidence["test-runner:phpunit"]).toEqual(["phpunit.xml.dist"]);
   });
 
   it("detects .NET with dotnet test default from test SDK", () => {
@@ -500,6 +510,39 @@ describe("workspace mining (monorepo)", () => {
       );
     }
     expect(mineRepo(dir).packages).toBeUndefined();
+  });
+
+  it("declines hierarchy scopes that collide with user-owned nested AGENTS.md", () => {
+    const dir = mkdtempSync(join(tmpdir(), "aisdlc-user-agents-"));
+    tmpDirs.push(dir);
+    writeFileSync(join(dir, "go.mod"), "module example.com/app\n", "utf8");
+    mkdirSync(join(dir, "src", "Components"), { recursive: true });
+    writeFileSync(
+      join(dir, "src", "AGENTS.md"),
+      "# Working on Issues in the Components Area\n",
+      "utf8",
+    );
+    writeFileSync(join(dir, "src", "Components", "widget.go"), "package components\n", "utf8");
+    mkdirSync(join(dir, "pkg"), { recursive: true });
+    writeFileSync(join(dir, "pkg", "cmd.go"), "package pkg\n", "utf8");
+
+    const profile = mineRepo(dir);
+    const index = buildStandardsIndex(profile);
+    const ctx = buildProjectContext(profile, index, dir);
+    const srcScope = ctx.instructionHierarchy?.scopes.find((s) => s.path === "src");
+
+    expect(srcScope?.accepted).toBe(false);
+    expect(acceptedInstructionScopes(ctx).some((s) => s.path === "src")).toBe(false);
+
+    const overlayDir = tmpOverlay();
+    runCustomize({ repoRoot: dir, overlayDir, force: true });
+    runCompileCli({
+      baseDir,
+      overlayPath: join(overlayDir, ".customize.yaml"),
+      outDir: dir,
+      sdlcDir: join(overlayDir, ".."),
+    });
+    expect(readFileSync(join(dir, "src", "AGENTS.md"), "utf8")).toContain("Components Area");
   });
 });
 
