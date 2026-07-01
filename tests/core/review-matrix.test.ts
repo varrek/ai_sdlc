@@ -1,7 +1,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { resetReviewMatrixCache, activeReviewLenses } from "../../src/core/review-matrix.js";
+import { activeReviewLenses, resetReviewMatrixCache } from "../../src/core/review-matrix.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const baseDir = join(resolve(here, "../.."), "sdlc-base");

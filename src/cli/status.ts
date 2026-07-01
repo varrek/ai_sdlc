@@ -7,6 +7,8 @@ import {
   readAcceptedLearnings,
   summarizeAcceptedLearnings,
 } from "../core/accepted-learnings.js";
+import { resolveAutonomy } from "../core/autonomy.js";
+import { listPendingLearnings } from "../core/compound-learning.js";
 import { HOST_SETUP_GUIDE_PATH } from "../core/host-setup-guidance.js";
 import {
   INSTRUCTION_HIERARCHY_FILE,
@@ -15,10 +17,8 @@ import {
   PROJECT_CONTEXT_FILE,
 } from "../core/loader.js";
 import { stagesForTrack } from "../core/loop.js";
-import { listPendingLearnings } from "../core/compound-learning.js";
-import { resolveAutonomy } from "../core/autonomy.js";
-import { activeReviewLenses } from "../core/review-matrix.js";
 import { acceptedInstructionScopes } from "../core/project-context.js";
+import { activeReviewLenses } from "../core/review-matrix.js";
 import {
   hasDeterministicArchitectGrounding,
   hasDeterministicDebuggerGrounding,

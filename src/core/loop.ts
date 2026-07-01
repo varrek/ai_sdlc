@@ -2,13 +2,7 @@ import type { CeremonyTrack, Skill } from "../schema/index.js";
 import type { NeutralModel } from "./types.js";
 
 /** A stage in the compiled SDLC loop. `wrap-up` is the MCP MR/Jira step. */
-export type LoopStage =
-  | "architect"
-  | "investigate"
-  | "engineer"
-  | "test"
-  | "reviewer"
-  | "wrap-up";
+export type LoopStage = "architect" | "investigate" | "engineer" | "test" | "reviewer" | "wrap-up";
 
 /** Stages accepted by emitted Approved? gate scripts when recording checkpoints. */
 export const APPROVAL_GATE_STAGES: readonly LoopStage[] = [
@@ -42,10 +36,7 @@ export const STAGE_ROLE: Record<LoopStage, string> = {
  * (Engineer -> Reviewer); Standard adds up-front planning and independent
  * testing; Full adds the integration wrap-up.
  */
-export function stagesForTrack(
-  track: CeremonyTrack,
-  requireInvestigation = false,
-): LoopStage[] {
+export function stagesForTrack(track: CeremonyTrack, requireInvestigation = false): LoopStage[] {
   switch (track) {
     case "quick":
       return requireInvestigation

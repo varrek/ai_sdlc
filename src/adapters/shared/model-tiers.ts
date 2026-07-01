@@ -1,6 +1,6 @@
+import { DEFAULT_ROLE_MODEL_TIER } from "../../core/model-tiers.js";
 import type { HostId } from "../../schema/index.js";
 import type { ModelTier } from "../../schema/role.js";
-import { DEFAULT_ROLE_MODEL_TIER } from "../../core/model-tiers.js";
 
 /** Host-specific model SKU mapping for abstract tiers (R10). */
 export interface TierMapping {

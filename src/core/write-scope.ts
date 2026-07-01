@@ -13,7 +13,10 @@ export const TESTER_DEFAULT_WRITE_ALLOW = [
 /** Read-only roles emit no write capability. */
 export const READ_ONLY_ROLES = new Set(["architect", "reviewer", "debugger"]);
 
-export function defaultWriteScopeForRole(name: string, posture: ToolPosture): WriteScope | undefined {
+export function defaultWriteScopeForRole(
+  name: string,
+  posture: ToolPosture,
+): WriteScope | undefined {
   if (READ_ONLY_ROLES.has(name)) {
     return { allow: [], deny: ["**"] };
   }

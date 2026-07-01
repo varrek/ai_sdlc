@@ -1,3 +1,4 @@
+import type { ResolvedAutonomy } from "../schema/autonomy.js";
 import type {
   HostId,
   HostManifest,
@@ -6,7 +7,6 @@ import type {
   Role,
   Skill,
 } from "../schema/index.js";
-import type { ResolvedAutonomy } from "../schema/autonomy.js";
 import type { ProjectContext } from "./project-context.js";
 
 /**

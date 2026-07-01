@@ -2,13 +2,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { readAcceptedLearnings } from "../../src/core/accepted-learnings.js";
 import {
   acceptPendingLearning,
   listPendingLearnings,
   proposeCompoundLearning,
   rejectPendingLearning,
 } from "../../src/core/compound-learning.js";
-import { readAcceptedLearnings } from "../../src/core/accepted-learnings.js";
 
 const tmpDirs: string[] = [];
 afterEach(() => {

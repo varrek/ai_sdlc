@@ -1,9 +1,10 @@
 import type { Overlay, Role } from "../schema/index.js";
 import type { ModelTier } from "../schema/role.js";
-import { resolveAutonomy } from "./autonomy.js";
 import type { AcceptedLearningEntry } from "./accepted-learnings.js";
+import { resolveAutonomy } from "./autonomy.js";
 import type { LoadedBase } from "./loader.js";
 import { skillsForTrack } from "./loop.js";
+import { DEFAULT_ROLE_MODEL_TIER } from "./model-tiers.js";
 import { type ProjectContext, renderCodebaseMap } from "./project-context.js";
 import { appendAddendum, assertRoleAddendumWithinContract } from "./role-addenda.js";
 import {
@@ -13,7 +14,6 @@ import {
 } from "./role-grounding.js";
 import type { NeutralModel } from "./types.js";
 import { resolveWriteScope } from "./write-scope.js";
-import { DEFAULT_ROLE_MODEL_TIER } from "./model-tiers.js";
 
 /**
  * Merge a project overlay onto the loaded base to produce the resolved
