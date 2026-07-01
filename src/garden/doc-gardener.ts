@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { buildRegistry } from "../adapters/registry.js";
 import { renderCapabilityMatrix } from "../core/capability-matrix.js";
@@ -62,6 +62,8 @@ export function analyzeDocGarden(options: AnalyzeDocGardenOptions): DocGardenRep
 
   findings.push(...findRootBloat(repoRoot));
   findings.push(...findBrokenLinks(repoRoot));
+  findings.push(...findBrokenCodeReferences(repoRoot));
+  findings.push(...findStaleDocVsCode(repoRoot));
   findings.push(...findMissingCodebaseMap(repoRoot, gardenContext));
   findings.push(...findMissingHierarchyScopeDocs(repoRoot, instructionScopes));
   findings.push(...findCodexBudgetRisk(repoRoot, instructionScopes));
@@ -199,6 +201,74 @@ function findBrokenLinks(repoRoot: string): DocGardenFinding[] {
     }
   }
   return findings;
+}
+
+/** Match `path/file.ext:line` or backtick `path/file.ext` code references in agent docs. */
+const CODE_REF_PATTERN = /`([^`\n]+?\.(?:ts|tsx|js|jsx|py|go|rs|java|rb|md))(?::\d+)?`/g;
+
+function findBrokenCodeReferences(repoRoot: string): DocGardenFinding[] {
+  const findings: DocGardenFinding[] = [];
+  const inventory = markdownFiles(repoRoot);
+  for (const path of inventory.files) {
+    const absolute = join(repoRoot, path);
+    const contents = readFileSync(absolute, "utf8");
+    const seen = new Set<string>();
+    for (const match of contents.matchAll(CODE_REF_PATTERN)) {
+      const raw = match[1]!;
+      const filePart = raw.split(":")[0]!;
+      if (seen.has(filePart)) continue;
+      seen.add(filePart);
+      const resolved = resolve(repoRoot, filePart);
+      if (!isWithin(repoRoot, resolved) || !existsSync(resolved)) {
+        findings.push({
+          id: "broken-code-reference",
+          severity: "error",
+          path,
+          message: `code reference target does not exist: ${filePart}`,
+          suggestion: "Update the reference or restore the referenced file.",
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+function findStaleDocVsCode(repoRoot: string): DocGardenFinding[] {
+  const findings: DocGardenFinding[] = [];
+  const inventory = markdownFiles(repoRoot);
+  for (const path of inventory.files) {
+    const docAbsolute = join(repoRoot, path);
+    const docMtime = statMtime(docAbsolute);
+    if (docMtime === undefined) continue;
+    const contents = readFileSync(docAbsolute, "utf8");
+    const seen = new Set<string>();
+    for (const match of contents.matchAll(CODE_REF_PATTERN)) {
+      const filePart = match[1]!.split(":")[0]!;
+      if (seen.has(filePart)) continue;
+      seen.add(filePart);
+      const codeAbsolute = resolve(repoRoot, filePart);
+      if (!existsSync(codeAbsolute)) continue;
+      const codeMtime = statMtime(codeAbsolute);
+      if (codeMtime !== undefined && docMtime < codeMtime) {
+        findings.push({
+          id: "stale-doc-vs-code",
+          severity: "warning",
+          path,
+          message: `doc is older than referenced code: ${filePart}`,
+          suggestion: "Refresh the doc section that describes this code path.",
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+function statMtime(absolute: string): number | undefined {
+  try {
+    return statSync(absolute).mtimeMs;
+  } catch {
+    return undefined;
+  }
 }
 
 function findMissingCodebaseMap(

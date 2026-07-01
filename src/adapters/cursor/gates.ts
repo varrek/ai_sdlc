@@ -1,6 +1,6 @@
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
 import { approvedGateScript, emitLoopEventRecorder } from "../shared/approved-gate.js";
-import { buildRolePolicy, stableJson } from "../shared/roles.js";
+import { buildAutonomyPolicy, buildRolePolicy, stableJson } from "../shared/roles.js";
 
 const MCP_GATE_SCRIPT = `#!/usr/bin/env node
 // Cursor beforeMCPExecution gate: deny MCP calls a role is not permitted to make.
@@ -50,6 +50,7 @@ export function emitGates(model: NeutralModel): EmittedFile[] {
   return [
     { path: ".cursor/hooks.json", contents: stableJson(hooks) },
     { path: ".cursor/sdlc/role-policy.json", contents: stableJson(buildRolePolicy(model)) },
+    { path: ".cursor/sdlc/autonomy-policy.json", contents: stableJson(buildAutonomyPolicy(model)) },
     { path: ".cursor/hooks/mcp-gate.mjs", contents: MCP_GATE_SCRIPT },
     { path: ".cursor/hooks/approved-gate.mjs", contents: approvedGateScript("Cursor") },
     emitLoopEventRecorder(),

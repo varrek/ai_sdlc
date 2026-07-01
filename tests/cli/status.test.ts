@@ -47,7 +47,7 @@ describe("status", () => {
     expect(formatStatus(report)).toContain("Operating mode: plugin");
     expect(report.acceptedLearnings.count).toBeGreaterThan(0);
     expect(formatStatus(report)).toContain("Accepted learnings");
-    expect(report.loopQuality.expectedStages).toBe(4);
+    expect(report.loopQuality.expectedStages).toBe(5);
     expect(report.loopQuality.handoffCoverage).toBe("not-run");
     expect(formatStatus(report)).toContain("Loop quality:");
     expect(formatStatus(report)).toContain("groundable");

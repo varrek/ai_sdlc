@@ -436,6 +436,14 @@ function stageEvent(taskId: string, stage: LoopStage): LoopTraceEvent {
         stage,
         summary: "Bounded plan.",
       };
+    case "investigate":
+      return {
+        type: "plan_created",
+        taskId,
+        role: "debugger",
+        stage,
+        summary: "Root cause investigation artifact.",
+      };
     case "engineer":
       return {
         type: "tool_attempt",

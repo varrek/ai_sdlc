@@ -1,4 +1,6 @@
 import type { Overlay, Role } from "../schema/index.js";
+import type { ModelTier } from "../schema/role.js";
+import { resolveAutonomy } from "./autonomy.js";
 import type { AcceptedLearningEntry } from "./accepted-learnings.js";
 import type { LoadedBase } from "./loader.js";
 import { skillsForTrack } from "./loop.js";
@@ -10,6 +12,8 @@ import {
   type RoleGroundingInput,
 } from "./role-grounding.js";
 import type { NeutralModel } from "./types.js";
+import { resolveWriteScope } from "./write-scope.js";
+import { DEFAULT_ROLE_MODEL_TIER } from "./model-tiers.js";
 
 /**
  * Merge a project overlay onto the loaded base to produce the resolved
@@ -29,6 +33,7 @@ export function mergeOverlay(
 ): NeutralModel {
   const groundingInput: RoleGroundingInput = { overlay, projectContext };
   const roles = base.roles
+    .map((role) => applyRoleDefaults(role))
     .map((role) => applyRoleOverlay(role, overlay))
     .map((role) => appendRoleGrounding(role, groundingInput))
     .map((role) => appendAcceptedLearnings(role, acceptedLearnings));
@@ -50,7 +55,21 @@ export function mergeOverlay(
     integrations: base.integrations,
     overlay,
     projectContext,
+    autonomy: resolveAutonomy(overlay.autonomy),
   };
+}
+
+function applyRoleDefaults(role: Role): Role {
+  const { name } = role.frontmatter;
+  const writeScope = resolveWriteScope(role);
+  const modelTier: ModelTier | undefined =
+    role.frontmatter.modelTier ?? DEFAULT_ROLE_MODEL_TIER[name];
+  const frontmatter = {
+    ...role.frontmatter,
+    ...(writeScope ? { writeScope } : {}),
+    ...(modelTier ? { modelTier } : {}),
+  };
+  return { ...role, frontmatter };
 }
 
 function applyRoleOverlay(role: Role, overlay: Overlay): Role {

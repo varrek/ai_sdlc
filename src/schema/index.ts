@@ -1,3 +1,4 @@
+export * from "./autonomy.js";
 export * from "./host-manifest.js";
 export * from "./integration-contract.js";
 export * from "./load.js";

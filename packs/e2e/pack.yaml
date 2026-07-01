@@ -1,0 +1,3 @@
+version: 1
+name: e2e
+description: Optional browser E2E testing pack — explore-before-generate, pyramid budget, bounded self-healing.

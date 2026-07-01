@@ -1,5 +1,6 @@
 import { stringify } from "yaml";
 import type { EmittedFile, NeutralModel } from "../../core/types.js";
+import { resolveModelForHost } from "../shared/model-tiers.js";
 import { allowedServersForRole, toolsForPosture } from "../shared/roles.js";
 
 /**
@@ -18,7 +19,9 @@ export function emitAgents(model: NeutralModel): EmittedFile[] {
       description: role.frontmatter.description,
       tools: tools.join(", "),
     };
-    if (role.frontmatter.model) fm.model = role.frontmatter.model;
+    const tier = role.frontmatter.modelTier ?? "standard";
+    const resolved = resolveModelForHost("claude-code", tier, role.frontmatter.model);
+    if (resolved.model) fm.model = resolved.model;
 
     const frontmatter = stringify(fm, { sortMapEntries: false }).trim();
     return {

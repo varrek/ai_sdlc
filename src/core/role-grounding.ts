@@ -13,7 +13,13 @@ const ACCEPTED_LEARNINGS_HEADING = "## Accepted project learnings";
 const MAX_ACCEPTED_LEARNINGS_CHARS = 800;
 
 export const LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
-  architect: ["architecture-demotion", "standard-added", "bench-residual", "gate-approval"],
+  architect: [
+    "architecture-demotion",
+    "standard-added",
+    "bench-residual",
+    "gate-approval",
+    "compound-correction",
+  ],
   engineer: [
     "test-command",
     "standard-added",
@@ -21,9 +27,23 @@ export const LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {
     "test-correction",
     "bench-residual",
     "gate-approval",
+    "compound-correction",
   ],
-  reviewer: ["review-finding", "bench-residual", "standard-added", "gate-approval"],
-  tester: ["test-command", "test-correction", "bench-residual", "gate-approval"],
+  reviewer: [
+    "review-finding",
+    "bench-residual",
+    "standard-added",
+    "gate-approval",
+    "compound-correction",
+  ],
+  tester: [
+    "test-command",
+    "test-correction",
+    "bench-residual",
+    "gate-approval",
+    "compound-correction",
+  ],
+  debugger: ["bench-residual", "gate-approval", "compound-correction"],
 };
 
 export const SETUP_GROUNDING_LEARNINGS_BY_ROLE: Record<string, AcceptedLearningKind[]> = {

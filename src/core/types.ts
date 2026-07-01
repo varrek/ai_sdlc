@@ -6,6 +6,7 @@ import type {
   Role,
   Skill,
 } from "../schema/index.js";
+import type { ResolvedAutonomy } from "../schema/autonomy.js";
 import type { ProjectContext } from "./project-context.js";
 
 /**
@@ -28,6 +29,8 @@ export interface NeutralModel {
    * exclusion default.
    */
   projectContext?: ProjectContext;
+  /** Resolved autonomy tier and no-delegation list after merge (R1). */
+  autonomy?: ResolvedAutonomy;
 }
 
 /** A single file an adapter wants written, with a path relative to the target repo root. */
